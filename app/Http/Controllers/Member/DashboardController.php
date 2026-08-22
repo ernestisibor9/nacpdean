@@ -42,10 +42,15 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $profile = MemberProfile::where(
-            'user_id',
-            $user->id
-        )->first();
+$profile = MemberProfile::with([
+    'membershipCard',
+    'membershipCategory',
+])->where(
+    'user_id',
+    $user->id
+)->first();
+
+
 
 
         /*
@@ -82,6 +87,12 @@ class DashboardController extends Controller
             $profile &&
             $profile->status === 'approved'
         );
+
+$membershipCard = null;
+
+if ($isApproved && $profile) {
+    $membershipCard = $profile->membershipCard;
+}
 
 
         /*
@@ -333,7 +344,8 @@ class DashboardController extends Controller
                 'membershipAnnualStatus',
                 'memberName',
                 'outstandingBalance',
-                'membershipFee'
+                'membershipFee',
+                'membershipCard',
             )
         );
     }

@@ -1,0 +1,542 @@
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    background: #e8e8e8;
+
+
+}
+
+
+/* =========================================================
+   ID CARD
+========================================================= */
+
+.bussy-id-card {
+
+    position: relative;
+    /* width: 54mm; */
+    height: 600px;
+
+
+    background:
+        radial-gradient(
+            circle at 30% 20%,
+            rgba(255,255,255,.95),
+            rgba(232,232,232,.9)
+        );
+
+    box-shadow:
+        0 4px 15px rgba(0,0,0,.25);
+
+    border: 1px solid #ddd;
+}
+
+.bussy-id-card2 {
+    position: relative;
+    /* width: 54mm; */
+    height: 600px;
+    background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, .95), rgba(232, 232, 232, .9));
+    box-shadow: 0 4px 15px rgba(0, 0, 0, .25);
+    border: 1px solid #ddd;
+    overflow: hidden;
+}
+
+.bussy-id-card3 {
+    position: relative;
+    /* width: 54mm; */
+    height: 600px;
+    background: rgb(1, 47, 1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, .25);
+    border: 1px solid #ddd;
+    overflow: hidden;
+}
+
+.bussy-id-card4 {
+    position: relative;
+    /* width: 54mm; */
+    height: 600px;
+    background: rgb(255, 255, 255);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, .25);
+    border: 1px solid #000000;
+    overflow: hidden;
+}
+
+.bussy-back h2{
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.bussy-vertical-id2 {
+    position: absolute;
+    left: 0;
+    top: 46%;
+    padding-right: 12px;
+    width: 100%;
+    color: black;
+    font-size: 6.1mm;
+    font-weight: 800;
+    letter-spacing: .25mm;
+    text-align: center;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+}
+.bussy-white-strip {
+position: absolute;
+    width: 145%;
+    left: -41px;
+    height: 100%;
+    background: #ffffff;
+    z-index: 1;
+    transform: rotate(112deg);
+    border-radius: 100%;
+}
+
+.bussy-green-strip {
+
+    position: absolute;
+
+    left: 0;
+    top: 0;
+
+    width: 20mm;
+    height: 100%;
+
+    background: #00a651;
+
+    z-index: 1;
+}
+.bussy-green-strip2 {
+    position: absolute;
+
+    right: 0;
+    top: 0;
+
+    width: 20mm;
+    height: 100%;
+
+    background: #00a651;
+
+    z-index: 1;
+}
+
+.bussy-green-triangle3 {
+   position: absolute;
+    bottom: -90px;
+    left: 90px;
+    width: 418px;
+    height: 100%;
+    border-top: 20mm solid #5a8400;
+    border-right: 20mm solid transparent;
+    transform: rotate(270deg);
+    overflow-x: hidden;
+
+}
+.bussy-green-triangle2 {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    border-top: 20mm solid #d4e99a;
+    border-right: 20mm solid transparent;
+    transform: rotate(180deg)
+}
+.bussy-green-triangle {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    border-top: 20mm solid #d4e99a;
+    border-right: 20mm solid transparent;
+    transform: rotate(180deg)
+}
+
+.bussy-green-strip3 {
+    position: absolute;
+
+    right: 0;
+    top: 0;
+
+    width: 20mm;
+    height: 100%;
+
+    background: #f9f2ae;
+
+    z-index: 1;
+}
+
+.bussy-green-triangle4 {
+   position: absolute;
+    bottom: -90px;
+    left: 90px;
+    width: 418px;
+    height: 100%;
+    border-top: 20mm solid #2c1b04;
+    border-right: 20mm solid transparent;
+    transform: rotate(270deg);
+    overflow-x: hidden;
+
+}
+.bussy-vertical-id {
+    position: absolute;
+    left: 0;
+    top: 25%;
+    padding-right: 12px;
+    width: 100%;
+    color: white;
+    font-size: 6.1mm;
+    font-weight: 800;
+    letter-spacing: .25mm;
+    text-align: center;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+}
+
+.bussy-card-content {
+
+    position: absolute;
+
+    left: 20mm;
+    top: 0;
+
+    width: calc(100% - 20mm);
+    height: 100%;
+
+    padding: 2.2mm 2.2mm 1.5mm;
+
+    z-index: 2;
+}
+
+.bussy-card-content2 {
+
+    position: absolute;
+
+    left: 4mm;
+    top: 0;
+
+    width: calc(100% - 20mm);
+    height: 100%;
+
+    padding: 2.2mm 2.2mm 1.5mm;
+
+    z-index: 2;
+}
+
+.bussy-card-content3 {
+
+    position: absolute;
+
+    left: 10mm;
+    top: 0;
+
+    width: calc(100% - 20mm);
+    height: 100%;
+
+    padding: 2.2mm 2.2mm 1.5mm;
+
+    z-index: 2;
+}
+
+.bussy-header {
+
+    position: relative;
+
+    height: 13mm;
+
+    display: flex;
+
+    align-items: flex-start;
+
+    justify-content: center;
+}
+
+
+.bussy-coat-of-arms {
+    position: absolute;
+    left: -23.5mm;
+    top: 0;
+    /* width: 60%; */
+    height: 78px;
+    object-fit: contain;
+}
+
+.bussy-coat-of-arms2 {
+    position: absolute;
+    left: -12.5mm;
+    top: 0;
+    /* width: 60%; */
+    height: 78px;
+    object-fit: contain;
+}
+
+.bussy-nacpdean-logo {
+    position: relative;
+    margin-top: -2%;
+    text-align: center;
+}
+
+.nacp {
+    color: #28232a;
+}
+
+.dean {
+    color: #79a932;
+}
+
+.bussy-rcg-logo {
+    position: absolute;
+    right: -11mm;
+    top: 1mm;
+    width: 12mm;
+    height: 16mm;
+    object-fit: contain;
+}
+
+.bussy-rcg-logo2 {
+    position: absolute;
+    right: -26mm;
+    top: 1mm;
+    width: 12mm;
+    height: 16mm;
+    object-fit: contain;
+}
+
+
+.bussy-organization {
+    margin-top: 13%;
+    text-align: center;
+    color: #111;
+    max-width: 100%;
+}
+
+.bussy-organization h4 {
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+.bussy-organization p {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+.bussy-photo-box {
+    width: 80%;
+    max-height: 222px;
+    margin: 7mm auto 0;
+    background: #fff;
+    overflow: hidden;
+}
+
+.bussy-photo-box3 {
+    width: 80%;
+    max-height: 222px;
+    margin: 0 auto 0;
+    background: #fff;
+    overflow: hidden;
+}
+
+.bussy-photo-box4 {
+    width: 80%;
+    max-height: 335px;
+    margin: 0 auto 0;
+    background: #fff;
+    overflow: hidden;
+}
+
+.bussy-photo-box1 {
+    width: 100%;
+    max-height: 185px;
+    margin: 7mm auto 0;
+    background: #fff;
+    overflow: hidden;
+}
+
+.bussy-photo-box img {
+    object-fit: cover;
+    display: block;
+}
+
+.bussy-name {
+    margin-top: 2.5mm;
+
+    text-align: center;
+
+    color: #282828;
+
+
+}
+.bussy-name h3 {
+   font-size: 23px;
+   font-weight: 700;
+}
+.bussy-name h4 {
+   font-size: 20px;
+   font-weight: 900;
+   color: red;
+}
+
+
+.bussy-name1 h3 {
+   font-size: 20px;
+   font-weight: 900;
+}
+.bussy-name1 h4 {
+   font-size: 12px;
+   font-weight: 900;
+   color: rgb(11, 237, 41);
+}
+
+.bussy-name3 h3 {
+   font-size: 15px;
+   font-weight: 700;
+   color: white;
+   text-align: center;
+}
+.bussy-name3 h4 {
+   font-size: 15px;
+   font-weight: 900;
+   color: rgb(22, 111, 0);
+   text-align: center;
+}
+.bussy-backname{
+    line-height: 25px;
+}
+.bussy-backname h3 {
+   font-size: 25px;
+   font-weight: 700;
+   color: rgb(0, 0, 0);
+   text-align: center;
+}
+.bussy-backname p {
+   font-size: 27px;
+   font-weight: bold;
+   color: rgb(0, 0, 0);
+   text-align: center;
+}
+.bussy-no{
+       font-size: 16px;
+    font-weight: 800;
+    text-align: center;
+    line-height: 26px;
+
+}
+
+.bussy-no span{
+    color: red;
+}
+
+.bussy-role {
+    width: 80%;
+    margin-top: 10%;
+    margin-left: 20%;
+    padding: 1.2mm 0;
+    background: #ed1c24;
+    color: white;
+    text-align: center;
+    /* border: 1px solid white; */
+    box-shadow: 0 0 0 1px #ed1c24;
+}
+
+.bussy-role4 {
+    width: 137%;
+    /* margin-top: 10%; */
+    text-align: center;
+    padding: 1.2mm 0;
+    background: #022900;
+    color: white;
+    margin-left: -18%;
+    text-align: center;
+}
+
+.bussy-role5 {
+   width: 100%;
+    text-align: center;
+    background: #cf0a0a;
+    color: white;
+    text-align: center;
+    padding: 1.2mm 0;
+    border-radius: 50px;
+}
+
+.bussy-role5 h3 {
+    font-size: 15px;
+    font-weight: 900;
+    line-height: 1;
+    color: white;
+    text-align: center;
+}
+
+
+.bussy-role h3 {
+    font-size: 25px;
+    font-weight: 900;
+    line-height: 1;
+}
+.bussy-role3 h3 {
+    font-size: 30px;
+    font-weight: 900;
+    line-height: 1;
+    color: red;
+    text-align: center;
+}
+.bussy-role2 h3 {
+    font-size: 30px;
+    font-weight: 900;
+    line-height: 1;
+    color: red;
+    text-align: left;
+}
+.bussy-membership {
+    margin-top: 8px;
+    text-align: right;
+    padding-right: 20px;
+    color: #253e9a;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+}
+.bussy-membership2 {
+    margin-top: 8px;
+    text-align: left;
+    padding-right: 20px;
+    color: #253e9a;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.bussy-membership3 {
+    margin-top: 10%;
+    text-align: center;
+    padding-right: 20px;
+    color: #93e104;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.bussy-membership4 {
+
+    text-align: center;
+    padding-right: 20px;
+    color: #000000;
+    background-color: yellow;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
+}

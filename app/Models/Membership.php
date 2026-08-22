@@ -2,66 +2,45 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-class MemberProfile extends Model
+class Membership extends Model
 {
-    use HasFactory;
-
-
     protected $fillable = [
 
         'user_id',
+
+        'member_profile_id',
 
         'membership_category_id',
 
         'membership_number',
 
-        'surname',
-        'first_name',
-        'middle_name',
-
-        'phone',
-        'photo',
-
-        'date_of_birth',
-        'gender',
-        'nationality',
-
-        'address',
-        'city',
-        'state',
-        'lga',
-
-        'business_name',
-        'business_registration_number',
-        'business_type',
-        'business_address',
-
         'status',
 
-        'admin_comment',
+        'issued_at',
 
-        'submitted_at',
+        'expires_at',
+
         'approved_at',
-        'rejection_reason',
+
+        'approved_by',
 
     ];
 
 
     protected $casts = [
 
-        'submitted_at' =>
-            'datetime',
+        'issued_at' =>
+            'date',
+
+        'expires_at' =>
+            'date',
 
         'approved_at' =>
             'datetime',
-
-        'date_of_birth' =>
-            'date',
 
     ];
 
@@ -82,11 +61,26 @@ class MemberProfile extends Model
 
     /*
     |--------------------------------------------------------------------------
+    | MEMBER PROFILE
+    |--------------------------------------------------------------------------
+    */
+
+    public function profile(): BelongsTo
+    {
+        return $this->belongsTo(
+            MemberProfile::class,
+            'member_profile_id'
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
     | MEMBERSHIP CATEGORY
     |--------------------------------------------------------------------------
     */
 
-    public function membershipCategory(): BelongsTo
+    public function category(): BelongsTo
     {
         return $this->belongsTo(
             MembershipCategory::class,
@@ -97,15 +91,15 @@ class MemberProfile extends Model
 
     /*
     |--------------------------------------------------------------------------
-    | MEMBERSHIP
+    | APPROVED BY
     |--------------------------------------------------------------------------
     */
 
-    public function membership(): HasOne
+    public function approvedBy(): BelongsTo
     {
-        return $this->hasOne(
-            Membership::class,
-            'member_profile_id'
+        return $this->belongsTo(
+            User::class,
+            'approved_by'
         );
     }
 
@@ -116,11 +110,11 @@ class MemberProfile extends Model
     |--------------------------------------------------------------------------
     */
 
-    public function membershipCard(): HasOne
+    public function card(): HasOne
     {
         return $this->hasOne(
             MembershipCard::class,
-            'member_profile_id'
+            'membership_id'
         );
     }
 }

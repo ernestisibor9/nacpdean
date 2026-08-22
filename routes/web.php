@@ -1,4 +1,5 @@
 <?php
+
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboard;
 use App\Http\Controllers\Member\DashboardController as MemberDashboard;
@@ -11,6 +12,8 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\EmailOtpController;
 use App\Http\Controllers\Member\MemberProfileController;
+use App\Http\Controllers\Member\MembershipCardController;
+use App\Http\Controllers\Member\MembershipVerificationController;
 
 // Route::get('/', function () {
 //     return view('welcome');
@@ -24,14 +27,15 @@ Route::get('/association', [HomeController::class, 'Association'])->name('associ
 Route::get('/partnership', [HomeController::class, 'Partnership'])->name('partnership');
 Route::get('/national-executive', [HomeController::class, 'NationalExecutive'])->name('national-executive');
 Route::get('/state-executive', [HomeController::class, 'StateExecutive'])->name('state-executive');
+  Route::get('/verify/membership/{qrToken}',[MembershipVerificationController::class, 'verify'])->name('membership.verify');
 
 
 Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');
 Route::post('/register', [RegisteredUserController::class, 'store']);
 
-Route::get('/verify-otp', [EmailOtpController::class,'show'])->name('verification.otp');
-Route::post('/verify-otp', [EmailOtpController::class,'verify'])->name('verification.otp.verify');
-Route::post('/resend-otp', [EmailOtpController::class,'resend'])->name('verification.otp.resend');
+Route::get('/verify-otp', [EmailOtpController::class, 'show'])->name('verification.otp');
+Route::post('/verify-otp', [EmailOtpController::class, 'verify'])->name('verification.otp.verify');
+Route::post('/resend-otp', [EmailOtpController::class, 'resend'])->name('verification.otp.resend');
 
 
 
@@ -76,6 +80,8 @@ Route::middleware(['auth', 'user.role:member'])->group(function () {
 
     Route::get('/application-status', [MemberProfileController::class, 'applicationStatus'])
         ->name('member.application.status');
+
+    Route::get('/membership-card',[MembershipCardController::class, 'index'])->name('membership.card');
 });
 
 

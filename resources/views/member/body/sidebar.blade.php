@@ -253,7 +253,7 @@
 
                     {{-- ID CARD --}}
 
-                    <a class="nav-link" href="#">
+                    <a class="nav-link" href="{{ route('membership.card') }}">
 
                         <div class="sb-nav-link-icon">
                             <i class="fas fa-id-card"></i>
