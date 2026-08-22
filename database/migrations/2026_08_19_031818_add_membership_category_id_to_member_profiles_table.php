@@ -1,0 +1,36 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('member_profiles', function (Blueprint $table) {
+
+            $table->foreignId('membership_category_id')
+                ->nullable()
+                ->after('user_id')
+                ->constrained('membership_categories')
+                ->nullOnDelete();
+
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('member_profiles', function (Blueprint $table) {
+
+            $table->dropForeign([
+                'membership_category_id'
+            ]);
+
+            $table->dropColumn(
+                'membership_category_id'
+            );
+
+        });
+    }
+};

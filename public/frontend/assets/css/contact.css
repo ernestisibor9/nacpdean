@@ -1,0 +1,929 @@
+     /*=========================================================
+        CONTACT PAGE
+        PART 2A
+=========================================================*/
+
+      :root {
+        --primary: #608c11;
+        --primary-dark: #4d7310;
+        --primary-light: #7eb328;
+        --light: #f7faf4;
+        --text: #333;
+        --radius: 20px;
+        --shadow: 0 18px 45px rgba(0, 0, 0, 0.08);
+      }
+
+      /*====================================
+            HERO
+=====================================*/
+
+      .contact-hero {
+        position: relative;
+
+        overflow: hidden;
+
+        background:
+          linear-gradient(
+            135deg,
+            rgba(96, 140, 17, 0.95),
+            rgba(67, 97, 13, 0.92)
+          ),
+          url("../img/gallery/gallery1.jpg");
+
+        background-size: cover;
+
+        background-position: center;
+
+        padding: 130px 0 120px;
+
+        color: #fff;
+      }
+
+      .contact-hero::before {
+        content: "";
+
+        position: absolute;
+
+        width: 450px;
+
+        height: 450px;
+
+        background: rgba(255, 255, 255, 0.08);
+
+        border-radius: 50%;
+
+        top: -180px;
+
+        right: -150px;
+
+        animation: rotateCircle 18s linear infinite;
+      }
+
+      .contact-hero::after {
+        content: "";
+
+        position: absolute;
+
+        width: 320px;
+
+        height: 320px;
+
+        background: rgba(255, 255, 255, 0.05);
+
+        border-radius: 50%;
+
+        bottom: -120px;
+
+        left: -100px;
+
+        animation: rotateCircleReverse 16s linear infinite;
+      }
+
+      .contact-badge {
+        display: inline-block;
+
+        padding: 10px 22px;
+
+        border-radius: 40px;
+
+        background: rgba(255, 255, 255, 0.18);
+
+        backdrop-filter: blur(10px);
+
+        font-weight: 600;
+
+        margin-bottom: 25px;
+      }
+
+      .contact-badge i {
+        margin-right: 8px;
+      }
+
+      .contact-hero h1 {
+        font-size: 60px;
+
+        font-weight: 700;
+
+        margin-bottom: 20px;
+      }
+
+      .contact-hero p {
+        font-size: 20px;
+
+        max-width: 780px;
+
+        margin: auto;
+
+        opacity: 0.92;
+
+        line-height: 1.8;
+      }
+
+      .hero-wave {
+        position: absolute;
+
+        bottom: 0;
+
+        left: 0;
+
+        width: 100%;
+
+        height: 70px;
+
+        background: #fff;
+
+        border-radius: 100% 100% 0 0;
+      }
+
+      /*====================================
+      CONTACT INFO
+=====================================*/
+
+      .contact-info {
+        padding: 90px 0;
+
+        background: #fff;
+      }
+
+      .contact-card {
+        background: #fff;
+
+        border-radius: 20px;
+
+        padding: 45px 30px;
+
+        text-align: center;
+
+        box-shadow: var(--shadow);
+
+        transition: 0.45s;
+
+        height: 100%;
+
+        border-top: 4px solid transparent;
+      }
+
+      .contact-card:hover {
+        transform: translateY(-10px);
+
+        border-top: 4px solid var(--primary);
+      }
+
+      .icon-box {
+        width: 90px;
+
+        height: 90px;
+
+        margin: auto;
+
+        border-radius: 50%;
+
+        background: #eef7df;
+
+        display: flex;
+
+        align-items: center;
+
+        justify-content: center;
+
+        margin-bottom: 25px;
+
+        transition: 0.4s;
+      }
+
+      .contact-card:hover .icon-box {
+        background: var(--primary);
+
+        transform: rotate(360deg);
+      }
+
+      .icon-box i {
+        font-size: 36px;
+
+        color: var(--primary);
+
+        transition: 0.4s;
+      }
+
+      .contact-card:hover .icon-box i {
+        color: #fff;
+      }
+
+      .contact-card h4 {
+        font-weight: 700;
+
+        margin-bottom: 15px;
+      }
+
+      .contact-card p {
+        line-height: 1.8;
+
+        color: #666;
+      }
+
+      /*====================================
+      CONTACT FORM
+=====================================*/
+
+      .contact-form-section {
+        padding: 100px 0;
+
+        background: var(--light);
+      }
+
+      .form-wrapper {
+        background: #fff;
+
+        padding: 50px;
+
+        border-radius: 25px;
+
+        box-shadow: var(--shadow);
+      }
+
+      .section-title {
+        margin-bottom: 40px;
+      }
+
+      .section-title h2 {
+        font-size: 42px;
+
+        font-weight: 700;
+
+        position: relative;
+
+        display: inline-block;
+
+        margin-bottom: 15px;
+      }
+
+      .section-title h2::after {
+        content: "";
+
+        position: absolute;
+
+        width: 90px;
+
+        height: 4px;
+
+        background: var(--primary);
+
+        left: 0;
+
+        bottom: -12px;
+
+        border-radius: 30px;
+      }
+
+      .section-title p {
+        color: #777;
+
+        line-height: 1.8;
+      }
+
+      .form-control,
+      .form-select {
+        height: 58px;
+
+        border-radius: 12px;
+
+        border: 1px solid #ddd;
+
+        padding-left: 18px;
+
+        transition: 0.35s;
+
+        box-shadow: none;
+      }
+
+      textarea.form-control {
+        height: auto;
+
+        padding-top: 18px;
+      }
+
+      .form-control:focus,
+      .form-select:focus {
+        border-color: var(--primary);
+
+        box-shadow: 0 0 0 0.2rem rgba(96, 140, 17, 0.15);
+      }
+
+      .btn-contact {
+        background: var(--primary);
+
+        color: #fff;
+
+        border: none;
+
+        padding: 15px 45px;
+
+        border-radius: 50px;
+
+        font-size: 17px;
+
+        font-weight: 600;
+
+        transition: 0.35s;
+      }
+
+      .btn-contact:hover {
+        background: var(--primary-dark);
+
+        transform: translateY(-4px);
+
+        box-shadow: 0 18px 35px rgba(96, 140, 17, 0.28);
+      }
+
+      /*====================================
+      CONTACT IMAGE
+=====================================*/
+
+      .contact-image {
+        position: relative;
+      }
+
+      .contact-image img {
+        border-radius: 25px;
+
+        box-shadow: var(--shadow);
+      }
+
+      .floating-box {
+        position: absolute;
+
+        bottom: 35px;
+
+        left: 35px;
+
+        background: #fff;
+
+        padding: 18px 25px;
+
+        border-radius: 18px;
+
+        display: flex;
+
+        align-items: center;
+
+        gap: 18px;
+
+        box-shadow: var(--shadow);
+
+        animation: floating 3s ease-in-out infinite;
+      }
+
+      .floating-box i {
+        width: 60px;
+
+        height: 60px;
+
+        background: var(--primary);
+
+        color: #fff;
+
+        display: flex;
+
+        align-items: center;
+
+        justify-content: center;
+
+        border-radius: 50%;
+
+        font-size: 24px;
+      }
+
+      .floating-box h5 {
+        margin: 0;
+
+        font-weight: 700;
+      }
+
+      .floating-box p {
+        margin: 0;
+
+        font-size: 14px;
+
+        color: #777;
+      }
+
+
+
+
+      /*=========================================================
+        CONTACT PAGE
+        PART 2B
+        Map • FAQ • CTA • Animations • Responsive
+=========================================================*/
+
+      /*====================================
+            GOOGLE MAP
+=====================================*/
+
+      .map-section {
+        padding: 100px 0;
+
+        background: #fff;
+      }
+
+      .map-wrapper {
+        border-radius: 25px;
+
+        overflow: hidden;
+
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+
+        border: 8px solid #fff;
+
+        transition: 0.4s;
+      }
+
+      .map-wrapper:hover {
+        transform: translateY(-8px);
+
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.18);
+      }
+
+      .map-wrapper iframe {
+        width: 100%;
+
+        height: 520px;
+
+        border: none;
+      }
+
+      /*====================================
+            FAQ
+=====================================*/
+
+      .faq-section {
+        padding: 100px 0;
+
+        background: #f8faf5;
+      }
+
+      .accordion-item {
+        border: none;
+
+        margin-bottom: 18px;
+
+        border-radius: 18px !important;
+
+        overflow: hidden;
+
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+      }
+
+      .accordion-button {
+        padding: 22px 28px;
+
+        font-size: 18px;
+
+        font-weight: 600;
+
+        background: #fff;
+
+        color: #333;
+
+        box-shadow: none;
+      }
+
+      .accordion-button:focus {
+        box-shadow: none;
+      }
+
+      .accordion-button:not(.collapsed) {
+        background: #608c11;
+
+        color: #fff;
+      }
+
+      .accordion-button::after {
+        filter: brightness(0);
+      }
+
+      .accordion-button:not(.collapsed)::after {
+        filter: brightness(100);
+      }
+
+      .accordion-body {
+        padding: 28px;
+
+        line-height: 1.9;
+
+        color: #666;
+
+        background: #fff;
+      }
+
+      /*====================================
+            CTA
+=====================================*/
+
+      .contact-cta {
+        padding: 90px 0;
+
+        background: linear-gradient(135deg, #608c11, #45690e);
+
+        color: #fff;
+
+        position: relative;
+
+        overflow: hidden;
+      }
+
+      .contact-cta::before {
+        content: "";
+
+        position: absolute;
+
+        width: 350px;
+
+        height: 350px;
+
+        background: rgba(255, 255, 255, 0.08);
+
+        border-radius: 50%;
+
+        top: -150px;
+
+        right: -100px;
+      }
+
+      .contact-cta h2 {
+        font-size: 42px;
+
+        font-weight: 700;
+
+        margin-bottom: 15px;
+      }
+
+      .contact-cta p {
+        font-size: 18px;
+
+        opacity: 0.95;
+
+        margin-bottom: 0;
+
+        line-height: 1.8;
+      }
+
+      .btn-join {
+        display: inline-flex;
+
+        align-items: center;
+
+        gap: 12px;
+
+        background: #fff;
+
+        color: #608c11;
+
+        padding: 16px 40px;
+
+        border-radius: 50px;
+
+        text-decoration: none;
+
+        font-weight: 700;
+
+        transition: 0.35s;
+      }
+
+      .btn-join:hover {
+        background: #f5f5f5;
+
+        color: #45690e;
+
+        transform: translateY(-5px);
+
+        box-shadow: 0 18px 35px rgba(0, 0, 0, 0.18);
+      }
+
+      .btn-join i {
+        transition: 0.35s;
+      }
+
+      .btn-join:hover i {
+        transform: translateX(6px);
+      }
+
+      /*====================================
+        INPUT PLACEHOLDER
+=====================================*/
+
+      .form-control::placeholder,
+      textarea::placeholder {
+        color: #999;
+      }
+
+      .form-control:hover,
+      .form-select:hover {
+        border-color: #608c11;
+      }
+
+      /*====================================
+        CONTACT CARD EFFECT
+=====================================*/
+
+      .contact-card {
+        position: relative;
+
+        overflow: hidden;
+      }
+
+      .contact-card::before {
+        content: "";
+
+        position: absolute;
+
+        top: 0;
+
+        left: -100%;
+
+        width: 60%;
+
+        height: 100%;
+
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(255, 255, 255, 0.45),
+          transparent
+        );
+
+        transform: skewX(-25deg);
+      }
+
+      .contact-card:hover::before {
+        animation: shine 1.1s;
+      }
+
+      /*====================================
+        FORM EFFECT
+=====================================*/
+
+      .form-wrapper {
+        position: relative;
+
+        overflow: hidden;
+      }
+
+      .form-wrapper::after {
+        content: "";
+
+        position: absolute;
+
+        width: 180px;
+
+        height: 180px;
+
+        background: rgba(96, 140, 17, 0.05);
+
+        border-radius: 50%;
+
+        top: -70px;
+
+        right: -70px;
+      }
+
+      /*====================================
+        SECTION TITLE
+=====================================*/
+
+      .section-title {
+        text-align: center;
+
+        margin-bottom: 60px;
+      }
+
+      .section-title.text-start {
+        text-align: left;
+      }
+
+      .section-title h2 {
+        color: #222;
+      }
+
+      .section-title p {
+        max-width: 700px;
+
+        margin: auto;
+      }
+
+      .section-title.text-start p {
+        margin: 0;
+      }
+
+      /*====================================
+        IMAGE EFFECT
+=====================================*/
+
+      .contact-image img {
+        transition: 0.45s;
+      }
+
+      .contact-image:hover img {
+        transform: scale(1.04);
+      }
+
+      /*====================================
+            KEYFRAMES
+=====================================*/
+
+      @keyframes floating {
+        0% {
+          transform: translateY(0);
+        }
+
+        50% {
+          transform: translateY(-10px);
+        }
+
+        100% {
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes rotateCircle {
+        from {
+          transform: rotate(0deg);
+        }
+
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes rotateCircleReverse {
+        from {
+          transform: rotate(360deg);
+        }
+
+        to {
+          transform: rotate(0deg);
+        }
+      }
+
+      @keyframes shine {
+        100% {
+          left: 160%;
+        }
+      }
+
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+
+          transform: translateY(35px);
+        }
+
+        to {
+          opacity: 1;
+
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes zoomIn {
+        from {
+          opacity: 0;
+
+          transform: scale(0.8);
+        }
+
+        to {
+          opacity: 1;
+
+          transform: scale(1);
+        }
+      }
+
+      /*====================================
+        ANIMATIONS
+=====================================*/
+
+      .contact-card {
+        animation: fadeUp 0.8s ease both;
+      }
+
+      .form-wrapper {
+        animation: zoomIn 0.9s ease both;
+      }
+
+      .contact-image {
+        animation: fadeUp 1s ease both;
+      }
+
+      .contact-hero h1 {
+        animation: fadeUp 0.8s ease both;
+      }
+
+      .contact-hero p {
+        animation: fadeUp 1.1s ease both;
+      }
+
+      .contact-badge {
+        animation: zoomIn 0.7s ease both;
+      }
+
+      /*====================================
+            RESPONSIVE
+=====================================*/
+
+      @media (max-width: 991px) {
+        .contact-hero {
+          padding: 100px 0;
+        }
+
+        .contact-hero h1 {
+          font-size: 44px;
+        }
+
+        .form-wrapper {
+          padding: 35px;
+        }
+
+        .contact-image {
+          margin-top: 40px;
+        }
+
+        .contact-cta {
+          text-align: center;
+        }
+
+        .contact-cta .text-lg-end {
+          text-align: center !important;
+
+          margin-top: 30px;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .contact-hero h1 {
+          font-size: 34px;
+        }
+
+        .contact-hero p {
+          font-size: 17px;
+        }
+
+        .section-title h2 {
+          font-size: 32px;
+        }
+
+        .contact-card {
+          padding: 35px 25px;
+        }
+
+        .form-wrapper {
+          padding: 30px;
+        }
+
+        .map-wrapper iframe {
+          height: 350px;
+        }
+
+        .contact-cta h2 {
+          font-size: 30px;
+        }
+
+        .btn-join {
+          padding: 14px 30px;
+        }
+      }
+
+      @media (max-width: 576px) {
+        .contact-badge {
+          font-size: 14px;
+        }
+
+        .contact-hero {
+          padding: 80px 0;
+        }
+
+        .contact-card {
+          margin-bottom: 20px;
+        }
+
+        .floating-box {
+          position: relative;
+
+          left: auto;
+
+          bottom: auto;
+
+          margin-top: 20px;
+        }
+
+        .btn-contact {
+          width: 100%;
+        }
+
+        .btn-join {
+          width: 100%;
+
+          justify-content: center;
+        }
+      }
+    

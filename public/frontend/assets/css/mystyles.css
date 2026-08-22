@@ -1,0 +1,202 @@
+/*.   
+        Membership styling
+       */
+
+:root {
+  --primary: #608c11;
+}
+
+.page-header {
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.65)),
+    url("assets/img/hero-carousel/hero-carousel-1.jpg") center/cover;
+  height: 340px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+}
+
+.section-title {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.icon-box {
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 25px;
+  height: 100%;
+  transition: 0.3s;
+}
+
+.icon-box:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+}
+
+.icon-box i {
+  font-size: 40px;
+  color: var(--primary);
+}
+
+.timeline {
+  border-left: 4px solid var(--primary);
+  padding-left: 25px;
+}
+
+.timeline .item {
+  margin-bottom: 30px;
+}
+
+.cta {
+  background: var(--primary);
+  color: #fff;
+  border-radius: 16px;
+}
+
+:root {
+  --g: #608c11;
+}
+
+body {
+  background: #f3f6ef;
+  font-family: Arial, sans-serif;
+}
+
+/* Hero Section */
+.hero {
+  background: linear-gradient(135deg, #608c11, #8dbf2d);
+  padding: 70px;
+  color: #fff;
+}
+
+/* Search Box */
+.search {
+  background: #fff;
+  padding: 25px;
+  border-radius: 18px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+  margin-top: -35px;
+}
+
+/* Member Card */
+.member-card {
+  background: #fff;
+  border: none;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  transition: 0.3s ease;
+}
+
+.member-card:hover {
+  transform: translateY(-8px);
+}
+
+/* Card Cover */
+.cover {
+  height: 90px;
+  background: linear-gradient(135deg, #608c11, #b6d86a);
+}
+
+/* Avatar */
+.avatar {
+  width: 110px;
+  height: 110px;
+  margin: -55px auto 10px;
+  border: 5px solid #fff;
+  border-radius: 50%;
+  background: #e8ece2;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 44px;
+  color: #608c11;
+}
+
+/* Badge */
+.badge {
+  background: #608c11;
+}
+
+/* Button */
+.btn-main {
+  background: #608c11;
+  color: #fff;
+}
+
+.btn-main:hover {
+  background: #4e760e;
+  color: #fff;
+}
+
+/* Topbar Social Icons */
+.social-icons a {
+  color: #ffffff;
+  font-size: 18px;
+  transition: all 0.3s ease;
+  text-decoration: none;
+}
+
+.social-icons a:hover {
+  color: #ffffff;
+  transform: translateY(-3px);
+}
+
+
+
+
+/*
+    About Us Styling
+*/
+        :root {
+            --primary: #608C11;
+        }
+
+        .page-header {
+            background: linear-gradient(rgba(0, 0, 0, .65), rgba(0, 0, 0, .65)), url('../../assets/img/hero-carousel/hero-carousel-1.jpg') center/cover;
+            height: 340px;
+            color: #fff;
+            display: flex;
+            align-items: center
+        }
+
+        .section-title {
+            color: var(--primary);
+            font-weight: 700
+        }
+
+        .icon-box {
+            border: 1px solid #eee;
+            border-radius: 12px;
+            padding: 25px;
+            height: 100%;
+            transition: .3s
+        }
+
+        .icon-box:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, .08)
+        }
+
+        .icon-box i {
+            font-size: 40px;
+            color: var(--primary)
+        }
+
+        .timeline {
+            border-left: 4px solid var(--primary);
+            padding-left: 25px
+        }
+
+        .timeline .item {
+            margin-bottom: 30px
+        }
+
+        .cta {
+            background: var(--primary);
+            color: #fff;
+            border-radius: 16px
+        }

@@ -1,0 +1,1020 @@
+
+    /*=========================================================
+                NACPDEAN GALLERY PAGE
+        PART 2A - HERO, LAYOUT & CARDS
+==========================================================*/
+
+:root{
+    --primary:#608C11;
+    --primary-dark:#4d7410;
+    --primary-light:#84b92a;
+    --secondary:#f8fbf3;
+    --text:#333;
+    --white:#fff;
+    --shadow:0 15px 40px rgba(0,0,0,.08);
+    --transition:.45s ease;
+}
+
+/*==============================
+        HERO
+==============================*/
+
+.gallery-hero{
+
+    position:relative;
+
+    min-height:65vh;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    overflow:hidden;
+
+    background:
+    linear-gradient(rgba(0,0,0,.55),
+    rgba(0,0,0,.55)),
+    url("../../assets/img/hero-carousel/hero-carousel-1.jpg") no-repeat center center;
+
+    background-size:cover;
+
+    background-position:center;
+
+    background-attachment:fixed;
+
+}
+
+.gallery-hero::before{
+
+    content:"";
+
+    position:absolute;
+
+    width:700px;
+
+    height:700px;
+
+    border-radius:50%;
+
+    background:rgba(96,140,17,.18);
+
+    top:-250px;
+
+    left:-250px;
+
+    animation:floatCircle 12s infinite linear;
+
+}
+
+.gallery-hero::after{
+
+    content:"";
+
+    position:absolute;
+
+    width:500px;
+
+    height:500px;
+
+    border-radius:50%;
+
+    background:rgba(255,255,255,.05);
+
+    bottom:-150px;
+
+    right:-150px;
+
+    animation:floatCircleReverse 14s infinite linear;
+
+}
+
+.gallery-hero .container{
+
+    position:relative;
+
+    z-index:5;
+
+}
+
+.hero-badge{
+
+    display:inline-block;
+
+    padding:12px 28px;
+
+    border-radius:50px;
+
+    background:rgba(255,255,255,.12);
+
+    color:#fff;
+
+    backdrop-filter:blur(8px);
+
+    font-weight:600;
+
+    letter-spacing:1px;
+
+    margin-bottom:25px;
+
+}
+
+.hero-badge i{
+
+    color:#fff;
+
+    margin-right:8px;
+
+}
+
+.gallery-hero h1{
+
+    color:#fff;
+
+    font-size:58px;
+
+    font-weight:800;
+
+    margin-bottom:20px;
+
+}
+
+.gallery-hero h1 span{
+
+    color:#8FD126;
+
+}
+
+.gallery-hero p{
+
+    color:#f4f4f4;
+
+    max-width:760px;
+
+    margin:auto;
+
+    font-size:18px;
+
+    line-height:1.9;
+
+}
+
+/*==============================
+        HERO BUTTONS
+==============================*/
+
+.hero-buttons{
+
+    display:flex;
+
+    justify-content:center;
+
+    gap:18px;
+
+    flex-wrap:wrap;
+
+    margin-top:40px;
+
+}
+
+.btn-gallery{
+
+    background:#608C11;
+
+    color:#fff;
+
+    padding:15px 36px;
+
+    border-radius:50px;
+
+    text-decoration:none;
+
+    font-weight:700;
+
+    transition:.4s;
+
+    box-shadow:0 12px 25px rgba(96,140,17,.35);
+
+}
+
+.btn-gallery:hover{
+
+    color:#fff;
+
+    background:#4d7410;
+
+    transform:translateY(-5px);
+
+}
+
+.btn-gallery-outline{
+
+    border:2px solid #fff;
+
+    color:#fff;
+
+    padding:15px 36px;
+
+    border-radius:50px;
+
+    text-decoration:none;
+
+    transition:.4s;
+
+}
+
+.btn-gallery-outline:hover{
+
+    background:#fff;
+
+    color:#608C11;
+
+}
+
+/*==============================
+        STATS
+==============================*/
+
+.gallery-stats{
+
+    margin-top:-80px;
+
+    position:relative;
+
+    z-index:10;
+
+}
+
+.stat-box{
+
+    background:#fff;
+
+    padding:40px 20px;
+
+    text-align:center;
+
+    border-radius:20px;
+
+    box-shadow:var(--shadow);
+
+    transition:.4s;
+
+    height:100%;
+
+}
+
+.stat-box:hover{
+
+    transform:translateY(-10px);
+
+}
+
+.stat-box i{
+
+    font-size:42px;
+
+    color:#608C11;
+
+    margin-bottom:20px;
+
+}
+
+.stat-box h2{
+
+    font-size:40px;
+
+    font-weight:800;
+
+    color:#222;
+
+}
+
+.stat-box p{
+
+    color:#777;
+
+    margin-bottom:0;
+
+}
+
+/*==============================
+        SECTION TITLE
+==============================*/
+
+.gallery-section{
+
+    padding:120px 0;
+
+    background:#f7faf4;
+
+}
+
+.section-title h6{
+
+    color:#608C11;
+
+    text-transform:uppercase;
+
+    letter-spacing:2px;
+
+    font-weight:700;
+
+}
+
+.section-title h2{
+
+    font-size:42px;
+
+    font-weight:800;
+
+    margin:15px 0;
+
+}
+
+.section-title p{
+
+    max-width:720px;
+
+    margin:auto;
+
+    color:#666;
+
+    line-height:1.8;
+
+}
+
+/*==============================
+        FILTER
+==============================*/
+
+.gallery-filter{
+
+    margin-bottom:55px;
+
+}
+
+.gallery-filter button{
+
+    border:none;
+
+    background:#fff;
+
+    padding:13px 28px;
+
+    border-radius:50px;
+
+    margin:6px;
+
+    font-weight:600;
+
+    color:#444;
+
+    transition:.4s;
+
+    box-shadow:0 5px 15px rgba(0,0,0,.05);
+
+}
+
+.gallery-filter button.active{
+
+    background:#608C11;
+
+    color:#fff;
+
+}
+
+.gallery-filter button:hover{
+
+    background:#608C11;
+
+    color:#fff;
+
+    transform:translateY(-3px);
+
+}
+
+/*==============================
+        GALLERY CARD
+==============================*/
+
+.gallery-card{
+
+    position:relative;
+
+    overflow:hidden;
+
+    border-radius:22px;
+
+    background:#fff;
+
+    box-shadow:0 12px 35px rgba(0,0,0,.08);
+
+    transition:.5s;
+
+}
+
+.gallery-card img{
+
+    width:100%;
+
+    height:320px;
+
+    object-fit:cover;
+
+    transition:1s;
+
+}
+
+.gallery-card:hover{
+
+    transform:translateY(-10px);
+
+    box-shadow:0 25px 50px rgba(0,0,0,.18);
+
+}
+
+.gallery-card:hover img{
+
+    transform:scale(1.15) rotate(2deg);
+
+}
+
+.gallery-item{
+
+    transition:.5s;
+
+}
+
+
+/*=========================================================
+        NACPDEAN GALLERY
+        PART 2B
+        Hover Effects • Overlay • Animations
+==========================================================*/
+
+/*==============================
+        GALLERY OVERLAY
+==============================*/
+
+.gallery-overlay{
+    position:absolute;
+    inset:0;
+    background:linear-gradient(
+        to top,
+        rgba(96,140,17,.95),
+        rgba(96,140,17,.75),
+        rgba(0,0,0,.05)
+    );
+
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
+    align-items:center;
+
+    text-align:center;
+
+    padding:35px;
+
+    opacity:0;
+
+    transition:.55s ease;
+}
+
+.gallery-card:hover .gallery-overlay{
+    opacity:1;
+}
+
+.gallery-overlay h4{
+
+    color:#fff;
+
+    font-size:24px;
+
+    font-weight:700;
+
+    margin-bottom:10px;
+
+    transform:translateY(40px);
+
+    opacity:0;
+
+    transition:.45s;
+}
+
+.gallery-overlay p{
+
+    color:#fff;
+
+    opacity:.9;
+
+    transform:translateY(40px);
+
+    transition:.55s;
+
+    margin-bottom:25px;
+}
+
+.gallery-card:hover .gallery-overlay h4{
+
+    transform:translateY(0);
+
+    opacity:1;
+}
+
+.gallery-card:hover .gallery-overlay p{
+
+    transform:translateY(0);
+
+    opacity:1;
+}
+
+/*==============================
+      LIGHTBOX BUTTON
+==============================*/
+
+.gallery-overlay a{
+
+    width:65px;
+
+    height:65px;
+
+    border-radius:50%;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    background:#fff;
+
+    color:#608C11;
+
+    text-decoration:none;
+
+    font-size:26px;
+
+    transform:scale(.2);
+
+    transition:.45s;
+
+}
+
+.gallery-card:hover .gallery-overlay a{
+
+    transform:scale(1);
+
+}
+
+.gallery-overlay a:hover{
+
+    background:#222;
+
+    color:#fff;
+
+}
+
+/*==============================
+        IMAGE SHINE
+==============================*/
+
+.gallery-card::before{
+
+    content:"";
+
+    position:absolute;
+
+    top:0;
+
+    left:-100%;
+
+    width:60%;
+
+    height:100%;
+
+    background:linear-gradient(
+
+        90deg,
+
+        transparent,
+
+        rgba(255,255,255,.45),
+
+        transparent
+
+    );
+
+    transform:skewX(-25deg);
+
+    z-index:3;
+
+}
+
+.gallery-card:hover::before{
+
+    animation:shine 1.1s;
+
+}
+
+/*==============================
+        FLOAT EFFECT
+==============================*/
+
+.gallery-card{
+
+    animation:floatCard 6s ease-in-out infinite;
+
+}
+
+.gallery-item:nth-child(2) .gallery-card{
+
+    animation-delay:.5s;
+
+}
+
+.gallery-item:nth-child(3) .gallery-card{
+
+    animation-delay:1s;
+
+}
+
+.gallery-item:nth-child(4) .gallery-card{
+
+    animation-delay:1.5s;
+
+}
+
+.gallery-item:nth-child(5) .gallery-card{
+
+    animation-delay:2s;
+
+}
+
+.gallery-item:nth-child(6) .gallery-card{
+
+    animation-delay:2.5s;
+
+}
+
+.gallery-item:nth-child(7) .gallery-card{
+
+    animation-delay:3s;
+
+}
+
+.gallery-item:nth-child(8) .gallery-card{
+
+    animation-delay:3.5s;
+
+}
+
+.gallery-item:nth-child(9) .gallery-card{
+
+    animation-delay:4s;
+
+}
+
+/*==============================
+      FILTER BUTTON EFFECT
+==============================*/
+
+.gallery-filter button{
+
+    position:relative;
+
+    overflow:hidden;
+
+}
+
+.gallery-filter button::before{
+
+    content:"";
+
+    position:absolute;
+
+    width:0;
+
+    height:100%;
+
+    top:0;
+
+    left:0;
+
+    background:#4d7410;
+
+    transition:.4s;
+
+    z-index:-1;
+
+}
+
+.gallery-filter button:hover::before{
+
+    width:100%;
+
+}
+
+.gallery-filter button.active::before{
+
+    width:100%;
+
+}
+
+/*==============================
+       IMAGE BORDER GLOW
+==============================*/
+
+.gallery-card:hover{
+
+    border:2px solid rgba(96,140,17,.4);
+
+    box-shadow:
+
+    0 20px 50px rgba(96,140,17,.18),
+
+    0 0 25px rgba(96,140,17,.25);
+
+}
+
+/*==============================
+        HERO EFFECT
+==============================*/
+
+.gallery-hero h1{
+
+    animation:fadeDown 1s;
+
+}
+
+.gallery-hero p{
+
+    animation:fadeUp 1.4s;
+
+}
+
+.hero-buttons{
+
+    animation:fadeUp 1.8s;
+
+}
+
+/*==============================
+      STAT BOX EFFECT
+==============================*/
+
+.stat-box{
+
+    overflow:hidden;
+
+    position:relative;
+
+}
+
+.stat-box::after{
+
+    content:"";
+
+    position:absolute;
+
+    width:120px;
+
+    height:120px;
+
+    background:rgba(96,140,17,.08);
+
+    border-radius:50%;
+
+    right:-40px;
+
+    top:-40px;
+
+}
+
+.stat-box:hover i{
+
+    transform:rotate(360deg);
+
+    transition:.8s;
+
+}
+
+/*==============================
+        GALLERY TITLE
+==============================*/
+
+.section-title h2{
+
+    position:relative;
+
+    display:inline-block;
+
+}
+
+.section-title h2::after{
+
+    content:"";
+
+    position:absolute;
+
+    width:90px;
+
+    height:5px;
+
+    background:#608C11;
+
+    bottom:-15px;
+
+    left:50%;
+
+    transform:translateX(-50%);
+
+    border-radius:30px;
+
+}
+
+/*==============================
+        ANIMATIONS
+==============================*/
+
+@keyframes shine{
+
+    100%{
+
+        left:150%;
+
+    }
+
+}
+
+@keyframes floatCard{
+
+    0%{
+
+        transform:translateY(0);
+
+    }
+
+    50%{
+
+        transform:translateY(-8px);
+
+    }
+
+    100%{
+
+        transform:translateY(0);
+
+    }
+
+}
+
+@keyframes fadeDown{
+
+    from{
+
+        opacity:0;
+
+        transform:translateY(-40px);
+
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:translateY(0);
+
+    }
+
+}
+
+@keyframes fadeUp{
+
+    from{
+
+        opacity:0;
+
+        transform:translateY(40px);
+
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:translateY(0);
+
+    }
+
+}
+
+@keyframes floatCircle{
+
+    from{
+
+        transform:rotate(0deg);
+
+    }
+
+    to{
+
+        transform:rotate(360deg);
+
+    }
+
+}
+
+@keyframes floatCircleReverse{
+
+    from{
+
+        transform:rotate(360deg);
+
+    }
+
+    to{
+
+        transform:rotate(0deg);
+
+    }
+
+}
+
+/*==============================
+      RESPONSIVE
+==============================*/
+
+@media(max-width:992px){
+
+.gallery-hero{
+
+min-height:55vh;
+
+}
+
+.gallery-hero h1{
+
+font-size:42px;
+
+}
+
+.gallery-card img{
+
+height:260px;
+
+}
+
+}
+
+@media(max-width:768px){
+
+.gallery-hero h1{
+
+font-size:34px;
+
+}
+
+.gallery-hero p{
+
+font-size:16px;
+
+}
+
+.hero-buttons{
+
+flex-direction:column;
+
+align-items:center;
+
+}
+
+.btn-gallery,
+
+.btn-gallery-outline{
+
+width:230px;
+
+text-align:center;
+
+}
+
+.gallery-card img{
+
+height:240px;
+
+}
+
+.gallery-stats{
+
+margin-top:-40px;
+
+}
+
+.section-title h2{
+
+font-size:34px;
+
+}
+
+}
