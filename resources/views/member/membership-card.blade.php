@@ -228,7 +228,7 @@
 
                                 {{-- NIGERIA COAT OF ARMS --}}
                                 <img
-                                    src="{{ asset('images/coat.png') }}"
+                                    src="{{ asset('frontend/assets/img/coat.png') }}"
                                     class="bussy-coat-of-arms"
                                     alt="Nigeria Coat of Arms"
                                 >
@@ -238,7 +238,7 @@
                                 <div class="bussy-nacpdean-logo">
 
                                     <img
-                                        src="{{ asset('images/logo.png') }}"
+                                        src="{{ asset('frontend/assets/img/logo.png') }}"
                                         class="bussy-logo"
                                         alt="NACPDEAN Logo"
                                     >

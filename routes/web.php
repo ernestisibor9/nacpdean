@@ -27,7 +27,7 @@ Route::get('/association', [HomeController::class, 'Association'])->name('associ
 Route::get('/partnership', [HomeController::class, 'Partnership'])->name('partnership');
 Route::get('/national-executive', [HomeController::class, 'NationalExecutive'])->name('national-executive');
 Route::get('/state-executive', [HomeController::class, 'StateExecutive'])->name('state-executive');
-  Route::get('/verify/membership/{qrToken}',[MembershipVerificationController::class, 'verify'])->name('membership.verify');
+Route::get('/verify/membership/{qrToken}', [MembershipVerificationController::class, 'verify'])->name('membership.verify');
 
 
 Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');
@@ -81,7 +81,16 @@ Route::middleware(['auth', 'user.role:member'])->group(function () {
     Route::get('/application-status', [MemberProfileController::class, 'applicationStatus'])
         ->name('member.application.status');
 
-    Route::get('/membership-card',[MembershipCardController::class, 'index'])->name('membership.card');
+    Route::get('/membership-card', [MembershipCardController::class, 'index'])->name('membership.card');
+
+    Route::get('/payment/additional', [PaymentController::class, 'additionalPayments'])
+        ->name('payment.additional');
+
+    Route::post('/payment/additional/initialize', [PaymentController::class, 'initializeAdditionalPayment'])
+        ->name('payment.additional.initialize');
+
+    Route::get('/payment/additional/callback', [PaymentController::class, 'additionalPaymentCallback'])
+        ->name('payment.additional.callback');
 });
 
 

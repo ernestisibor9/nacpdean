@@ -7,11 +7,15 @@ use App\Models\Payment;
 use App\Models\MembershipCategoryFee;
 use App\Models\MemberFee;
 use App\Models\MemberProfile;
+use App\Models\Membership;
+use App\Models\PaymentItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use App\Services\OperationalRightsDocumentService;
 
 class PaymentController extends Controller
 {
@@ -146,7 +150,6 @@ class PaymentController extends Controller
                     'member_type',
                     $memberType
                 );
-
             } else {
 
                 $categoriesQuery->whereRaw(
@@ -156,18 +159,17 @@ class PaymentController extends Controller
 
             $categories =
                 $categoriesQuery
-                    ->with([
-                        'fees' => function ($query) {
+                ->with([
+                    'fees' => function ($query) {
 
-                            $query->where(
-                                'status',
-                                true
-                            );
-
-                        },
-                    ])
-                    ->orderBy('name')
-                    ->get();
+                        $query->where(
+                            'status',
+                            true
+                        );
+                    },
+                ])
+                ->orderBy('name')
+                ->get();
         }
 
         /*
@@ -188,11 +190,11 @@ class PaymentController extends Controller
                     'id',
                     $profile->membership_category_id
                 )
-                    ->where(
-                        'status',
-                        true
-                    )
-                    ->first();
+                ->where(
+                    'status',
+                    true
+                )
+                ->first();
         }
 
         /*
@@ -213,26 +215,25 @@ class PaymentController extends Controller
                     'user_id',
                     $user->id
                 )
-                    ->where(
-                        'status',
-                        'unpaid'
-                    )
-                    ->where(function ($query) {
+                ->where(
+                    'status',
+                    'unpaid'
+                )
+                ->where(function ($query) {
 
-                        $query
-                            ->whereNull('due_date')
-                            ->orWhereDate(
-                                'due_date',
-                                '>=',
-                                now()->toDateString()
-                            );
-
-                    })
-                    ->orderBy(
-                        'created_at',
-                        'desc'
-                    )
-                    ->get();
+                    $query
+                        ->whereNull('due_date')
+                        ->orWhereDate(
+                            'due_date',
+                            '>=',
+                            now()->toDateString()
+                        );
+                })
+                ->orderBy(
+                    'created_at',
+                    'desc'
+                )
+                ->get();
         }
 
         /*
@@ -250,25 +251,25 @@ class PaymentController extends Controller
                     'membership_category_id',
                     $currentCategory->id
                 )
-                    ->where(
-                        'status',
-                        true
-                    )
-                    ->whereIn(
-                        'fee_type',
-                        [
-                            'existing',
-                            'standard',
-                        ]
-                    )
-                    ->orderByRaw(
-                        "CASE
+                ->where(
+                    'status',
+                    true
+                )
+                ->whereIn(
+                    'fee_type',
+                    [
+                        'existing',
+                        'standard',
+                    ]
+                )
+                ->orderByRaw(
+                    "CASE
                             WHEN fee_type = 'existing' THEN 1
                             WHEN fee_type = 'standard' THEN 2
                             ELSE 3
                         END"
-                    )
-                    ->first();
+                )
+                ->first();
         }
 
         /*
@@ -406,7 +407,6 @@ class PaymentController extends Controller
 
                 $categoryId =
                     $profile->membership_category_id;
-
             } else {
 
                 if (
@@ -416,7 +416,7 @@ class PaymentController extends Controller
                     return back()
                         ->withErrors([
                             'membership_category_id' =>
-                                'Please select your membership category.',
+                            'Please select your membership category.',
                         ])
                         ->withInput();
                 }
@@ -436,18 +436,18 @@ class PaymentController extends Controller
                     'id',
                     $categoryId
                 )
-                    ->where(
-                        'status',
-                        true
-                    )
-                    ->first();
+                ->where(
+                    'status',
+                    true
+                )
+                ->first();
 
             if (!$membershipCategory) {
 
                 return back()
                     ->withErrors([
                         'membership_category_id' =>
-                            'The selected membership category is not available.',
+                        'The selected membership category is not available.',
                     ])
                     ->withInput();
             }
@@ -468,7 +468,7 @@ class PaymentController extends Controller
                 return back()
                     ->withErrors([
                         'membership_category_id' =>
-                            'The selected membership category is not valid for your member type.',
+                        'The selected membership category is not valid for your member type.',
                     ])
                     ->withInput();
             }
@@ -486,7 +486,6 @@ class PaymentController extends Controller
 
                 $feeType =
                     'new';
-
             } else {
 
                 $feeType =
@@ -504,15 +503,15 @@ class PaymentController extends Controller
                     'membership_category_id',
                     $membershipCategory->id
                 )
-                    ->where(
-                        'status',
-                        true
-                    )
-                    ->where(
-                        'fee_type',
-                        $feeType
-                    )
-                    ->first();
+                ->where(
+                    'status',
+                    true
+                )
+                ->where(
+                    'fee_type',
+                    $feeType
+                )
+                ->first();
 
             /*
             |--------------------------------------------------------------------------
@@ -530,15 +529,15 @@ class PaymentController extends Controller
                         'membership_category_id',
                         $membershipCategory->id
                     )
-                        ->where(
-                            'status',
-                            true
-                        )
-                        ->where(
-                            'fee_type',
-                            'standard'
-                        )
-                        ->first();
+                    ->where(
+                        'status',
+                        true
+                    )
+                    ->where(
+                        'fee_type',
+                        'standard'
+                    )
+                    ->first();
 
                 if ($membershipCategoryFee) {
 
@@ -563,15 +562,15 @@ class PaymentController extends Controller
                         'membership_category_id',
                         $membershipCategory->id
                     )
-                        ->where(
-                            'status',
-                            true
-                        )
-                        ->where(
-                            'fee_type',
-                            'standard'
-                        )
-                        ->first();
+                    ->where(
+                        'status',
+                        true
+                    )
+                    ->where(
+                        'fee_type',
+                        'standard'
+                    )
+                    ->first();
 
                 if ($membershipCategoryFee) {
 
@@ -591,7 +590,7 @@ class PaymentController extends Controller
                 return back()
                     ->withErrors([
                         'membership_category_id' =>
-                            'The membership fee for the selected category is not available.',
+                        'The membership fee for the selected category is not available.',
                     ])
                     ->withInput();
             }
@@ -611,9 +610,7 @@ class PaymentController extends Controller
         |--------------------------------------------------------------------------
         | ADDITIONAL MEMBER FEE
         |--------------------------------------------------------------------------
-        */
-
-        elseif (
+        */ elseif (
             Str::startsWith(
                 $paymentOption,
                 'member_fee_'
@@ -631,7 +628,7 @@ class PaymentController extends Controller
                 return back()
                     ->withErrors([
                         'payment_option' =>
-                            'Additional fees are only available after your membership application has been approved.',
+                        'Additional fees are only available after your membership application has been approved.',
                     ]);
             }
 
@@ -649,7 +646,7 @@ class PaymentController extends Controller
                 return back()
                     ->withErrors([
                         'payment_option' =>
-                            'Your membership category could not be found. Please contact the administrator.',
+                        'Your membership category could not be found. Please contact the administrator.',
                     ]);
             }
 
@@ -664,18 +661,18 @@ class PaymentController extends Controller
                     'id',
                     $profile->membership_category_id
                 )
-                    ->where(
-                        'status',
-                        true
-                    )
-                    ->first();
+                ->where(
+                    'status',
+                    true
+                )
+                ->first();
 
             if (!$membershipCategory) {
 
                 return back()
                     ->withErrors([
                         'payment_option' =>
-                            'Your membership category is no longer available. Please contact the administrator.',
+                        'Your membership category is no longer available. Please contact the administrator.',
                     ]);
             }
 
@@ -696,7 +693,7 @@ class PaymentController extends Controller
                 return back()
                     ->withErrors([
                         'payment_option' =>
-                            'Invalid payment option.',
+                        'Invalid payment option.',
                     ]);
             }
 
@@ -711,22 +708,22 @@ class PaymentController extends Controller
                     'id',
                     $memberFeeId
                 )
-                    ->where(
-                        'user_id',
-                        $user->id
-                    )
-                    ->where(
-                        'status',
-                        'unpaid'
-                    )
-                    ->first();
+                ->where(
+                    'user_id',
+                    $user->id
+                )
+                ->where(
+                    'status',
+                    'unpaid'
+                )
+                ->first();
 
             if (!$memberFee) {
 
                 return back()
                     ->withErrors([
                         'payment_option' =>
-                            'This fee is no longer available for payment.',
+                        'This fee is no longer available for payment.',
                     ]);
             }
 
@@ -745,7 +742,7 @@ class PaymentController extends Controller
                 return back()
                     ->withErrors([
                         'payment_option' =>
-                            'This fee has passed its due date.',
+                        'This fee has passed its due date.',
                     ]);
             }
 
@@ -764,25 +761,25 @@ class PaymentController extends Controller
                     'membership_category_id',
                     $membershipCategory->id
                 )
-                    ->where(
-                        'status',
-                        true
-                    )
-                    ->whereIn(
-                        'fee_type',
-                        [
-                            'existing',
-                            'standard',
-                        ]
-                    )
-                    ->orderByRaw(
-                        "CASE
+                ->where(
+                    'status',
+                    true
+                )
+                ->whereIn(
+                    'fee_type',
+                    [
+                        'existing',
+                        'standard',
+                    ]
+                )
+                ->orderByRaw(
+                    "CASE
                             WHEN fee_type = 'existing' THEN 1
                             WHEN fee_type = 'standard' THEN 2
                             ELSE 3
                         END"
-                    )
-                    ->first();
+                )
+                ->first();
 
             /*
             |--------------------------------------------------------------------------
@@ -795,7 +792,7 @@ class PaymentController extends Controller
                 return back()
                     ->withErrors([
                         'payment_option' =>
-                            'Your membership category fee could not be found. Please contact the administrator.',
+                        'Your membership category fee could not be found. Please contact the administrator.',
                     ]);
             }
 
@@ -820,14 +817,12 @@ class PaymentController extends Controller
         |--------------------------------------------------------------------------
         | INVALID PAYMENT OPTION
         |--------------------------------------------------------------------------
-        */
-
-        else {
+        */ else {
 
             return back()
                 ->withErrors([
                     'payment_option' =>
-                        'Invalid payment option selected.',
+                    'Invalid payment option selected.',
                 ])
                 ->withInput();
         }
@@ -847,7 +842,7 @@ class PaymentController extends Controller
             return back()
                 ->withErrors([
                     'payment_option' =>
-                        'The selected payment amount is invalid.',
+                    'The selected payment amount is invalid.',
                 ])
                 ->withInput();
         }
@@ -861,8 +856,8 @@ class PaymentController extends Controller
 
         $paymentMembershipCategoryId =
             $membershipCategory
-                ? $membershipCategory->id
-                : null;
+            ? $membershipCategory->id
+            : null;
 
         /*
         |--------------------------------------------------------------------------
@@ -875,7 +870,7 @@ class PaymentController extends Controller
             return back()
                 ->withErrors([
                     'payment' =>
-                        'Your membership category could not be determined. Please contact the administrator.',
+                    'Your membership category could not be determined. Please contact the administrator.',
                 ])
                 ->withInput();
         }
@@ -891,7 +886,7 @@ class PaymentController extends Controller
             return back()
                 ->withErrors([
                     'payment' =>
-                        'Your membership category fee could not be determined. Please contact the administrator.',
+                    'Your membership category fee could not be determined. Please contact the administrator.',
                 ])
                 ->withInput();
         }
@@ -926,10 +921,10 @@ class PaymentController extends Controller
                 'user_id',
                 $user->id
             )
-                ->where(
-                    'status',
-                    'pending'
-                );
+            ->where(
+                'status',
+                'pending'
+            );
 
 
         /*
@@ -981,9 +976,7 @@ class PaymentController extends Controller
         |       ↓
         | ID Card payment is allowed
         |
-        */
-
-        elseif (
+        */ elseif (
             $paymentType === 'member_fee'
         ) {
 
@@ -1007,8 +1000,8 @@ class PaymentController extends Controller
 
         $existingPendingPayment =
             $existingPendingPaymentQuery
-                ->latest()
-                ->first();
+            ->latest()
+            ->first();
 
 
         /*
@@ -1023,7 +1016,7 @@ class PaymentController extends Controller
                 route('payment.index')
             )->withErrors([
                 'payment' =>
-                    'You already have a pending payment for this payment obligation. Please complete that payment before starting another one.',
+                'You already have a pending payment for this payment obligation. Please complete that payment before starting another one.',
             ]);
         }
 
@@ -1057,7 +1050,7 @@ class PaymentController extends Controller
                 */
 
                 'user_id' =>
-                    $user->id,
+                $user->id,
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1066,7 +1059,7 @@ class PaymentController extends Controller
                 */
 
                 'membership_category_id' =>
-                    $paymentMembershipCategoryId,
+                $paymentMembershipCategoryId,
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1075,7 +1068,7 @@ class PaymentController extends Controller
                 */
 
                 'membership_category_fee_id' =>
-                    $membershipCategoryFee->id,
+                $membershipCategoryFee->id,
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1095,9 +1088,9 @@ class PaymentController extends Controller
                 */
 
                 'member_fee_id' =>
-                    $memberFee
-                        ? $memberFee->id
-                        : null,
+                $memberFee
+                    ? $memberFee->id
+                    : null,
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1106,7 +1099,7 @@ class PaymentController extends Controller
                 */
 
                 'payment_type' =>
-                    $paymentType,
+                $paymentType,
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1115,7 +1108,7 @@ class PaymentController extends Controller
                 */
 
                 'fee_type' =>
-                    $feeType,
+                $feeType,
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1124,7 +1117,7 @@ class PaymentController extends Controller
                 */
 
                 'amount' =>
-                    $amount,
+                $amount,
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1133,7 +1126,7 @@ class PaymentController extends Controller
                 */
 
                 'reference' =>
-                    $reference,
+                $reference,
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1142,7 +1135,7 @@ class PaymentController extends Controller
                 */
 
                 'gateway' =>
-                    'paystack',
+                'paystack',
 
                 /*
                 |--------------------------------------------------------------------------
@@ -1151,7 +1144,7 @@ class PaymentController extends Controller
                 */
 
                 'status' =>
-                    'pending',
+                'pending',
             ]);
 
 
@@ -1191,79 +1184,79 @@ class PaymentController extends Controller
                         'services.paystack.secret_key'
                     )
                 )
-                    ->acceptJson()
-                    ->post(
-                        config(
-                            'services.paystack.url'
-                        ) . '/transaction/initialize',
-                        [
+                ->acceptJson()
+                ->post(
+                    config(
+                        'services.paystack.url'
+                    ) . '/transaction/initialize',
+                    [
 
-                            'email' =>
-                                $user->email,
+                        'email' =>
+                        $user->email,
 
-                            'amount' =>
-                                $amountInKobo,
+                        'amount' =>
+                        $amountInKobo,
 
-                            'reference' =>
-                                $reference,
+                        'reference' =>
+                        $reference,
 
-                            'currency' =>
-                                'NGN',
+                        'currency' =>
+                        'NGN',
 
-                            'callback_url' =>
-                                $callbackUrl,
+                        'callback_url' =>
+                        $callbackUrl,
 
-                            /*
+                        /*
                             |--------------------------------------------------------------------------
                             | PAYSTACK METADATA
                             |--------------------------------------------------------------------------
                             */
 
-                            'metadata' => [
+                        'metadata' => [
 
-                                'payment_id' =>
-                                    $payment->id,
+                            'payment_id' =>
+                            $payment->id,
 
-                                'user_id' =>
-                                    $user->id,
+                            'user_id' =>
+                            $user->id,
 
-                                'payment_type' =>
-                                    $paymentType,
+                            'payment_type' =>
+                            $paymentType,
 
-                                'fee_type' =>
-                                    $feeType,
+                            'fee_type' =>
+                            $feeType,
 
-                                /*
+                            /*
                                 |--------------------------------------------------------------------------
                                 | MEMBER FEE ID
                                 |--------------------------------------------------------------------------
                                 */
 
-                                'member_fee_id' =>
-                                    $memberFee
-                                        ? $memberFee->id
-                                        : null,
+                            'member_fee_id' =>
+                            $memberFee
+                                ? $memberFee->id
+                                : null,
 
-                                /*
+                            /*
                                 |--------------------------------------------------------------------------
                                 | MEMBERSHIP CATEGORY
                                 |--------------------------------------------------------------------------
                                 */
 
-                                'membership_category_id' =>
-                                    $paymentMembershipCategoryId,
+                            'membership_category_id' =>
+                            $paymentMembershipCategoryId,
 
-                                /*
+                            /*
                                 |--------------------------------------------------------------------------
                                 | MEMBERSHIP CATEGORY FEE
                                 |--------------------------------------------------------------------------
                                 */
 
-                                'membership_category_fee_id' =>
-                                    $membershipCategoryFee->id,
-                            ],
-                        ]
-                    );
+                            'membership_category_fee_id' =>
+                            $membershipCategoryFee->id,
+                        ],
+                    ]
+                );
 
 
             /*
@@ -1278,25 +1271,25 @@ class PaymentController extends Controller
                     'Paystack initialization failed',
                     [
                         'payment_id' =>
-                            $payment->id,
+                        $payment->id,
 
                         'reference' =>
-                            $reference,
+                        $reference,
 
                         'response' =>
-                            $response->json(),
+                        $response->json(),
                     ]
                 );
 
                 $payment->update([
                     'status' =>
-                        'failed',
+                    'failed',
                 ]);
 
                 return back()
                     ->withErrors([
                         'payment' =>
-                            'Unable to initialize payment with Paystack.',
+                        'Unable to initialize payment with Paystack.',
                     ])
                     ->withInput();
             }
@@ -1319,34 +1312,32 @@ class PaymentController extends Controller
             */
 
             if (
-                empty(
-                    $paystackData['data']['authorization_url']
-                )
+                empty($paystackData['data']['authorization_url'])
             ) {
 
                 Log::error(
                     'Paystack authorization URL missing',
                     [
                         'payment_id' =>
-                            $payment->id,
+                        $payment->id,
 
                         'reference' =>
-                            $reference,
+                        $reference,
 
                         'response' =>
-                            $paystackData,
+                        $paystackData,
                     ]
                 );
 
                 $payment->update([
                     'status' =>
-                        'failed',
+                    'failed',
                 ]);
 
                 return back()
                     ->withErrors([
                         'payment' =>
-                            'Paystack did not return a payment URL.',
+                        'Paystack did not return a payment URL.',
                     ])
                     ->withInput();
             }
@@ -1361,7 +1352,6 @@ class PaymentController extends Controller
             return redirect(
                 $paystackData['data']['authorization_url']
             );
-
         } catch (\Throwable $e) {
 
             /*
@@ -1374,19 +1364,19 @@ class PaymentController extends Controller
                 'Paystack payment initialization exception',
                 [
                     'payment_id' =>
-                        $payment->id,
+                    $payment->id,
 
                     'reference' =>
-                        $reference,
+                    $reference,
 
                     'error' =>
-                        $e->getMessage(),
+                    $e->getMessage(),
 
                     'file' =>
-                        $e->getFile(),
+                    $e->getFile(),
 
                     'line' =>
-                        $e->getLine(),
+                    $e->getLine(),
                 ]
             );
 
@@ -1398,13 +1388,13 @@ class PaymentController extends Controller
 
             $payment->update([
                 'status' =>
-                    'failed',
+                'failed',
             ]);
 
             return back()
                 ->withErrors([
                     'payment' =>
-                        'An error occurred while connecting to Paystack.',
+                    'An error occurred while connecting to Paystack.',
                 ])
                 ->withInput();
         }
@@ -1423,10 +1413,10 @@ class PaymentController extends Controller
             'PAYSTACK CALLBACK HIT',
             [
                 'url' =>
-                    $request->fullUrl(),
+                $request->fullUrl(),
 
                 'reference' =>
-                    $request->query('reference'),
+                $request->query('reference'),
             ]
         );
 
@@ -1446,7 +1436,7 @@ class PaymentController extends Controller
                 ->route('payment.index')
                 ->withErrors([
                     'payment' =>
-                        'No Paystack payment reference was received.',
+                    'No Paystack payment reference was received.',
                 ]);
         }
 
@@ -1470,7 +1460,7 @@ class PaymentController extends Controller
                 'PAYSTACK CALLBACK PAYMENT NOT FOUND',
                 [
                     'reference' =>
-                        $reference,
+                    $reference,
                 ]
             );
 
@@ -1478,7 +1468,7 @@ class PaymentController extends Controller
                 ->route('payment.index')
                 ->withErrors([
                     'payment' =>
-                        'Payment record could not be found.',
+                    'Payment record could not be found.',
                 ]);
         }
 
@@ -1497,14 +1487,14 @@ class PaymentController extends Controller
                         'services.paystack.secret_key'
                     )
                 )
-                    ->acceptJson()
-                    ->get(
-                        config(
-                            'services.paystack.url'
-                        ) .
+                ->acceptJson()
+                ->get(
+                    config(
+                        'services.paystack.url'
+                    ) .
                         '/transaction/verify/' .
                         urlencode($reference)
-                    );
+                );
 
 
             /*
@@ -1519,13 +1509,13 @@ class PaymentController extends Controller
                     'PAYSTACK VERIFY HTTP FAILED',
                     [
                         'reference' =>
-                            $reference,
+                        $reference,
 
                         'status' =>
-                            $response->status(),
+                        $response->status(),
 
                         'body' =>
-                            $response->body(),
+                        $response->body(),
                     ]
                 );
 
@@ -1533,7 +1523,7 @@ class PaymentController extends Controller
                     ->route('payment.index')
                     ->withErrors([
                         'payment' =>
-                            'Unable to verify your payment with Paystack.',
+                        'Unable to verify your payment with Paystack.',
                     ]);
             }
 
@@ -1591,36 +1581,36 @@ class PaymentController extends Controller
                         'PAYSTACK AMOUNT MISMATCH',
                         [
                             'payment_id' =>
-                                $payment->id,
+                            $payment->id,
 
                             'reference' =>
-                                $reference,
+                            $reference,
 
                             'expected' =>
-                                $expectedAmount,
+                            $expectedAmount,
 
                             'received' =>
-                                $paidAmount,
+                            $paidAmount,
                         ]
                     );
 
                     $payment->update([
 
                         'status' =>
-                            'failed',
+                        'failed',
 
                         'gateway_status' =>
-                            'amount_mismatch',
+                        'amount_mismatch',
 
                         'gateway_response' =>
-                            $data,
+                        $data,
                     ]);
 
                     return redirect()
                         ->route('payment.index')
                         ->withErrors([
                             'payment' =>
-                                'The payment amount could not be verified.',
+                            'The payment amount could not be verified.',
                         ]);
                 }
 
@@ -1634,22 +1624,22 @@ class PaymentController extends Controller
                 $payment->update([
 
                     'status' =>
-                        'paid',
+                    'paid',
 
                     'gateway_transaction_id' =>
-                        $data['data']['id'] ?? null,
+                    $data['data']['id'] ?? null,
 
                     'gateway_status' =>
-                        $data['data']['status'] ?? null,
+                    $data['data']['status'] ?? null,
 
                     'gateway_response' =>
-                        $data,
+                    $data,
 
                     'paid_at' =>
-                        now(),
+                    now(),
 
                     'verified_at' =>
-                        now(),
+                    now(),
                 ]);
 
 
@@ -1712,11 +1702,11 @@ class PaymentController extends Controller
                                 'id',
                                 $memberFeeId
                             )
-                                ->where(
-                                    'user_id',
-                                    $payment->user_id
-                                )
-                                ->first();
+                            ->where(
+                                'user_id',
+                                $payment->user_id
+                            )
+                            ->first();
 
 
                         if ($memberFee) {
@@ -1724,13 +1714,13 @@ class PaymentController extends Controller
                             $memberFee->update([
 
                                 'status' =>
-                                    'paid',
+                                'paid',
 
                                 'paid_at' =>
-                                    now(),
+                                now(),
 
                                 'reference' =>
-                                    $reference,
+                                $reference,
                             ]);
                         }
                     }
@@ -1765,13 +1755,13 @@ class PaymentController extends Controller
             $payment->update([
 
                 'status' =>
-                    'failed',
+                'failed',
 
                 'gateway_status' =>
-                    $data['data']['status'] ?? null,
+                $data['data']['status'] ?? null,
 
                 'gateway_response' =>
-                    $data,
+                $data,
             ]);
 
 
@@ -1779,9 +1769,8 @@ class PaymentController extends Controller
                 ->route('payment.index')
                 ->withErrors([
                     'payment' =>
-                        'Payment was not successful.',
+                    'Payment was not successful.',
                 ]);
-
         } catch (\Throwable $e) {
 
             /*
@@ -1794,16 +1783,16 @@ class PaymentController extends Controller
                 'PAYSTACK CALLBACK EXCEPTION',
                 [
                     'reference' =>
-                        $reference,
+                    $reference,
 
                     'error' =>
-                        $e->getMessage(),
+                    $e->getMessage(),
 
                     'file' =>
-                        $e->getFile(),
+                    $e->getFile(),
 
                     'line' =>
-                        $e->getLine(),
+                    $e->getLine(),
                 ]
             );
 
@@ -1811,7 +1800,7 @@ class PaymentController extends Controller
                 ->route('payment.index')
                 ->withErrors([
                     'payment' =>
-                        'An error occurred while verifying your payment.',
+                    'An error occurred while verifying your payment.',
                 ]);
         }
     }
@@ -1845,12 +1834,12 @@ class PaymentController extends Controller
                 'user_id',
                 Auth::id()
             )
-                ->where(
-                    'status',
-                    'paid'
-                )
-                ->latest()
-                ->first();
+            ->where(
+                'status',
+                'paid'
+            )
+            ->latest()
+            ->first();
 
 
         if (!$payment) {
@@ -1859,7 +1848,7 @@ class PaymentController extends Controller
                 ->route('payment.index')
                 ->withErrors([
                     'payment' =>
-                        'No successful payment was found.',
+                    'No successful payment was found.',
                 ]);
         }
 
@@ -1868,5 +1857,815 @@ class PaymentController extends Controller
             'member.payment.success',
             compact('payment')
         );
+    }
+
+
+
+    public function additionalPayments()
+    {
+        $user = Auth::user();
+
+        /*
+    |--------------------------------------------------------------------------
+    | ONLY APPROVED MEMBERS
+    |--------------------------------------------------------------------------
+    */
+
+        $profile = MemberProfile::where(
+            'user_id',
+            $user->id
+        )->first();
+
+        if (
+            !$profile ||
+            $profile->status !== 'approved'
+        ) {
+
+            return redirect()
+                ->route('member.index')
+                ->with(
+                    'error',
+                    'Additional payments are only available to approved members.'
+                );
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | GET MEMBER CATEGORY
+    |--------------------------------------------------------------------------
+    */
+
+        $membership = Membership::where(
+            'user_id',
+            $user->id
+        )
+            ->where(
+                'status',
+                'active'
+            )
+            ->latest()
+            ->first();
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | PAYMENT ITEMS
+    |--------------------------------------------------------------------------
+    |
+    | Items with NULL membership_category_id are available
+    | to all approved members.
+    |
+    | Category-specific items will only appear for the
+    | matching member category.
+    |
+    */
+
+        $paymentItems = PaymentItem::where(
+            'is_active',
+            true
+        )
+            ->where(function ($query) use ($membership) {
+
+                $query->whereNull(
+                    'membership_category_id'
+                );
+
+                if ($membership) {
+
+                    $query->orWhere(
+                        'membership_category_id',
+                        $membership->membership_category_id
+                    );
+                }
+            })
+            ->orderBy('type')
+            ->orderBy('name')
+            ->get();
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | RECENT PAYMENTS
+    |--------------------------------------------------------------------------
+    */
+
+        $recentPayments = Payment::with(
+            'paymentItem'
+        )
+            ->where(
+                'user_id',
+                $user->id
+            )
+            ->where(
+                'payment_type',
+                '!=',
+                'membership'
+            )
+            ->latest()
+            ->limit(10)
+            ->get();
+
+
+        return view(
+            'member.payment.additional',
+            compact(
+                'paymentItems',
+                'recentPayments'
+            )
+        );
+    }
+
+
+    public function initializeAdditionalPayment(
+        Request $request
+    ) {
+
+        $request->validate([
+
+            'payment_item_id' => [
+                'required',
+                'integer',
+                'exists:payment_items,id',
+            ],
+
+        ]);
+
+
+        $user = Auth::user();
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | APPROVED MEMBER
+    |--------------------------------------------------------------------------
+    */
+
+        $profile = MemberProfile::where(
+            'user_id',
+            $user->id
+        )->first();
+
+
+        if (
+            !$profile ||
+            $profile->status !== 'approved'
+        ) {
+
+            return back()->with(
+                'error',
+                'Only approved members can make this payment.'
+            );
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | ACTIVE MEMBERSHIP
+    |--------------------------------------------------------------------------
+    */
+
+        $membership = Membership::where(
+            'user_id',
+            $user->id
+        )
+            ->where(
+                'status',
+                'active'
+            )
+            ->latest()
+            ->first();
+
+
+        if (!$membership) {
+
+            return back()->with(
+                'error',
+                'Active membership could not be found.'
+            );
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | PAYMENT ITEM
+    |--------------------------------------------------------------------------
+    */
+
+        $paymentItem = PaymentItem::where(
+            'id',
+            $request->payment_item_id
+        )
+            ->where(
+                'is_active',
+                true
+            )
+            ->first();
+
+
+        if (!$paymentItem) {
+
+            return back()->with(
+                'error',
+                'The selected payment item is no longer available.'
+            );
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | CATEGORY CHECK
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            $paymentItem->membership_category_id !== null
+            &&
+            $paymentItem->membership_category_id
+            != $membership->membership_category_id
+        ) {
+
+            return back()->with(
+                'error',
+                'This payment option is not available for your membership category.'
+            );
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | VALIDATE AMOUNT
+    |--------------------------------------------------------------------------
+    |
+    | The amount comes from the database.
+    |
+    | Never trust the amount sent from the browser.
+    |
+    */
+
+        $amount = (float) $paymentItem->amount;
+
+
+        if ($amount <= 0) {
+
+            return back()->with(
+                'error',
+                'The selected payment item does not have a valid fee configured yet.'
+            );
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | PAYSTACK REFERENCE
+    |--------------------------------------------------------------------------
+    */
+
+        $reference =
+            'NACP-' .
+            strtoupper(
+                Str::random(16)
+            );
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | CREATE PENDING PAYMENT
+    |--------------------------------------------------------------------------
+    */
+
+        $payment = Payment::create([
+
+            'user_id' =>
+            $user->id,
+
+            'payment_item_id' =>
+            $paymentItem->id,
+
+            'membership_category_id' =>
+            $membership->membership_category_id,
+
+            'payment_type' =>
+            $paymentItem->type,
+
+            'fee_type' =>
+            $paymentItem->type,
+
+            'description' =>
+            $paymentItem->name,
+
+            'amount' =>
+            $amount,
+
+            'reference' =>
+            $reference,
+
+            'payment_reference' =>
+            $reference,
+
+            'paystack_reference' =>
+            $reference,
+
+            'gateway' =>
+            'paystack',
+
+            'status' =>
+            'pending',
+
+        ]);
+
+        /*
+    |--------------------------------------------------------------------------
+    | PAYSTACK
+    |--------------------------------------------------------------------------
+    |
+    | Paystack expects the amount in kobo.
+    |
+    */
+
+        $response = Http::withToken(
+            config('services.paystack.secret_key')
+        )
+            ->acceptJson()
+            ->post(
+                'https://api.paystack.co/transaction/initialize',
+                [
+
+                    'email' =>
+                    $user->email,
+
+                    'amount' =>
+                    (int) round(
+                        $amount * 100
+                    ),
+
+                    'reference' =>
+                    $reference,
+
+                    'callback_url' =>
+                    route(
+                        'payment.additional.callback'
+                    ),
+
+                    'metadata' => [
+
+                        'payment_id' =>
+                        $payment->id,
+
+                        'payment_item_id' =>
+                        $paymentItem->id,
+
+                        'user_id' =>
+                        $user->id,
+
+                        'payment_type' =>
+                        $paymentItem->type,
+
+                    ],
+
+                ]
+            );
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | PAYSTACK FAILED
+    |--------------------------------------------------------------------------
+    */
+
+        if (!$response->successful()) {
+
+            $payment->update([
+
+                'status' =>
+                'failed',
+
+            ]);
+
+
+            return back()->with(
+                'error',
+                'Unable to initialize Paystack payment. Please try again.'
+            );
+        }
+
+
+        $data =
+            $response->json();
+
+
+        if (
+            !isset(
+                $data['status']
+            )
+            ||
+            !$data['status']
+        ) {
+
+            $payment->update([
+
+                'status' =>
+                'failed',
+
+            ]);
+
+
+            return back()->with(
+                'error',
+                $data['message']
+                    ?? 'Paystack payment initialization failed.'
+            );
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | REDIRECT TO PAYSTACK
+    |--------------------------------------------------------------------------
+    */
+
+        return redirect(
+            $data['data']['authorization_url']
+        );
+    }
+
+
+    public function additionalPaymentCallback(
+        Request $request
+    ) {
+
+        $reference =
+            $request->query('reference');
+
+
+        if (!$reference) {
+
+            return redirect()
+                ->route('payment.additional')
+                ->with(
+                    'error',
+                    'Payment reference was not provided.'
+                );
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | VERIFY WITH PAYSTACK
+    |--------------------------------------------------------------------------
+    |
+    | NEVER trust only the browser callback.
+    |
+    */
+
+        $response = Http::withToken(
+            config('services.paystack.secret_key')
+        )
+            ->acceptJson()
+            ->get(
+                'https://api.paystack.co/transaction/verify/' .
+                    urlencode($reference)
+            );
+
+
+        if (!$response->successful()) {
+
+            return redirect()
+                ->route('payment.additional')
+                ->with(
+                    'error',
+                    'Unable to verify payment with Paystack.'
+                );
+        }
+
+
+        $data =
+            $response->json();
+
+
+        if (
+            !isset(
+                $data['status']
+            )
+            ||
+            !$data['status']
+        ) {
+
+            return redirect()
+                ->route('payment.additional')
+                ->with(
+                    'error',
+                    'Paystack payment verification failed.'
+                );
+        }
+
+
+        $transaction =
+            $data['data'];
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | FIND PAYMENT
+    |--------------------------------------------------------------------------
+    */
+
+        $payment = Payment::with(
+            'paymentItem'
+        )
+            ->where(
+                'paystack_reference',
+                $reference
+            )
+            ->first();
+
+
+        if (!$payment) {
+
+            return redirect()
+                ->route('payment.additional')
+                ->with(
+                    'error',
+                    'Payment record could not be found.'
+                );
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | PREVENT DOUBLE PROCESSING
+    |--------------------------------------------------------------------------
+    */
+
+        if ($payment->status === 'paid') {
+
+            return redirect()
+                ->route('payment.additional')
+                ->with(
+                    'success',
+                    'This payment has already been confirmed.'
+                );
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | VERIFY STATUS
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            ($transaction['status'] ?? null)
+            !== 'success'
+        ) {
+
+            $payment->update([
+
+                'status' =>
+                'failed',
+
+            ]);
+
+
+            return redirect()
+                ->route('payment.additional')
+                ->with(
+                    'error',
+                    'Payment was not successful.'
+                );
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | VERIFY AMOUNT
+    |--------------------------------------------------------------------------
+    |
+    | Paystack returns kobo.
+    |
+    */
+
+        $expectedAmount =
+            (int) round(
+                ((float) $payment->amount) * 100
+            );
+
+
+        $paidAmount =
+            (int) (
+                $transaction['amount']
+                ?? 0
+            );
+
+
+        if ($expectedAmount !== $paidAmount) {
+
+            $payment->update([
+
+                'status' =>
+                'failed',
+
+            ]);
+
+
+            return redirect()
+                ->route('payment.additional')
+                ->with(
+                    'error',
+                    'Payment amount verification failed.'
+                );
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | MARK PAYMENT AS PAID
+    |--------------------------------------------------------------------------
+    */
+
+        DB::transaction(function () use (
+            $payment,
+            $transaction
+        ) {
+
+            /*
+    |--------------------------------------------------------------------------
+    | MARK PAYMENT AS PAID
+    |--------------------------------------------------------------------------
+    */
+
+            $payment->update([
+
+                'status' =>
+                'paid',
+
+                'paystack_reference' =>
+                $transaction['reference']
+                    ?? $payment->paystack_reference,
+
+                'paid_at' =>
+                now(),
+
+                'verified_at' =>
+                now(),
+
+                'gateway_transaction_id' =>
+                $transaction['id']
+                    ?? null,
+
+                'gateway_status' =>
+                $transaction['status']
+                    ?? null,
+
+                'gateway_response' =>
+                $transaction,
+
+            ]);
+        });
+
+
+        /*
+|--------------------------------------------------------------------------
+| GENERATE OPERATIONAL RIGHTS DOCUMENT
+|--------------------------------------------------------------------------
+|
+| Only certificate payment items generate an Operational Rights
+| Document.
+|
+*/
+
+        $documentCodes = [
+
+            'CHARCOAL_LIFTING',
+
+            'CHARCOAL_LIFTING_RCG',
+
+            'CHARCOAL_DEALING_SUPPLIER',
+
+            'CHARCOAL_DEALING_DEALER',
+
+            'CHARCOAL_PRODUCING',
+
+        ];
+
+
+        if (
+            $payment->paymentItem &&
+            in_array(
+                $payment->paymentItem->code,
+                $documentCodes,
+                true
+            )
+        ) {
+
+            try {
+
+                $documentService =
+                    app(
+                        OperationalRightsDocumentService::class
+                    );
+
+                $document =
+                    $documentService->generate(
+                        $payment
+                    );
+
+                Log::info(
+                    'OPERATIONAL RIGHTS DOCUMENT GENERATED',
+                    [
+
+                        'payment_id' =>
+                        $payment->id,
+
+                        'document_id' =>
+                        $document->id,
+
+                        'document_number' =>
+                        $document->document_number,
+
+                        'document_type' =>
+                        $document->document_type,
+
+                    ]
+                );
+            } catch (\Throwable $e) {
+
+                /*
+        |--------------------------------------------------------------------------
+        | IMPORTANT
+        |--------------------------------------------------------------------------
+        |
+        | Payment has already been confirmed.
+        |
+        | We do NOT change the payment back to failed simply because
+        | document generation encountered a problem.
+        |
+        */
+
+                Log::error(
+                    'OPERATIONAL RIGHTS DOCUMENT GENERATION FAILED',
+                    [
+
+                        'payment_id' =>
+                        $payment->id,
+
+                        'payment_item_id' =>
+                        $payment->payment_item_id,
+
+                        'payment_item_code' =>
+                        $payment->paymentItem->code
+                            ?? null,
+
+                        'error' =>
+                        $e->getMessage(),
+
+                        'file' =>
+                        $e->getFile(),
+
+                        'line' =>
+                        $e->getLine(),
+
+                    ]
+                );
+            }
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | FUTURE DOCUMENT GENERATION HOOK
+    |--------------------------------------------------------------------------
+    |
+    | We deliberately do NOT generate certificates here yet.
+    |
+    | Later:
+    |
+    | certificate payment
+    |       ↓
+    | OperationalRightsDocument
+    |
+    | penalty payment
+    |       ↓
+    | PaymentReceipt
+    |
+    | afforestation payment
+    |       ↓
+    | application
+    |       ↓
+    | approval
+    |       ↓
+    | receipt + transit pass
+    |
+    */
+
+        return redirect()
+            ->route(
+                'payment.additional'
+            )
+            ->with(
+                'success',
+                $payment->paymentItem->name .
+                    ' payment was successful.'
+            );
     }
 }

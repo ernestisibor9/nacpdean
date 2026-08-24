@@ -4,17 +4,22 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Payment extends Model
 {
     protected $fillable = [
         'user_id',
+        'payment_item_id',
         'membership_category_id',
         'membership_category_fee_id',
         'payment_type',
         'member_fee_id',
         'fee_type',
         'amount',
+        'description',
+        'payment_reference',
+        'paystack_reference',
         'reference',
         'gateway',
         'gateway_transaction_id',
@@ -58,6 +63,21 @@ class Payment extends Model
         return $this->belongsTo(
             MemberFee::class,
             'member_fee_id'
+        );
+    }
+
+    public function paymentItem()
+    {
+        return $this->belongsTo(
+            PaymentItem::class
+        );
+    }
+
+    public function operationalRightsDocument(): HasOne
+    {
+        return $this->hasOne(
+            OperationalRightsDocument::class,
+            'payment_id'
         );
     }
 }

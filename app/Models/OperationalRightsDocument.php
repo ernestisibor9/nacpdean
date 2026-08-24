@@ -4,30 +4,46 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Membership extends Model
+class OperationalRightsDocument extends Model
 {
     protected $fillable = [
 
         'user_id',
 
+        'membership_id',
+
         'member_profile_id',
 
         'membership_category_id',
 
-        'membership_number',
+        'payment_id',
 
-        'status',
+        'document_number',
+
+        'reference_number',
+
+        'authentication_code',
+
+        'document_type',
+
+        'document_title',
 
         'issued_at',
 
         'expires_at',
 
-        'approved_at',
+        'status',
 
-        'approved_by',
+        'qr_token',
+
+        'pdf_path',
+
+        'generated_at',
+
+        'revoked_at',
+
+        'revocation_reason',
 
     ];
 
@@ -35,13 +51,16 @@ class Membership extends Model
     protected $casts = [
 
         'issued_at' =>
-        'date',
+            'date',
 
         'expires_at' =>
-        'date',
+            'date',
 
-        'approved_at' =>
-        'datetime',
+        'generated_at' =>
+            'datetime',
+
+        'revoked_at' =>
+            'datetime',
 
     ];
 
@@ -56,6 +75,20 @@ class Membership extends Model
     {
         return $this->belongsTo(
             User::class
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | MEMBERSHIP
+    |--------------------------------------------------------------------------
+    */
+
+    public function membership(): BelongsTo
+    {
+        return $this->belongsTo(
+            Membership::class
         );
     }
 
@@ -92,44 +125,28 @@ class Membership extends Model
 
     /*
     |--------------------------------------------------------------------------
-    | APPROVED BY
+    | PAYMENT
     |--------------------------------------------------------------------------
     */
 
-    public function approvedBy(): BelongsTo
+    public function payment(): BelongsTo
     {
         return $this->belongsTo(
-            User::class,
-            'approved_by'
+            Payment::class
         );
     }
 
 
     /*
     |--------------------------------------------------------------------------
-    | MEMBERSHIP CARD
+    | STATUS
     |--------------------------------------------------------------------------
     */
 
-    public function card(): HasOne
+    public function isActive(): bool
     {
-        return $this->hasOne(
-            MembershipCard::class,
-            'membership_id'
-        );
+        return $this->status === 'active'
+            && $this->expires_at
+            && $this->expires_at->isFuture();
     }
-
-/*
-|--------------------------------------------------------------------------
-| OPERATIONAL RIGHTS DOCUMENTS
-|--------------------------------------------------------------------------
-*/
-
-public function operationalRightsDocuments(): HasMany
-{
-    return $this->hasMany(
-        OperationalRightsDocument::class,
-        'membership_id'
-    );
-}
 }

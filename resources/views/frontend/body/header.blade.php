@@ -1,4 +1,3 @@
-
 {{-- =========================================================
      NACPDEAN FRONTEND HEADER
      resources/views/frontend/header.blade.php
@@ -19,46 +18,31 @@
             <div class="d-flex align-items-center social-icons">
 
                 {{-- Facebook --}}
-                <a href="https://www.facebook.com/profile.php?id=61591564350891"
-                   target="_blank"
-                   rel="noopener noreferrer"
-                   class="me-3"
-                   aria-label="Facebook">
+                <a href="https://www.facebook.com/profile.php?id=61591564350891" target="_blank" rel="noopener noreferrer"
+                    class="me-3" aria-label="Facebook">
                     <i class="bi bi-facebook"></i>
                 </a>
 
                 {{-- Instagram --}}
-                <a href="https://www.instagram.com/nacpdean"
-                   target="_blank"
-                   rel="noopener noreferrer"
-                   class="me-3"
-                   aria-label="Instagram">
+                <a href="https://www.instagram.com/nacpdean" target="_blank" rel="noopener noreferrer" class="me-3"
+                    aria-label="Instagram">
                     <i class="bi bi-instagram"></i>
                 </a>
 
                 {{-- X --}}
-                <a href="https://x.com/nacpdean"
-                   target="_blank"
-                   rel="noopener noreferrer"
-                   class="me-3"
-                   aria-label="Twitter">
+                <a href="https://x.com/nacpdean" target="_blank" rel="noopener noreferrer" class="me-3"
+                    aria-label="Twitter">
                     <i class="bi bi-twitter-x"></i>
                 </a>
 
                 {{-- LinkedIn --}}
-                <a href="https://www.linkedin.com/in/nacpdean-nacpdean-17187041b/"
-                   target="_blank"
-                   rel="noopener noreferrer"
-                   class="me-3"
-                   aria-label="LinkedIn">
+                <a href="https://www.linkedin.com/in/nacpdean-nacpdean-17187041b/" target="_blank"
+                    rel="noopener noreferrer" class="me-3" aria-label="LinkedIn">
                     <i class="bi bi-linkedin"></i>
                 </a>
 
                 {{-- WhatsApp --}}
-                <a href="https://wa.me/2348145672358"
-                   target="_blank"
-                   rel="noopener noreferrer"
-                   aria-label="WhatsApp">
+                <a href="https://wa.me/2348145672358" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
                     <i class="bi bi-whatsapp"></i>
                 </a>
 
@@ -88,11 +72,9 @@
             {{-- =================================================
                  LOGO
             ================================================== --}}
-            <a href="{{ route('index') }}"
-               class="logo d-flex align-items-center me-auto">
+            <a href="{{ route('index') }}" class="logo d-flex align-items-center me-auto">
 
-                <img src="{{ asset('frontend/assets/img/logo.png') }}"
-                     alt="NACPDEAN Logo">
+                <img src="{{ asset('frontend/assets/img/logo.png') }}" alt="NACPDEAN Logo">
 
             </a>
 
@@ -110,8 +92,7 @@
                     ================================================== --}}
                     <li>
 
-                        <a href="{{ route('index') }}"
-                           class="{{ request()->routeIs('index') ? 'active' : '' }}">
+                        <a href="{{ route('index') }}" class="{{ request()->routeIs('index') ? 'active' : '' }}">
 
                             Home
 
@@ -126,7 +107,7 @@
                     <li class="dropdown">
 
                         <a href="#"
-                           class="{{ request()->routeIs('about', 'bot', 'history', 'association', 'partnership') ? 'active' : '' }}">
+                            class="{{ request()->routeIs('about', 'bot', 'history', 'association', 'partnership') ? 'active' : '' }}">
 
                             <span>About Us</span>
 
@@ -139,35 +120,34 @@
 
                             <li>
                                 <a href="{{ route('about') }}"
-                                   class="{{ request()->routeIs('about') ? 'active' : '' }}">
+                                    class="{{ request()->routeIs('about') ? 'active' : '' }}">
                                     About Us
                                 </a>
                             </li>
 
                             <li>
-                                <a href="{{ route('bot') }}"
-                                   class="{{ request()->routeIs('bot') ? 'active' : '' }}">
+                                <a href="{{ route('bot') }}" class="{{ request()->routeIs('bot') ? 'active' : '' }}">
                                     Board of Trustees
                                 </a>
                             </li>
 
                             <li>
                                 <a href="{{ route('history') }}"
-                                   class="{{ request()->routeIs('history') ? 'active' : '' }}">
+                                    class="{{ request()->routeIs('history') ? 'active' : '' }}">
                                     History
                                 </a>
                             </li>
 
                             <li>
                                 <a href="{{ route('association') }}"
-                                   class="{{ request()->routeIs('association') ? 'active' : '' }}">
+                                    class="{{ request()->routeIs('association') ? 'active' : '' }}">
                                     Association
                                 </a>
                             </li>
 
                             <li>
                                 <a href="{{ route('partnership') }}"
-                                   class="{{ request()->routeIs('partnership') ? 'active' : '' }}">
+                                    class="{{ request()->routeIs('partnership') ? 'active' : '' }}">
                                     Partnership with SSN and GGLV
                                 </a>
                             </li>
@@ -183,7 +163,7 @@
                     <li class="dropdown">
 
                         <a href="#"
-                           class="{{ request()->routeIs('national-executive', 'state-executive') ? 'active' : '' }}">
+                            class="{{ request()->routeIs('national-executive', 'state-executive') ? 'active' : '' }}">
 
                             <span>Executive</span>
 
@@ -196,14 +176,14 @@
 
                             <li>
                                 <a href="{{ route('national-executive') }}"
-                                   class="{{ request()->routeIs('national-executive') ? 'active' : '' }}">
+                                    class="{{ request()->routeIs('national-executive') ? 'active' : '' }}">
                                     National Executive
                                 </a>
                             </li>
 
                             <li>
                                 <a href="{{ route('state-executive') }}"
-                                   class="{{ request()->routeIs('state-executive') ? 'active' : '' }}">
+                                    class="{{ request()->routeIs('state-executive') ? 'active' : '' }}">
                                     State Executive
                                 </a>
                             </li>
@@ -324,12 +304,23 @@
 
                  EXISTING ROUTE: register
             ================================================== --}}
-            <a class="cta-btn"
-               href="{{ route('register') }}">
+            @auth
 
-                Join Now
+                @if (auth()->user()->role === 'admin')
+                    <a class="cta-btn" href="{{ route('admin.admin_dashboard') }}">
+                        Dashboard
+                    </a>
+                @elseif(auth()->user()->role === 'member')
+                    <a class="cta-btn" href="{{ route('member.member_dashboard') }}">
+                        Dashboard
+                    </a>
+                @endif
+            @else
+                <a class="cta-btn" href="{{ route('register') }}">
+                    Join Now
+                </a>
 
-            </a>
+            @endauth
 
         </div>
 
@@ -352,9 +343,7 @@
     </span>
 
 
-    <marquee behavior="scroll"
-             direction="left"
-             scrollamount="7">
+    <marquee behavior="scroll" direction="left" scrollamount="7">
 
         John Doe (Lagos) |
 
