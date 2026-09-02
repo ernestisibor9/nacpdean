@@ -135,51 +135,51 @@ class OperationalRightsDocumentService
             $document = OperationalRightsDocument::create([
 
                 'user_id' =>
-                    $payment->user_id,
+                $payment->user_id,
 
                 'membership_id' =>
-                    $membership->id,
+                $membership->id,
 
                 'member_profile_id' =>
-                    $memberProfile->id,
+                $memberProfile->id,
 
                 'payment_id' =>
-                    $payment->id,
+                $payment->id,
 
                 'membership_category_id' =>
-                    $membership->membership_category_id,
+                $membership->membership_category_id,
 
                 'document_number' =>
-                    $this->generateDocumentNumber(
-                        $documentDetails['prefix']
-                    ),
+                $this->generateDocumentNumber(
+                    $documentDetails['prefix']
+                ),
 
                 'reference_number' =>
-                    $this->generateReferenceNumber(),
+                $this->generateReferenceNumber(),
 
                 'authentication_code' =>
-                    $this->generateAuthenticationCode(),
+                $this->generateAuthenticationCode(),
 
                 'qr_token' =>
-                    $this->generateQrToken(),
+                $this->generateQrToken(),
 
                 'document_type' =>
-                    $documentDetails['document_type'],
+                $documentDetails['document_type'],
 
-                'operational_rights_category' =>
-                    $documentDetails['category'],
+                'document_title' =>
+                $documentDetails['category'],
 
                 'issued_at' =>
-                    now()->toDateString(),
+                now()->toDateString(),
 
                 'expires_at' =>
-                    now()->addYear()->toDateString(),
+                now()->addYear()->toDateString(),
 
                 'status' =>
-                    'active',
+                'active',
 
                 'generated_at' =>
-                    now(),
+                now(),
 
             ]);
 
@@ -200,70 +200,118 @@ class OperationalRightsDocumentService
 
         return match ($code) {
 
-            'CHARCOAL_LIFTING' => [
+            /*
+        |--------------------------------------------------------------------------
+        | CHARCOAL LIFTING RIGHTS - REGULAR
+        |--------------------------------------------------------------------------
+        */
+
+            'CLR' => [
 
                 'document_type' =>
-                    'charcoal_lifting',
+                'charcoal_lifting',
 
                 'category' =>
-                    'Charcoal Lifting Rights',
+                'Charcoal Lifting Rights',
 
                 'prefix' =>
-                    'CLR',
+                'CLR',
 
             ],
 
-            'CHARCOAL_LIFTING_RCG' => [
+
+            /*
+        |--------------------------------------------------------------------------
+        | CHARCOAL LIFTING RIGHTS - RCG
+        |--------------------------------------------------------------------------
+        */
+
+            'CLR-RCG' => [
 
                 'document_type' =>
-                    'charcoal_lifting_rcg',
+                'charcoal_lifting_rcg',
 
                 'category' =>
-                    'Charcoal Lifting Rights - NACPDEAN/RCG Joint Membership',
+                'Charcoal Lifting Rights - NACPDEAN/RCG Joint Membership',
 
                 'prefix' =>
-                    'CLR-RCG',
+                'CLR-RCG',
 
             ],
 
-            'CHARCOAL_DEALING_SUPPLIER' => [
+
+            /*
+        |--------------------------------------------------------------------------
+        | CHARCOAL DEALING RIGHTS - SUPPLIER
+        |--------------------------------------------------------------------------
+        */
+
+            'CDR-SLR' => [
 
                 'document_type' =>
-                    'charcoal_dealing_supplier',
+                'charcoal_dealing_supplier',
 
                 'category' =>
-                    'Charcoal Dealing Rights - Supplier',
+                'Charcoal Dealing Rights - Supplier',
 
                 'prefix' =>
-                    'CDR-SLR',
+                'CDR-SLR',
 
             ],
 
-            'CHARCOAL_DEALING_DEALER' => [
+
+            /*
+        |--------------------------------------------------------------------------
+        | CHARCOAL DEALING RIGHTS - DEALER
+        |--------------------------------------------------------------------------
+        */
+
+            'CDR-DEA' => [
 
                 'document_type' =>
-                    'charcoal_dealing_dealer',
+                'charcoal_dealing_dealer',
 
                 'category' =>
-                    'Charcoal Dealing Rights - Dealer',
+                'Charcoal Dealing Rights - Dealer',
 
                 'prefix' =>
-                    'CDR-DEA',
+                'CDR-DEA',
 
             ],
 
-            'CHARCOAL_PRODUCING' => [
+
+            /*
+        |--------------------------------------------------------------------------
+        | CHARCOAL PRODUCING RIGHTS
+        |--------------------------------------------------------------------------
+        */
+
+            'CPR' => [
 
                 'document_type' =>
-                    'charcoal_producing',
+                'charcoal_producing',
 
                 'category' =>
-                    'Charcoal Producing Rights',
+                'Charcoal Producing Rights',
 
                 'prefix' =>
-                    'CPR',
+                'CPR',
 
             ],
+
+
+            /*
+        |--------------------------------------------------------------------------
+        | OTHER PAYMENT ITEMS
+        |--------------------------------------------------------------------------
+        |
+        | PENALTY
+        | RENEWAL
+        | AFFORESTATION
+        |
+        | These do NOT generate an Operational Rights Document.
+        |
+        */
 
             default => null,
         };
@@ -290,7 +338,6 @@ class OperationalRightsDocumentService
                 strtoupper(
                     Str::random(8)
                 );
-
         } while (
             OperationalRightsDocument::where(
                 'document_number',
@@ -319,7 +366,6 @@ class OperationalRightsDocumentService
                 strtoupper(
                     Str::random(10)
                 );
-
         } while (
             OperationalRightsDocument::where(
                 'reference_number',
@@ -346,7 +392,6 @@ class OperationalRightsDocumentService
                 strtoupper(
                     Str::random(16)
                 );
-
         } while (
             OperationalRightsDocument::where(
                 'authentication_code',
@@ -369,7 +414,6 @@ class OperationalRightsDocumentService
         do {
 
             $token = Str::uuid()->toString();
-
         } while (
             OperationalRightsDocument::where(
                 'qr_token',

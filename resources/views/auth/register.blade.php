@@ -15,16 +15,18 @@
 
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    >
 
     <style>
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-
 
         body {
 
@@ -38,7 +40,6 @@
 
         }
 
-
         /* =========================================================
            PAGE
         ========================================================= */
@@ -50,7 +51,6 @@
             display: flex;
 
         }
-
 
         /* =========================================================
            LEFT PANEL
@@ -73,18 +73,17 @@
             padding: 70px;
 
             background:
-                linear-gradient(135deg,
+                linear-gradient(
+                    135deg,
                     #022c22 0%,
                     #064e3b 40%,
                     #047857 75%,
-                    #059669 100%);
+                    #059669 100%
+                );
 
             color: white;
 
         }
-
-
-        /* Decorative circles */
 
         .left-panel::before {
 
@@ -106,7 +105,6 @@
 
         }
 
-
         .left-panel::after {
 
             content: "";
@@ -127,7 +125,6 @@
 
         }
 
-
         .left-content {
 
             position: relative;
@@ -137,7 +134,6 @@
             max-width: 560px;
 
         }
-
 
         /* =========================================================
            BRAND
@@ -154,7 +150,6 @@
             margin-bottom: 65px;
 
         }
-
 
         .brand-logo {
 
@@ -177,13 +172,15 @@
 
         }
 
+        .brand-logo img {
 
-        .brand-logo span {
-            font-size: 30px;
-            font-weight: 800;
-            color: #047857;
+            max-width: 140px;
+
+            max-height: 62px;
+
+            object-fit: contain;
+
         }
-
 
         .brand-name {
 
@@ -194,7 +191,6 @@
             letter-spacing: -0.5px;
 
         }
-
 
         .brand-subtitle {
 
@@ -209,7 +205,6 @@
             text-transform: uppercase;
 
         }
-
 
         /* =========================================================
            HERO
@@ -229,13 +224,11 @@
 
         }
 
-
         .hero h1 span {
 
             color: #a7f3d0;
 
         }
-
 
         .hero p {
 
@@ -251,7 +244,6 @@
 
         }
 
-
         /* =========================================================
            FEATURES
         ========================================================= */
@@ -266,7 +258,6 @@
 
         }
 
-
         .feature {
 
             display: flex;
@@ -278,7 +269,6 @@
             color: rgba(255, 255, 255, 0.92);
 
         }
-
 
         .feature-icon {
 
@@ -306,7 +296,6 @@
 
         }
 
-
         /* =========================================================
            RIGHT PANEL
         ========================================================= */
@@ -329,7 +318,6 @@
 
         }
 
-
         .register-container {
 
             width: 100%;
@@ -337,7 +325,6 @@
             max-width: 440px;
 
         }
-
 
         /* =========================================================
            FORM HEADER
@@ -348,7 +335,6 @@
             margin-bottom: 32px;
 
         }
-
 
         .form-header h2 {
 
@@ -366,7 +352,6 @@
 
         }
 
-
         .form-header p {
 
             font-size: 14px;
@@ -376,7 +361,6 @@
             color: #6b7280;
 
         }
-
 
         /* =========================================================
            ALERT
@@ -396,7 +380,6 @@
 
         }
 
-
         .alert-success {
 
             color: #047857;
@@ -406,7 +389,6 @@
             border: 1px solid #a7f3d0;
 
         }
-
 
         .alert-danger {
 
@@ -418,7 +400,6 @@
 
         }
 
-
         .alert-danger ul {
 
             margin: 0;
@@ -426,7 +407,6 @@
             padding-left: 18px;
 
         }
-
 
         /* =========================================================
            FORM GROUP
@@ -437,7 +417,6 @@
             margin-bottom: 21px;
 
         }
-
 
         .form-label {
 
@@ -453,13 +432,11 @@
 
         }
 
-
         .input-wrapper {
 
             position: relative;
 
         }
-
 
         .form-input {
 
@@ -487,13 +464,11 @@
 
         }
 
-
         .form-input:hover {
 
             border-color: #9ca3af;
 
         }
-
 
         .form-input:focus {
 
@@ -504,20 +479,17 @@
 
         }
 
-
         .form-input::placeholder {
 
             color: #9ca3af;
 
         }
 
-
         .password-input {
 
             padding-right: 75px;
 
         }
-
 
         /* =========================================================
            SHOW PASSWORD
@@ -551,13 +523,11 @@
 
         }
 
-
         .toggle-password:hover {
 
             color: #065f46;
 
         }
-
 
         /* =========================================================
            ERROR
@@ -573,7 +543,6 @@
 
         }
 
-
         /* =========================================================
            PASSWORD HINT
         ========================================================= */
@@ -588,6 +557,198 @@
 
         }
 
+        /* =========================================================
+           MEMBERSHIP OPTIONS
+        ========================================================= */
+
+        .membership-options {
+
+            display: flex;
+
+            flex-direction: column;
+
+            gap: 10px;
+
+        }
+
+        .membership-option {
+
+            display: flex;
+
+            align-items: flex-start;
+
+            gap: 12px;
+
+            padding: 14px;
+
+            border: 1px solid #d1d5db;
+
+            border-radius: 11px;
+
+            background: #ffffff;
+
+            cursor: pointer;
+
+            transition: all 0.2s ease;
+
+        }
+
+        .membership-option:hover {
+
+            border-color: #059669;
+
+            background: #f0fdf4;
+
+        }
+
+        .membership-option input[type="radio"] {
+
+            width: 18px;
+
+            height: 18px;
+
+            margin-top: 2px;
+
+            accent-color: #059669;
+
+            cursor: pointer;
+
+            flex-shrink: 0;
+
+        }
+
+        .membership-option-content {
+
+            flex: 1;
+
+            cursor: pointer;
+
+        }
+
+        .membership-card-title {
+
+            font-size: 13px;
+
+            font-weight: 800;
+
+            color: #111827;
+
+            margin-bottom: 3px;
+
+        }
+
+        .membership-card-description {
+
+            font-size: 11px;
+
+            line-height: 1.5;
+
+            color: #6b7280;
+
+        }
+
+        .membership-price {
+
+            font-size: 12px;
+
+            font-weight: 800;
+
+            color: #047857;
+
+            margin-top: 5px;
+
+        }
+
+        .membership-option:has(input[type="radio"]:checked) {
+
+            border-color: #059669;
+
+            background: #ecfdf5;
+
+            box-shadow:
+                0 0 0 3px rgba(5, 150, 105, 0.08);
+
+        }
+
+        /* =========================================================
+           CATEGORY CONTAINER
+        ========================================================= */
+
+        #category-section {
+
+            display: none;
+
+        }
+
+        #category-section.show {
+
+            display: block;
+
+            animation: categoryFadeIn 0.25s ease;
+
+        }
+
+        @keyframes categoryFadeIn {
+
+            from {
+
+                opacity: 0;
+
+                transform: translateY(-5px);
+
+            }
+
+            to {
+
+                opacity: 1;
+
+                transform: translateY(0);
+
+            }
+
+        }
+
+        .category-empty {
+
+            padding: 16px;
+
+            border-radius: 11px;
+
+            background: #f9fafb;
+
+            border: 1px dashed #d1d5db;
+
+            color: #6b7280;
+
+            font-size: 12px;
+
+            text-align: center;
+
+        }
+
+        /* =========================================================
+           INFORMATION BOX
+        ========================================================= */
+
+        .registration-info {
+
+            margin-top: 8px;
+
+            padding: 12px 14px;
+
+            border-radius: 10px;
+
+            background: #f0fdf4;
+
+            border: 1px solid #bbf7d0;
+
+            color: #166534;
+
+            font-size: 11px;
+
+            line-height: 1.6;
+
+        }
 
         /* =========================================================
            BUTTON
@@ -606,9 +767,11 @@
             border-radius: 11px;
 
             background:
-                linear-gradient(135deg,
+                linear-gradient(
+                    135deg,
                     #047857,
-                    #059669);
+                    #059669
+                );
 
             color: white;
 
@@ -627,7 +790,6 @@
 
         }
 
-
         .register-button:hover {
 
             transform: translateY(-1px);
@@ -637,13 +799,11 @@
 
         }
 
-
         .register-button:active {
 
             transform: translateY(0);
 
         }
-
 
         /* =========================================================
            LOGIN
@@ -661,7 +821,6 @@
 
         }
 
-
         .login-text a {
 
             color: #047857;
@@ -674,13 +833,11 @@
 
         }
 
-
         .login-text a:hover {
 
             text-decoration: underline;
 
         }
-
 
         /* =========================================================
            FOOTER
@@ -698,7 +855,6 @@
 
         }
 
-
         /* =========================================================
            MOBILE
         ========================================================= */
@@ -711,7 +867,6 @@
 
             }
 
-
             .right-panel {
 
                 width: 100%;
@@ -722,7 +877,6 @@
 
             }
 
-
             .register-container {
 
                 max-width: 460px;
@@ -730,7 +884,6 @@
             }
 
         }
-
 
         @media (max-width: 480px) {
 
@@ -740,13 +893,11 @@
 
             }
 
-
             .form-header h2 {
 
                 font-size: 27px;
 
             }
-
 
             .form-header {
 
@@ -755,132 +906,20 @@
             }
 
         }
+
     </style>
-
-    <style>
-        /* =========================================================
-       MEMBERSHIP TYPE
-    ========================================================= */
-
-        .membership-options {
-
-            display: flex;
-
-            flex-direction: column;
-
-            gap: 12px;
-
-        }
-
-
-        .membership-option {
-
-            display: flex;
-
-            align-items: flex-start;
-
-            gap: 12px;
-
-            padding: 16px;
-
-            border: 1px solid #d1d5db;
-
-            border-radius: 11px;
-
-            background: #ffffff;
-
-            cursor: pointer;
-
-            transition: all 0.2s ease;
-
-        }
-
-
-        .membership-option:hover {
-
-            border-color: #059669;
-
-            background: #f0fdf4;
-
-        }
-
-
-        .membership-option input[type="radio"] {
-
-            width: 18px;
-
-            height: 18px;
-
-            margin-top: 2px;
-
-            accent-color: #059669;
-
-            cursor: pointer;
-
-            flex-shrink: 0;
-
-        }
-
-
-        .membership-option-content {
-
-            flex: 1;
-
-            cursor: pointer;
-
-        }
-
-
-        .membership-card-title {
-
-            font-size: 14px;
-
-            font-weight: 800;
-
-            color: #111827;
-
-            margin-bottom: 4px;
-
-        }
-
-
-        .membership-card-description {
-
-            font-size: 11px;
-
-            line-height: 1.5;
-
-            color: #6b7280;
-
-        }
-
-
-        .membership-option:has(input[type="radio"]:checked) {
-
-            border-color: #059669;
-
-            background: #ecfdf5;
-
-            box-shadow:
-                0 0 0 3px rgba(5, 150, 105, 0.08);
-
-        }
-    </style>
-
-
 
 </head>
 
 
 <body>
 
-
     <div class="page">
 
 
         <!-- =========================================================
-         LEFT BRANDING
-    ========================================================== -->
+             LEFT BRANDING
+        ========================================================== -->
 
         <section class="left-panel">
 
@@ -893,9 +932,10 @@
 
                     <div class="brand-logo">
 
-                        <span>
-                            <img src="{{ asset('frontend/assets/img/logo.png') }}" alt="NACPDEAN Logo">
-                        </span>
+                        <img
+                            src="{{ asset('frontend/assets/img/logo.png') }}"
+                            alt="NACPDEAN Logo"
+                        >
 
                     </div>
 
@@ -929,11 +969,9 @@
 
                     <p>
 
-                        Create your account to begin your
-                        membership journey. Your account will
-                        be verified securely before you proceed
-                        to membership payment and profile
-                        completion.
+                        Create your account and select your
+                        membership category to begin your
+                        NACPDEAN membership registration.
 
                     </p>
 
@@ -941,7 +979,6 @@
                     <!-- FEATURES -->
 
                     <div class="features">
-
 
                         <div class="feature">
 
@@ -971,7 +1008,7 @@
                                 ✓
                             </div>
 
-                            Easy online membership application
+                            Membership category selection
 
                         </div>
 
@@ -986,7 +1023,6 @@
 
                         </div>
 
-
                     </div>
 
                 </div>
@@ -996,10 +1032,9 @@
         </section>
 
 
-
         <!-- =========================================================
-         RIGHT FORM
-    ========================================================== -->
+             RIGHT FORM
+        ========================================================== -->
 
         <section class="right-panel">
 
@@ -1017,37 +1052,39 @@
 
                     <p>
 
-                        Enter your email and create a password
-                        to start your NACPDEAN membership registration.
+                        Select your membership type and category,
+                        then enter your account details to begin
+                        your NACPDEAN registration.
 
                     </p>
 
                 </div>
 
 
-
                 <!-- SUCCESS -->
 
                 @if (session('success'))
+
                     <div class="alert alert-success">
 
                         {{ session('success') }}
 
                     </div>
-                @endif
 
+                @endif
 
 
                 <!-- ERROR -->
 
                 @if (session('error'))
+
                     <div class="alert alert-danger">
 
                         {{ session('error') }}
 
                     </div>
-                @endif
 
+                @endif
 
 
                 <!-- VALIDATION ERRORS -->
@@ -1059,9 +1096,11 @@
                         <ul>
 
                             @foreach ($errors->all() as $error)
+
                                 <li>
                                     {{ $error }}
                                 </li>
+
                             @endforeach
 
                         </ul>
@@ -1071,17 +1110,21 @@
                 @endif
 
 
-
                 <!-- =================================================
-                 REGISTRATION FORM
-            ================================================== -->
+                     REGISTRATION FORM
+                ================================================== -->
 
-                <form method="POST" action="{{ route('register') }}">
+                <form
+                    method="POST"
+                    action="{{ route('register') }}"
+                >
 
                     @csrf
 
 
-                    <!-- MEMBERSHIP TYPE -->
+                    <!-- =================================================
+                         MEMBER TYPE
+                    ================================================== -->
 
                     <div class="form-group">
 
@@ -1099,8 +1142,13 @@
 
                             <label class="membership-option">
 
-                                <input type="radio" name="member_type" value="regular"
-                                    {{ old('member_type', 'regular') === 'regular' ? 'checked' : '' }} required>
+                                <input
+                                    type="radio"
+                                    name="member_type"
+                                    value="regular"
+                                    {{ old('member_type') === 'regular' ? 'checked' : '' }}
+                                    required
+                                >
 
 
                                 <div class="membership-option-content">
@@ -1113,7 +1161,8 @@
 
                                     <div class="membership-card-description">
 
-                                        Exporter, Dealer, Supplier or Producer
+                                        For Exporter, Dealer, Supplier
+                                        or Producer membership categories.
 
                                     </div>
 
@@ -1122,13 +1171,16 @@
                             </label>
 
 
-
                             <!-- AFFILIATE MEMBER -->
 
                             <label class="membership-option">
 
-                                <input type="radio" name="member_type" value="affiliate"
-                                    {{ old('member_type') === 'affiliate' ? 'checked' : '' }}>
+                                <input
+                                    type="radio"
+                                    name="member_type"
+                                    value="affiliate"
+                                    {{ old('member_type') === 'affiliate' ? 'checked' : '' }}
+                                >
 
 
                                 <div class="membership-option-content">
@@ -1141,7 +1193,7 @@
 
                                     <div class="membership-card-description">
 
-                                        RCG
+                                        RCG affiliate membership.
 
                                     </div>
 
@@ -1154,49 +1206,213 @@
 
 
                         @error('member_type')
+
                             <div class="error-message">
 
                                 {{ $message }}
 
                             </div>
+
                         @enderror
 
                     </div>
 
 
-                    <!-- EMAIL -->
+                    <!-- =================================================
+                         MEMBERSHIP CATEGORY
+                    ================================================== -->
+
+                    <div
+                        class="form-group"
+                        id="category-section"
+                    >
+
+                        <label class="form-label">
+
+                            Select Membership Category
+
+                        </label>
+
+
+                        <div
+                            class="membership-options"
+                            id="category-options"
+                        >
+
+
+                            @forelse ($categories as $category)
+
+                                <label
+                                    class="membership-option category-option"
+                                    data-member-type="{{ $category->member_type }}"
+                                >
+
+                                    <input
+                                        type="radio"
+                                        name="membership_category_id"
+                                        value="{{ $category->id }}"
+                                        data-member-type="{{ $category->member_type }}"
+                                        {{ old('membership_category_id') == $category->id ? 'checked' : '' }}
+                                    >
+
+
+                                    <div class="membership-option-content">
+
+                                        <div class="membership-card-title">
+
+                                            {{ $category->name }}
+
+                                            @if ($category->code)
+
+                                                ({{ $category->code }})
+
+                                            @endif
+
+                                        </div>
+
+
+                                        @if (!empty($category->description))
+
+                                            <div class="membership-card-description">
+
+                                                {{ $category->description }}
+
+                                            </div>
+
+                                        @endif
+
+
+                                        @php
+
+                                            $categoryFee = null;
+
+                                            if (method_exists($category, 'fees')) {
+
+                                                $categoryFee = $category->fees
+                                                    ->where('is_active', true)
+                                                    ->first();
+
+                                            }
+
+                                        @endphp
+
+
+                                        @if ($categoryFee)
+
+                                            <div class="membership-price">
+
+                                                ₦{{ number_format($categoryFee->amount, 2) }}
+
+                                            </div>
+
+                                        @endif
+
+                                    </div>
+
+                                </label>
+
+                            @empty
+
+                                <div class="category-empty">
+
+                                    No membership categories are currently
+                                    available.
+
+                                </div>
+
+                            @endforelse
+
+
+                        </div>
+
+
+                        <div
+                            class="category-empty"
+                            id="no-category-message"
+                            style="display: none;"
+                        >
+
+                            No membership categories are currently available
+                            for the selected membership type.
+
+                        </div>
+
+
+                        <div class="registration-info">
+
+                            Your selected membership category will determine
+                            the applicable registration fee. The amount will
+                            be recorded as a debit against your account when
+                            your registration is created.
+
+                        </div>
+
+
+                        @error('membership_category_id')
+
+                            <div class="error-message">
+
+                                {{ $message }}
+
+                            </div>
+
+                        @enderror
+
+                    </div>
+
+
+                    <!-- =================================================
+                         EMAIL
+                    ================================================== -->
 
                     <div class="form-group">
 
-                        <label for="email" class="form-label">
+                        <label
+                            for="email"
+                            class="form-label"
+                        >
 
                             Email Address
 
                         </label>
 
 
-                        <input id="email" type="email" name="email" class="form-input"
-                            value="{{ old('email') }}" placeholder="Enter your email address" required autofocus
-                            autocomplete="email">
+                        <input
+                            id="email"
+                            type="email"
+                            name="email"
+                            class="form-input"
+                            value="{{ old('email') }}"
+                            placeholder="Enter your email address"
+                            required
+                            autofocus
+                            autocomplete="email"
+                        >
 
 
                         @error('email')
+
                             <div class="error-message">
 
                                 {{ $message }}
 
                             </div>
+
                         @enderror
 
                     </div>
 
 
-
-                    <!-- PASSWORD -->
+                    <!-- =================================================
+                         PASSWORD
+                    ================================================== -->
 
                     <div class="form-group">
 
-                        <label for="password" class="form-label">
+                        <label
+                            for="password"
+                            class="form-label"
+                        >
 
                             Password
 
@@ -1205,11 +1421,22 @@
 
                         <div class="input-wrapper">
 
-                            <input id="password" type="password" name="password" class="form-input password-input"
-                                placeholder="Create a password" required autocomplete="new-password">
+                            <input
+                                id="password"
+                                type="password"
+                                name="password"
+                                class="form-input password-input"
+                                placeholder="Create a password"
+                                required
+                                autocomplete="new-password"
+                            >
 
 
-                            <button type="button" class="toggle-password" onclick="togglePassword('password', this)">
+                            <button
+                                type="button"
+                                class="toggle-password"
+                                onclick="togglePassword('password', this)"
+                            >
 
                                 Show
 
@@ -1226,22 +1453,28 @@
 
 
                         @error('password')
+
                             <div class="error-message">
 
                                 {{ $message }}
 
                             </div>
+
                         @enderror
 
                     </div>
 
 
-
-                    <!-- CONFIRM PASSWORD -->
+                    <!-- =================================================
+                         CONFIRM PASSWORD
+                    ================================================== -->
 
                     <div class="form-group">
 
-                        <label for="password_confirmation" class="form-label">
+                        <label
+                            for="password_confirmation"
+                            class="form-label"
+                        >
 
                             Confirm Password
 
@@ -1250,16 +1483,25 @@
 
                         <div class="input-wrapper">
 
-                            <input id="password_confirmation" type="password" name="password_confirmation"
-                                class="form-input password-input" placeholder="Re-enter your password" required
-                                autocomplete="new-password">
+                            <input
+                                id="password_confirmation"
+                                type="password"
+                                name="password_confirmation"
+                                class="form-input password-input"
+                                placeholder="Re-enter your password"
+                                required
+                                autocomplete="new-password"
+                            >
 
 
-                            <button type="button" class="toggle-password"
+                            <button
+                                type="button"
+                                class="toggle-password"
                                 onclick="togglePassword(
-                                'password_confirmation',
-                                this
-                            )">
+                                    'password_confirmation',
+                                    this
+                                )"
+                            >
 
                                 Show
 
@@ -1269,28 +1511,32 @@
 
 
                         @error('password_confirmation')
+
                             <div class="error-message">
 
                                 {{ $message }}
 
                             </div>
+
                         @enderror
 
                     </div>
 
 
+                    <!-- =================================================
+                         SUBMIT
+                    ================================================== -->
 
-
-                    <!-- SUBMIT -->
-
-                    <button type="submit" class="register-button">
+                    <button
+                        type="submit"
+                        class="register-button"
+                    >
 
                         Create Membership Account
 
                     </button>
 
                 </form>
-
 
 
                 <!-- LOGIN -->
@@ -1304,7 +1550,6 @@
                     </a>
 
                 </div>
-
 
 
                 <!-- FOOTER -->
@@ -1324,9 +1569,20 @@
     </div>
 
 
+    <!-- =========================================================
+         JAVASCRIPT
+    ========================================================== -->
 
     <script>
+
+        /*
+        |--------------------------------------------------------------------------
+        | TOGGLE PASSWORD
+        |--------------------------------------------------------------------------
+        */
+
         function togglePassword(fieldId, button) {
+
             const field =
                 document.getElementById(fieldId);
 
@@ -1344,11 +1600,180 @@
                 button.textContent = 'Show';
 
             }
+
         }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | MEMBERSHIP TYPE → CATEGORY FILTER
+        |--------------------------------------------------------------------------
+        */
+
+        document.addEventListener('DOMContentLoaded', function () {
+
+            const memberTypeInputs =
+                document.querySelectorAll(
+                    'input[name="member_type"]'
+                );
+
+
+            const categorySection =
+                document.getElementById(
+                    'category-section'
+                );
+
+
+            const categoryOptions =
+                document.querySelectorAll(
+                    '.category-option'
+                );
+
+
+            const categoryRadios =
+                document.querySelectorAll(
+                    'input[name="membership_category_id"]'
+                );
+
+
+            const noCategoryMessage =
+                document.getElementById(
+                    'no-category-message'
+                );
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | FILTER CATEGORIES
+            |--------------------------------------------------------------------------
+            */
+
+            function filterCategories(memberType) {
+
+                if (!memberType) {
+
+                    categorySection.classList.remove('show');
+
+                    return;
+
+                }
+
+
+                categorySection.classList.add('show');
+
+
+                let visibleCategories = 0;
+
+
+                categoryOptions.forEach(function (option) {
+
+                    const optionType =
+                        option.dataset.memberType;
+
+
+                    if (optionType === memberType) {
+
+                        option.style.display = 'flex';
+
+                        visibleCategories++;
+
+                    } else {
+
+                        option.style.display = 'none';
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Uncheck categories that no longer belong
+                        |--------------------------------------------------------------------------
+                        */
+
+                        const radio =
+                            option.querySelector(
+                                'input[type="radio"]'
+                            );
+
+
+                        if (radio) {
+
+                            radio.checked = false;
+
+                        }
+
+                    }
+
+                });
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Show / hide empty message
+                |--------------------------------------------------------------------------
+                */
+
+                if (visibleCategories === 0) {
+
+                    noCategoryMessage.style.display = 'block';
+
+                } else {
+
+                    noCategoryMessage.style.display = 'none';
+
+                }
+
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | MEMBER TYPE CHANGE
+            |--------------------------------------------------------------------------
+            */
+
+            memberTypeInputs.forEach(function (input) {
+
+                input.addEventListener(
+                    'change',
+                    function () {
+
+                        filterCategories(
+                            this.value
+                        );
+
+                    }
+                );
+
+            });
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | INITIAL PAGE LOAD
+            |--------------------------------------------------------------------------
+            |
+            | This handles old() after a validation error.
+            |
+            */
+
+            const selectedMemberType =
+                document.querySelector(
+                    'input[name="member_type"]:checked'
+                );
+
+
+            if (selectedMemberType) {
+
+                filterCategories(
+                    selectedMemberType.value
+                );
+
+            }
+
+        });
+
     </script>
 
 
 </body>
 
 </html>
-

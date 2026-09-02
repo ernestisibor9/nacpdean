@@ -25,7 +25,10 @@ class User extends Authenticatable
         'email',
         'password',
         'member_type',
+        'membership_category_id',
         'role',
+        'user_type',
+        'status',
     ];
 
     /**
@@ -69,7 +72,20 @@ class User extends Authenticatable
     }
 
     public function membership(): HasOne
-{
-    return $this->hasOne(Membership::class);
-}
+    {
+        return $this->hasOne(Membership::class);
+    }
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(Transaction::class);
+    }
+    public function membershipCategory()
+    {
+        return $this->belongsTo(MembershipCategory::class);
+    }
+
+    public function generatedDocuments(): HasMany
+    {
+        return $this->hasMany(GeneratedDocument::class);
+    }
 }

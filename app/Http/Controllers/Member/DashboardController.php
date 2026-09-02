@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Member;
 use App\Http\Controllers\Controller;
 use App\Models\MemberProfile;
 use App\Models\Payment;
+use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
@@ -42,15 +43,13 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         */
 
-$profile = MemberProfile::with([
-    'membershipCard',
-    'membershipCategory',
-])->where(
-    'user_id',
-    $user->id
-)->first();
-
-
+        $profile = MemberProfile::with([
+            'membershipCard',
+            'membershipCategory',
+        ])->where(
+            'user_id',
+            $user->id
+        )->first();
 
 
         /*
@@ -76,8 +75,6 @@ $profile = MemberProfile::with([
         | DASHBOARD ACCESS
         |--------------------------------------------------------------------------
         |
-        | IMPORTANT:
-        |
         | Only an APPROVED profile can see the full
         | membership dashboard.
         |
@@ -88,11 +85,19 @@ $profile = MemberProfile::with([
             $profile->status === 'approved'
         );
 
-$membershipCard = null;
 
-if ($isApproved && $profile) {
-    $membershipCard = $profile->membershipCard;
-}
+        /*
+        |--------------------------------------------------------------------------
+        | MEMBERSHIP CARD
+        |--------------------------------------------------------------------------
+        */
+
+        $membershipCard = null;
+
+        if ($isApproved && $profile) {
+
+            $membershipCard = $profile->membershipCard;
+        }
 
 
         /*
@@ -104,19 +109,15 @@ if ($isApproved && $profile) {
         if (!$hasPaid) {
 
             $dashboardStatus = 'payment_required';
-
         } elseif (!$profile || $profile->status === 'draft') {
 
             $dashboardStatus = 'profile_incomplete';
-
         } elseif ($profile->status === 'submitted') {
 
             $dashboardStatus = 'awaiting_approval';
-
         } elseif ($profile->status === 'approved') {
 
             $dashboardStatus = 'approved';
-
         } else {
 
             $dashboardStatus = 'profile_incomplete';
@@ -142,10 +143,6 @@ if ($isApproved && $profile) {
         |--------------------------------------------------------------------------
         | ONLY PREPARE MEMBERSHIP DETAILS FOR APPROVED MEMBERS
         |--------------------------------------------------------------------------
-        |
-        | This prevents unapproved users from receiving/displaying
-        | membership information on the dashboard.
-        |
         */
 
         if ($isApproved && $membershipPayment) {
@@ -211,10 +208,6 @@ if ($isApproved && $profile) {
         |--------------------------------------------------------------------------
         | MEMBER NAME
         |--------------------------------------------------------------------------
-        |
-        | Only approved members need the full member name
-        | for the dashboard.
-        |
         */
 
         $memberName = 'Member';
@@ -250,11 +243,9 @@ if ($isApproved && $profile) {
         if (!$hasPaid) {
 
             $memberStage = 1;
-
         } elseif ($isApproved) {
 
             $memberStage = 3;
-
         } else {
 
             $memberStage = 2;
@@ -266,11 +257,50 @@ if ($isApproved && $profile) {
         | OUTSTANDING BALANCE
         |--------------------------------------------------------------------------
         |
-        | Currently fixed at ₦0.00.
+        | Outstanding Balance =
+        |
+        | SUM(DEBIT) - SUM(CREDIT)
+        |
+        | The calculation is restricted to the
+        | currently authenticated member.
         |
         */
 
-        $outstandingBalance = 0.00;
+        $totalDebit = Transaction::where(
+            'user_id',
+            $user->id
+        )
+            ->where(
+                'type',
+                'debit'
+            )
+            ->sum('amount');
+
+
+        $totalCredit = Transaction::where(
+            'user_id',
+            $user->id
+        )
+            ->where(
+                'type',
+                'credit'
+            )
+            ->sum('amount');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | FINAL OUTSTANDING BALANCE
+        |--------------------------------------------------------------------------
+        |
+        | Prevent negative outstanding balances.
+        |
+        */
+
+        $outstandingBalance = max(
+            0,
+            (float) $totalDebit - (float) $totalCredit
+        );
 
 
         /*
@@ -284,8 +314,8 @@ if ($isApproved && $profile) {
 
         $membershipFee =
             ($isApproved && $membershipPayment)
-                ? $membershipPayment->amount
-                : 0;
+            ? $membershipPayment->amount
+            : 0;
 
 
         /*
@@ -296,8 +326,8 @@ if ($isApproved && $profile) {
 
         $membershipPaymentStatus =
             $membershipPayment
-                ? 'Paid'
-                : 'Outstanding';
+            ? 'Paid'
+            : 'Outstanding';
 
 
         /*
@@ -309,11 +339,9 @@ if ($isApproved && $profile) {
         if (!$membershipPayment) {
 
             $membershipAnnualStatus = 'Outstanding';
-
         } elseif ($membershipIsExpired) {
 
             $membershipAnnualStatus = 'Outstanding';
-
         } else {
 
             $membershipAnnualStatus = 'Active';
@@ -343,6 +371,8 @@ if ($isApproved && $profile) {
                 'membershipPaymentStatus',
                 'membershipAnnualStatus',
                 'memberName',
+                'totalDebit',
+                'totalCredit',
                 'outstandingBalance',
                 'membershipFee',
                 'membershipCard',

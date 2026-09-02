@@ -799,20 +799,6 @@
                 <div class="form-options">
 
 
-                    <label class="remember">
-
-                        <input
-                            type="checkbox"
-                            name="remember"
-                            id="remember_me">
-
-                        <span>
-                            Remember me
-                        </span>
-
-                    </label>
-
-
 
                     @if (Route::has('password.request'))
 

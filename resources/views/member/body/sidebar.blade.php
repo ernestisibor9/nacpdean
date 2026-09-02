@@ -11,10 +11,7 @@
     |--------------------------------------------------------------------------
     */
 
-    $hasPaid = Payment::where('user_id', $user->id)
-        ->where('status', 'paid')
-        ->exists();
-
+    $hasPaid = Payment::where('user_id', $user->id)->where('status', 'paid')->exists();
 
     /*
     |--------------------------------------------------------------------------
@@ -22,9 +19,7 @@
     |--------------------------------------------------------------------------
     */
 
-    $profile = MemberProfile::where('user_id', $user->id)
-        ->first();
-
+    $profile = MemberProfile::where('user_id', $user->id)->first();
 
     /*
     |--------------------------------------------------------------------------
@@ -38,20 +33,11 @@
     */
 
     if (!$hasPaid) {
-
         $memberStage = 1;
-
-    } elseif (
-        $profile &&
-        $profile->status === 'approved'
-    ) {
-
+    } elseif ($profile && $profile->status === 'approved') {
         $memberStage = 3;
-
     } else {
-
         $memberStage = 2;
-
     }
 
 @endphp
@@ -80,8 +66,7 @@
                     ALWAYS AVAILABLE
                 ====================================================== --}}
 
-                <a class="nav-link"
-                   href="{{ route('member.member_dashboard') }}">
+                <a class="nav-link" href="{{ route('member.member_dashboard') }}">
 
                     <div class="sb-nav-link-icon">
                         <i class="fas fa-tachometer-alt"></i>
@@ -97,8 +82,7 @@
                     REGISTERED BUT PAYMENT NOT MADE
                 ====================================================== --}}
 
-                @if($memberStage === 1)
-
+                @if ($memberStage === 1)
                     <div class="sb-sidenav-menu-heading">
                         Membership
                     </div>
@@ -114,7 +98,6 @@
                         Payment
 
                     </a>  --}}
-
                 @endif
 
 
@@ -124,8 +107,7 @@
                     WAITING FOR ADMIN APPROVAL
                 ====================================================== --}}
 
-                @if($memberStage === 2)
-
+                @if ($memberStage === 2)
                     <div class="sb-sidenav-menu-heading">
                         Application
                     </div>
@@ -147,8 +129,7 @@
 
                     {{-- PROFILE --}}
 
-                    <a class="nav-link"
-                       href="{{ route('member.profile') }}">
+                    <a class="nav-link" href="{{ route('member.profile') }}">
 
                         <div class="sb-nav-link-icon">
                             <i class="fas fa-user"></i>
@@ -171,7 +152,6 @@
                         Application Status
 
                     </a>  --}}
-
                 @endif
 
 
@@ -180,8 +160,7 @@
                     ADMIN APPROVED
                 ====================================================== --}}
 
-                @if($memberStage === 3)
-
+                @if ($memberStage === 3)
                     <div class="sb-sidenav-menu-heading">
                         Membership
                     </div>
@@ -203,8 +182,7 @@
 
                     {{-- PROFILE --}}
 
-                    <a class="nav-link"
-                       href="{{ route('member.profile') }}">
+                    <a class="nav-link" href="{{ route('member.profile') }}">
 
                         <div class="sb-nav-link-icon">
                             <i class="fas fa-user"></i>
@@ -216,7 +194,7 @@
 
 
                     {{-- APPLICATION STATUS --}}
-{{--
+                    {{--
                     <a class="nav-link"
                        href="{{ route('member.application.status') }}">
 
@@ -260,6 +238,16 @@
                         </div>
 
                         ID Card
+
+                    </a>
+
+                    <a class="nav-link" href="{{ route('payment.additional') }}">
+
+                        <div class="sb-nav-link-icon">
+                            <i class="fas fa-credit-card"></i>
+                        </div>
+
+                        Documents
 
                     </a>
 
@@ -327,7 +315,6 @@
                         Transit Pass
 
                     </a>
-
                 @endif
 
 

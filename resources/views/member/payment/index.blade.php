@@ -4,158 +4,223 @@
 
 @section('member')
 
-{{-- ============================================================
-    PAYMENT PAGE STYLES
-============================================================ --}}
-
 <style>
-    .nacp-payment-page {
-        font-size: 16px;
+    .payment-page {
+        font-size: 15px;
     }
 
-    .nacp-payment-page h3 {
-        font-size: 1.75rem;
+    .payment-header {
+        margin-bottom: 25px;
     }
 
-    .nacp-payment-page h5 {
-        font-size: 1.25rem;
+    .payment-header h3 {
+        font-size: 1.6rem;
+        font-weight: 700;
+        margin-bottom: 4px;
     }
 
-    .nacp-payment-page h6 {
-        font-size: 1.05rem;
+    .payment-header p {
+        color: #6c757d;
+        margin-bottom: 0;
     }
 
-    .nacp-payment-page p {
-        font-size: 1rem;
+    .payment-card {
+        border: 0;
+        border-radius: 12px;
+        box-shadow: 0 3px 15px rgba(0, 0, 0, 0.06);
+        overflow: hidden;
     }
 
-    .nacp-payment-page .form-label {
-        font-size: 1rem;
+    .payment-card-header {
+        background: #fff;
+        border-bottom: 1px solid #eee;
+        padding: 18px 22px;
     }
 
-    .nacp-payment-page .form-control,
-    .nacp-payment-page .form-select {
-        font-size: 1rem;
-        min-height: 46px;
-    }
-
-    .nacp-payment-page .form-control {
-        padding: 0.65rem 0.8rem;
-    }
-
-    .nacp-payment-page .form-select {
-        padding: 0.65rem 2.25rem 0.65rem 0.8rem;
-    }
-
-    .nacp-payment-page .text-muted {
-        font-size: 0.95rem;
-    }
-
-    .nacp-payment-page .small {
-        font-size: 0.9rem !important;
-    }
-
-    .nacp-payment-page .alert {
-        font-size: 1rem;
-    }
-
-    .nacp-payment-page .badge {
-        font-size: 0.85rem;
-        padding: 0.5em 0.75em;
-    }
-
-    .nacp-payment-page .btn {
-        font-size: 1rem;
-        padding: 0.65rem 1.1rem;
-    }
-
-    .nacp-payment-page .membership-value {
-        font-size: 1.05rem;
-    }
-
-    .nacp-payment-page .payment-amount {
-        font-size: 1.3rem !important;
-    }
-
-    .nacp-payment-page .fee-description {
-        font-size: 1.05rem;
-    }
-
-    .nacp-payment-page .info-label {
-        font-size: 0.95rem;
-    }
-
-    .nacp-payment-page .info-value {
-        font-size: 1.05rem;
-    }
-
-    .nacp-payment-page .empty-state-title {
+    .payment-card-header h5 {
+        margin: 0;
         font-size: 1.1rem;
+        font-weight: 700;
     }
 
-    @media (max-width: 767.98px) {
+    .payment-card-body {
+        padding: 25px 22px;
+    }
 
-        .nacp-payment-page {
-            font-size: 15px;
+    .category-box {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        padding: 15px 18px;
+        height: 100%;
+    }
+
+    .category-label {
+        display: block;
+        color: #6c757d;
+        font-size: 13px;
+        margin-bottom: 4px;
+    }
+
+    .category-name {
+        font-size: 1.05rem;
+        font-weight: 700;
+    }
+
+    .payment-details {
+        margin-bottom: 22px;
+    }
+
+    .payment-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+    }
+
+    .fee-label {
+        color: #6c757d;
+        font-size: 13px;
+        margin-bottom: 4px;
+    }
+
+    .fee-amount {
+        font-size: 1.6rem;
+        font-weight: 800;
+    }
+
+    .pay-btn {
+        min-width: 180px;
+        padding: 11px 20px;
+        font-weight: 600;
+        border-radius: 8px;
+    }
+
+    .status-badge {
+        font-size: 12px;
+        padding: 6px 10px;
+        border-radius: 20px;
+    }
+
+    .payment-note {
+        color: #6c757d;
+        font-size: 13px;
+        margin-top: 14px;
+    }
+
+    .additional-card {
+        margin-top: 22px;
+    }
+
+    .additional-item {
+        border: 1px solid #eee;
+        border-radius: 10px;
+        padding: 16px;
+        margin-bottom: 12px;
+    }
+
+    .additional-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .additional-title {
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+
+    .additional-type {
+        font-size: 12px;
+        color: #6c757d;
+    }
+
+    .additional-amount {
+        font-size: 1.15rem;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+
+    .empty-payment {
+        text-align: center;
+        padding: 35px 20px;
+    }
+
+    .empty-payment i {
+        font-size: 35px;
+        margin-bottom: 12px;
+    }
+
+    .empty-payment h6 {
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+
+    .empty-payment p {
+        color: #6c757d;
+        margin-bottom: 0;
+    }
+
+    @media (max-width: 767px) {
+
+        .payment-row {
+            flex-direction: column;
+            align-items: flex-start;
         }
 
-        .nacp-payment-page h3 {
-            font-size: 1.5rem;
+        .pay-btn {
+            width: 100%;
         }
 
-        .nacp-payment-page h5 {
-            font-size: 1.15rem;
-        }
-
-        .nacp-payment-page .btn {
-            font-size: 0.95rem;
+        .fee-amount {
+            font-size: 1.4rem;
         }
     }
 </style>
 
 
-<div class="container-fluid py-4 nacp-payment-page">
+<div class="container-fluid py-4 payment-page">
 
     {{-- ============================================================
-        DETERMINE MEMBERSHIP APPROVAL FROM DATABASE
-        member_profiles.status MUST BE "approved"
+        USER INFORMATION
     ============================================================ --}}
 
     @php
-
-        $membershipStatus = strtolower(trim($profile->status ?? ''));
+        $user = auth()->user();
 
         /*
         |--------------------------------------------------------------------------
-        | IMPORTANT
+        | MEMBER TYPE
         |--------------------------------------------------------------------------
-        | A member is considered APPROVED ONLY when the admin has changed
-        | member_profiles.status to "approved".
-        |
-        | submitted = waiting for admin approval
-        | draft     = application not submitted
-        | approved  = admin approved the application
+        | Comes directly from users.member_type
+        | Values: regular / affiliate
         |--------------------------------------------------------------------------
         */
 
-        $isApproved = $membershipStatus === 'approved';
+        $memberType = $user->member_type ?? null;
 
+        /*
+        |--------------------------------------------------------------------------
+        | DISPLAY MEMBER TYPE
+        |--------------------------------------------------------------------------
+        */
+
+        $displayMemberType = $memberType
+            ? ucfirst($memberType)
+            : 'N/A';
     @endphp
 
 
     {{-- ============================================================
-        PAGE HEADER
+        HEADER
     ============================================================ --}}
 
-    <div class="mb-4">
+    <div class="payment-header">
 
-        <h3 class="fw-bold mb-1">
+        <h3>
             Payments
         </h3>
 
-        <p class="text-muted mb-0">
-            Manage your NACPDEAN membership payments and other payment
-            obligations.
+        <p>
+            Make your membership payment securely.
         </p>
 
     </div>
@@ -169,29 +234,15 @@
 
         <div class="alert alert-danger alert-dismissible fade show">
 
-            <i class="fas fa-exclamation-circle me-1"></i>
+            <i class="fas fa-exclamation-circle me-2"></i>
 
-            <strong>
-                Payment Error
-            </strong>
-
-            <ul class="mb-0 mt-2">
-
-                @foreach ($errors->all() as $error)
-
-                    <li>
-                        {{ $error }}
-                    </li>
-
-                @endforeach
-
-            </ul>
+            {{ $errors->first() }}
 
             <button
                 type="button"
                 class="btn-close"
-                data-bs-dismiss="alert"
-            ></button>
+                data-bs-dismiss="alert">
+            </button>
 
         </div>
 
@@ -206,15 +257,15 @@
 
         <div class="alert alert-success alert-dismissible fade show">
 
-            <i class="fas fa-check-circle me-1"></i>
+            <i class="fas fa-check-circle me-2"></i>
 
             {{ session('success') }}
 
             <button
                 type="button"
                 class="btn-close"
-                data-bs-dismiss="alert"
-            ></button>
+                data-bs-dismiss="alert">
+            </button>
 
         </div>
 
@@ -222,280 +273,85 @@
 
 
     {{-- ============================================================
-        FIRST-TIME MEMBER
+        MEMBERSHIP PAYMENT
     ============================================================ --}}
 
-    @if (!$currentCategory)
+    <div class="card payment-card">
 
-        <div class="card border-0 shadow-sm mb-4">
+        {{-- ========================================================
+            CARD HEADER
+        ======================================================== --}}
 
-            <div class="card-header bg-white py-3">
+        <div class="payment-card-header">
 
-                <h5 class="fw-bold mb-0">
-                    Membership Registration
+            <div class="d-flex justify-content-between align-items-center">
+
+                <h5>
+                    Membership Payment
                 </h5>
 
-            </div>
 
+                @if ($hasActiveAnnualMembership)
 
-            <div class="card-body">
+                    <span class="badge bg-success status-badge">
+                        Active
+                    </span>
 
-                <form
-                    method="POST"
-                    action="{{ route('payment.initialize') }}"
-                >
+                @elseif ($isApproved)
 
-                    @csrf
+                    <span class="badge bg-success status-badge">
+                        Approved
+                    </span>
 
-                    <input
-                        type="hidden"
-                        name="payment_option"
-                        value="membership"
-                    >
+                @else
 
+                    <span class="badge bg-warning text-dark status-badge">
+                        Payment Required
+                    </span>
 
-                    {{-- ====================================================
-                        MEMBER TYPE
-                    ==================================================== --}}
-
-                    <div class="mb-4">
-
-                        <label class="form-label fw-bold">
-                            Member Type
-                        </label>
-
-                        <input
-                            type="text"
-                            class="form-control"
-                            value="{{ ucfirst($memberType) }}"
-                            readonly
-                        >
-
-                        <small class="text-muted">
-                            Your member type was selected during registration.
-                        </small>
-
-                    </div>
-
-
-                    {{-- ====================================================
-                        MEMBERSHIP CATEGORY
-                    ==================================================== --}}
-
-                    <div class="mb-4">
-
-                        <label
-                            for="membership_category_id"
-                            class="form-label fw-bold"
-                        >
-                            Membership Category
-                        </label>
-
-                        <select
-                            name="membership_category_id"
-                            id="membership_category_id"
-                            class="form-select"
-                            required
-                        >
-
-                            <option value="">
-                                -- Select Membership Category --
-                            </option>
-
-                            @foreach ($categories as $category)
-
-                                <option
-                                    value="{{ $category->id }}"
-                                    {{ old('membership_category_id') == $category->id ? 'selected' : '' }}
-                                >
-
-                                    {{ $category->name }}
-                                    ({{ $category->code }})
-
-                                </option>
-
-                            @endforeach
-
-                        </select>
-
-
-                        @error('membership_category_id')
-
-                            <div class="text-danger mt-1">
-                                {{ $message }}
-                            </div>
-
-                        @enderror
-
-                    </div>
-
-
-                    {{-- ====================================================
-                        INFORMATION
-                    ==================================================== --}}
-
-                    <div class="alert alert-info">
-
-                        <i class="fas fa-info-circle me-2"></i>
-
-                        Your membership category is based on the
-                        member type you selected during registration.
-
-                    </div>
-
-
-                    {{-- ====================================================
-                        PAYMENT BUTTON
-                    ==================================================== --}}
-
-                    <button
-                        type="submit"
-                        class="btn btn-primary w-100"
-                    >
-
-                        <i class="fas fa-lock me-2"></i>
-
-                        Continue to Payment
-
-                    </button>
-
-                </form>
+                @endif
 
             </div>
 
         </div>
 
 
-    {{-- ============================================================
-        EXISTING MEMBER
-    ============================================================ --}}
-
-    @else
-
-
         {{-- ========================================================
-            ANNUAL MEMBERSHIP
+            CARD BODY
         ======================================================== --}}
 
-        <div class="card border-0 shadow-sm mb-4">
-
-            <div class="card-header bg-white py-3">
-
-                <div class="d-flex justify-content-between align-items-center">
-
-                    <h5 class="fw-bold mb-0">
-                        Annual Membership
-                    </h5>
+        <div class="payment-card-body">
 
 
-                    {{-- ====================================================
-                        MEMBERSHIP STATUS
-                    ==================================================== --}}
+            {{-- ====================================================
+                MEMBERSHIP CATEGORY
+            ==================================================== --}}
 
-                    @if ($hasActiveAnnualMembership)
+            @if ($currentCategory)
 
-                        {{-- ACTIVE PAYMENT --}}
+                <div class="row g-3 payment-details">
 
-                        <span class="badge bg-success">
-                            Active
-                        </span>
-
-
-                    @elseif ($isApproved)
-
-                        {{-- ADMIN HAS APPROVED THE MEMBER --}}
-
-                        <span class="badge bg-success">
-                            Approved
-                        </span>
-
-
-                    @else
-
-                        {{-- ADMIN HAS NOT APPROVED THE MEMBER --}}
-
-                        <span class="badge bg-warning text-dark">
-
-                            {{ ucfirst($membershipStatus ?: 'Pending') }}
-
-                        </span>
-
-                    @endif
-
-                </div>
-
-            </div>
-
-
-            <div class="card-body">
-
-
-                {{-- ====================================================
-                    CATEGORY + MEMBER TYPE
-                ==================================================== --}}
-
-                <div class="row mb-4">
-
-                    <div class="col-md-6 mb-3 mb-md-0">
-
-                        <span class="text-muted d-block info-label">
-                            Membership Category
-                        </span>
-
-                        <strong class="info-value">
-
-                            {{ $currentCategory->name }}
-                            ({{ $currentCategory->code }})
-
-                        </strong>
-
-                    </div>
-
+                    {{-- =================================================
+                        MEMBERSHIP CATEGORY
+                    ================================================= --}}
 
                     <div class="col-md-6">
 
-                        <span class="text-muted d-block info-label">
-                            Membership Type
-                        </span>
+                        <div class="category-box">
 
-                        <strong class="info-value">
-                            {{ ucfirst($memberType) }}
-                        </strong>
+                            <span class="category-label">
+                                Registered Membership Category
+                            </span>
 
-                    </div>
+                            <div class="category-name">
 
-                </div>
+                                {{ $currentCategory->name }}
 
+                                @if ($currentCategory->code)
 
-                {{-- ====================================================
-                    ADMIN APPROVAL STATUS
-                ==================================================== --}}
+                                    ({{ $currentCategory->code }})
 
-                @if (!$isApproved)
-
-                    <div class="alert alert-warning mb-4">
-
-                        <div class="d-flex align-items-start">
-
-                            <i class="fas fa-clock me-3 mt-1"></i>
-
-                            <div>
-
-                                <strong>
-                                    Membership Approval Pending
-                                </strong>
-
-                                <div class="mt-1">
-
-                                    Your membership application has not
-                                    yet been approved by the administrator.
-
-                                    Your membership will only become
-                                    <strong>Approved</strong> after the
-                                    administrator reviews and approves
-                                    your application.
-
-                                </div>
+                                @endif
 
                             </div>
 
@@ -503,11 +359,34 @@
 
                     </div>
 
-                @endif
+
+                    {{-- =================================================
+                        MEMBER TYPE
+                    ================================================= --}}
+
+                    <div class="col-md-6">
+
+                        <div class="category-box">
+
+                            <span class="category-label">
+                                Member Type
+                            </span>
+
+                            <div class="category-name">
+
+                                {{ $displayMemberType }}
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
 
 
                 {{-- ====================================================
-                    ANNUAL MEMBERSHIP IS ACTIVE
+                    ACTIVE MEMBERSHIP
                 ==================================================== --}}
 
                 @if ($hasActiveAnnualMembership)
@@ -516,88 +395,83 @@
 
                         <i class="fas fa-check-circle me-2"></i>
 
-                        Your annual membership is currently active.
+                        Your membership is active until
 
-                        @if ($profile->membership_expires_at ?? false)
-
-                            Your membership expires on
-
-                            <strong>
-
-                                {{ \Carbon\Carbon::parse($profile->membership_expires_at)->format('d M Y') }}
-
-                            </strong>.
-
-                        @endif
+                        <strong>
+                            {{ \Carbon\Carbon::parse($membership->expires_at)->format('d M Y') }}
+                        </strong>.
 
                     </div>
 
 
                 {{-- ====================================================
-                    APPROVED BUT ANNUAL MEMBERSHIP NOT PAID
+                    MEMBERSHIP PAYMENT
+                    PAYMENT MUST BE AVAILABLE BEFORE APPROVAL
                 ==================================================== --}}
 
-                @elseif ($isApproved)
+                @elseif ($membershipFee)
 
-                    <div class="alert alert-success mb-3">
+                    <div class="payment-row">
 
-                        <i class="fas fa-check-circle me-2"></i>
+                        <div>
 
-                        Your membership application has been
-                        <strong>approved by the administrator</strong>.
+                            <div class="fee-label">
+                                Membership Fee
+                            </div>
+
+                            <div class="fee-amount">
+
+                                ₦{{ number_format($membershipFee->amount, 2) }}
+
+                            </div>
+
+                        </div>
+
+
+                        {{-- =================================================
+                            PAY NOW
+                        ================================================= --}}
+
+                        <form
+                            method="POST"
+                            action="{{ route('payment.initialize') }}"
+                        >
+
+                            @csrf
+
+                            <input
+                                type="hidden"
+                                name="payment_option"
+                                value="membership"
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn btn-primary pay-btn"
+                            >
+
+                                <i class="fas fa-lock me-2"></i>
+
+                                Pay Now
+
+                            </button>
+
+                        </form>
 
                     </div>
 
 
-                    {{-- ====================================================
-                        MEMBERSHIP PAYMENT
-                    ==================================================== --}}
+                    {{-- =================================================
+                        PAYMENT NOTE
+                    ================================================= --}}
 
-                    @if ($membershipFee)
+                    @if (!$isApproved)
 
-                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <div class="payment-note">
 
-                            <div>
+                            <i class="fas fa-info-circle me-1"></i>
 
-                                <span class="text-muted d-block">
-                                    Annual Membership Fee
-                                </span>
-
-                                <strong class="payment-amount">
-
-                                    ₦{{ number_format($membershipFee->amount, 2) }}
-
-                                </strong>
-
-                            </div>
-
-
-                            <form
-                                method="POST"
-                                action="{{ route('payment.initialize') }}"
-                            >
-
-                                @csrf
-
-                                <input
-                                    type="hidden"
-                                    name="payment_option"
-                                    value="membership"
-                                >
-
-
-                                <button
-                                    type="submit"
-                                    class="btn btn-primary"
-                                >
-
-                                    <i class="fas fa-lock me-1"></i>
-
-                                    Pay Annual Membership
-
-                                </button>
-
-                            </form>
+                            Your application will be reviewed after payment.
 
                         </div>
 
@@ -605,17 +479,178 @@
 
 
                 {{-- ====================================================
-                    NOT APPROVED
+                    NO FEE
                 ==================================================== --}}
 
                 @else
 
-                    <div class="alert alert-info mb-0">
+                    <div class="alert alert-danger mb-0">
 
-                        <i class="fas fa-info-circle me-2"></i>
+                        <i class="fas fa-exclamation-circle me-2"></i>
 
-                        Your membership application is currently awaiting
-                        admin approval.
+                        Membership fee is not available for your
+                        registered category.
+
+                    </div>
+
+                @endif
+
+
+            {{-- ========================================================
+                NO CATEGORY
+            ======================================================== --}}
+
+            @else
+
+                <div class="empty-payment">
+
+                    <i class="fas fa-exclamation-circle text-danger"></i>
+
+                    <h6>
+                        Membership Category Not Found
+                    </h6>
+
+                    <p>
+                        Your membership category could not be determined.
+                    </p>
+
+                </div>
+
+            @endif
+
+        </div>
+
+    </div>
+
+
+    {{-- ============================================================
+        ADDITIONAL PAYMENTS
+        ONLY AFTER ADMIN APPROVAL
+    ============================================================ --}}
+
+    @if ($isApproved)
+
+        <div class="card payment-card additional-card">
+
+            <div class="payment-card-header">
+
+                <h5>
+                    Other Payments
+                </h5>
+
+            </div>
+
+
+            <div class="payment-card-body">
+
+                @if ($memberFees->count())
+
+                    @foreach ($memberFees as $memberFee)
+
+                        <div class="additional-item">
+
+                            <div class="row align-items-center">
+
+                                {{-- ====================================
+                                    FEE INFORMATION
+                                ==================================== --}}
+
+                                <div class="col-md-8">
+
+                                    <div class="additional-title">
+
+                                        {{ $memberFee->description ?? 'Additional Payment' }}
+
+                                    </div>
+
+
+                                    @if ($memberFee->fee_type)
+
+                                        <div class="additional-type">
+
+                                            {{ ucfirst(str_replace('_', ' ', $memberFee->fee_type)) }}
+
+                                        </div>
+
+                                    @endif
+
+
+                                    @if ($memberFee->due_date)
+
+                                        <div class="additional-type mt-1">
+
+                                            Due:
+
+                                            {{ \Carbon\Carbon::parse($memberFee->due_date)->format('d M Y') }}
+
+                                        </div>
+
+                                    @endif
+
+                                </div>
+
+
+                                {{-- ====================================
+                                    AMOUNT + PAYMENT
+                                ==================================== --}}
+
+                                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+
+                                    <div class="additional-amount">
+
+                                        ₦{{ number_format($memberFee->amount, 2) }}
+
+                                    </div>
+
+
+                                    <form
+                                        method="POST"
+                                        action="{{ route('payment.initialize') }}"
+                                    >
+
+                                        @csrf
+
+                                        <input
+                                            type="hidden"
+                                            name="payment_option"
+                                            value="member_fee_{{ $memberFee->id }}"
+                                        >
+
+                                        <button
+                                            type="submit"
+                                            class="btn btn-primary btn-sm px-4"
+                                        >
+
+                                            <i class="fas fa-lock me-1"></i>
+
+                                            Pay Now
+
+                                        </button>
+
+                                    </form>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    @endforeach
+
+
+                @else
+
+                    <div class="empty-payment">
+
+                        <i class="fas fa-check-circle text-success"></i>
+
+                        <h6>
+                            No Outstanding Payments
+                        </h6>
+
+                        <p>
+                            You have no additional payments at this time.
+                        </p>
 
                     </div>
 
@@ -624,250 +659,6 @@
             </div>
 
         </div>
-
-
-        {{-- ========================================================
-            ADDITIONAL PAYMENTS
-            ONLY AVAILABLE AFTER ADMIN APPROVAL
-        ======================================================== --}}
-
-        @if ($isApproved)
-
-            <div class="card border-0 shadow-sm mb-4">
-
-                <div class="card-header bg-white py-3">
-
-                    <h5 class="fw-bold mb-1">
-                        Other Payments
-                    </h5>
-
-                    <p class="text-muted mb-0">
-                        Pay for certificates, penalties and other
-                        charges assigned to your membership account.
-                    </p>
-
-                </div>
-
-
-                <div class="card-body">
-
-                    @if ($memberFees->count())
-
-                        @foreach ($memberFees as $memberFee)
-
-                            <div class="card border mb-3">
-
-                                <div class="card-body">
-
-                                    <div class="row align-items-center">
-
-                                        {{-- ====================================================
-                                            FEE INFORMATION
-                                        ==================================================== --}}
-
-                                        <div class="col-md-7">
-
-                                            <div class="d-flex align-items-center">
-
-                                                <div
-                                                    class="bg-light rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0"
-                                                    style="
-                                                        width:50px;
-                                                        height:50px;
-                                                    "
-                                                >
-
-                                                    @if (
-                                                        strtolower($memberFee->fee_type ?? '') === 'certificate'
-                                                    )
-
-                                                        <i class="fas fa-certificate fa-lg text-primary"></i>
-
-                                                    @elseif (
-                                                        strtolower($memberFee->fee_type ?? '') === 'penalty'
-                                                    )
-
-                                                        <i class="fas fa-exclamation-triangle fa-lg text-danger"></i>
-
-                                                    @elseif (
-                                                        strtolower($memberFee->fee_type ?? '') === 'id_card'
-                                                        ||
-                                                        strtolower($memberFee->fee_type ?? '') === 'id card'
-                                                    )
-
-                                                        <i class="fas fa-id-card fa-lg text-primary"></i>
-
-                                                    @else
-
-                                                        <i class="fas fa-file-invoice-dollar fa-lg text-primary"></i>
-
-                                                    @endif
-
-                                                </div>
-
-
-                                                <div>
-
-                                                    <h6 class="fw-bold mb-1 fee-description">
-
-                                                        {{ $memberFee->description ?? 'Additional Fee' }}
-
-                                                    </h6>
-
-
-                                                    @if ($memberFee->fee_type)
-
-                                                        <span class="badge bg-light text-dark">
-
-                                                            {{ ucfirst(str_replace('_', ' ', $memberFee->fee_type)) }}
-
-                                                        </span>
-
-                                                    @endif
-
-
-                                                    @if ($memberFee->due_date)
-
-                                                        <div class="text-muted mt-1">
-
-                                                            <i class="fas fa-calendar-alt me-1"></i>
-
-                                                            Due:
-
-                                                            {{ \Carbon\Carbon::parse($memberFee->due_date)->format('d M Y') }}
-
-                                                        </div>
-
-                                                    @endif
-
-                                                </div>
-
-                                            </div>
-
-                                        </div>
-
-
-                                        {{-- ====================================================
-                                            AMOUNT + PAYMENT
-                                        ==================================================== --}}
-
-                                        <div class="col-md-5 text-md-end mt-3 mt-md-0">
-
-                                            <div class="fw-bold payment-amount mb-2">
-
-                                                ₦{{ number_format($memberFee->amount, 2) }}
-
-                                            </div>
-
-
-                                            <form
-                                                method="POST"
-                                                action="{{ route('payment.initialize') }}"
-                                            >
-
-                                                @csrf
-
-                                                <input
-                                                    type="hidden"
-                                                    name="payment_option"
-                                                    value="member_fee_{{ $memberFee->id }}"
-                                                >
-
-
-                                                <button
-                                                    type="submit"
-                                                    class="btn btn-primary"
-                                                >
-
-                                                    <i class="fas fa-lock me-1"></i>
-
-                                                    Pay Now
-
-                                                </button>
-
-                                            </form>
-
-                                        </div>
-
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-                        @endforeach
-
-
-                    @else
-
-                        {{-- ====================================================
-                            NO ADDITIONAL FEES
-                        ==================================================== --}}
-
-                        <div class="text-center py-4">
-
-                            <div
-                                class="mb-3 mx-auto bg-light rounded-circle d-flex align-items-center justify-content-center"
-                                style="
-                                    width:70px;
-                                    height:70px;
-                                "
-                            >
-
-                                <i class="fas fa-check-circle fa-2x text-success"></i>
-
-                            </div>
-
-
-                            <h6 class="fw-bold empty-state-title">
-                                No Outstanding Payments
-                            </h6>
-
-
-                            <p class="text-muted mb-0">
-
-                                You currently have no additional fees
-                                available for payment.
-
-                            </p>
-
-                        </div>
-
-                    @endif
-
-                </div>
-
-            </div>
-
-
-        @else
-
-            {{-- ====================================================
-                ADDITIONAL PAYMENTS NOT YET AVAILABLE
-                BECAUSE ADMIN HAS NOT APPROVED MEMBER
-            ==================================================== --}}
-
-            <div class="card border-0 shadow-sm">
-
-                <div class="card-body">
-
-                    <div class="alert alert-info mb-0">
-
-                        <i class="fas fa-info-circle me-2"></i>
-
-                        Additional payments such as certificates,
-                        penalties and other membership charges will
-                        become available after your membership
-                        application has been approved by the
-                        administrator.
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        @endif
 
     @endif
 

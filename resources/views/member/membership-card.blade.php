@@ -134,11 +134,15 @@
             | RCG MEMBER
             |--------------------------------------------------------------------------
             |
-            | If is_rcg_member exists on MembershipCard, use it.
+            | The RCG logo should only show for members whose membership
+            | category is of type "affiliate" (currently only the RCG
+            | category), as defined on membership_categories.member_type.
             |
             */
 
-            $isRcgMember = (bool) ($card->is_rcg_member ?? false);
+            $isRcgMember = strtolower(
+                $card->category?->member_type ?? ''
+            ) === 'affiliate';
 
 
             /*
@@ -250,7 +254,7 @@
                                 @if ($isRcgMember)
 
                                     <img
-                                        src="{{ asset('images/rcc.jpeg') }}"
+                                        src="{{ asset('backend/assets/img/rcg.png') }}"
                                         class="bussy-rcg-logo"
                                         alt="RCG Logo"
                                     >
@@ -364,12 +368,12 @@
                                 </h4>
 
                                 <h4>
-                                    MEMBERSHIP IDENTIFICATION CARD
+                                    MEMBERSHIP IDENTIFICATION
                                 </h4>
 
-                                <div class="bussy-qr-enabled">
-                                    (QR ENABLED)
-                                </div>
+                                <h4>
+                                    CARD (QR ENABLED)
+                                </h4>
 
                             </div>
 
@@ -379,7 +383,7 @@
                             ========================================== --}}
                             <div class="bussy-qr-wrapper">
 
-                                {!! QrCode::size(175)->generate(
+                                {!! QrCode::size(190)->generate(
                                     $verificationUrl
                                 ) !!}
 
@@ -387,39 +391,7 @@
 
 
                             <div class="bussy-scan-me">
-                                SCAN ME TO VERIFY
-                            </div>
-
-
-                            {{-- =========================================
-                                CARD NUMBER
-                            ========================================== --}}
-                            <div class="bussy-back-card-number">
-
-                                <div>
-                                    CARD NUMBER
-                                </div>
-
-                                <strong>
-                                    {{ $cardNumber }}
-                                </strong>
-
-                            </div>
-
-
-                            {{-- =========================================
-                                MEMBERSHIP NUMBER
-                            ========================================== --}}
-                            <div class="bussy-back-card-number">
-
-                                <div>
-                                    MEMBERSHIP NUMBER
-                                </div>
-
-                                <strong>
-                                    {{ $membershipNumber }}
-                                </strong>
-
+                                SCAN ME
                             </div>
 
 
@@ -463,18 +435,6 @@
                                         www.nacpdean.org
                                     </strong>
                                 </div>
-
-                            </div>
-
-
-                            {{-- =========================================
-                                OFFICIAL NOTICE
-                            ========================================== --}}
-                            <div class="bussy-verification-note">
-
-                                This card is electronically verifiable
-                                through the official NACPDEAN membership
-                                verification system.
 
                             </div>
 
@@ -830,13 +790,13 @@
 
     position: absolute;
 
-    right: -11mm;
+    right: 6px;
 
-    top: 1mm;
+    top: 0;
 
-    width: 12mm;
+    height: 74px;
 
-    height: 16mm;
+    width: auto;
 
     object-fit: contain;
 
@@ -977,7 +937,7 @@
 
     margin-left: 20%;
 
-    padding: 1.2mm 0;
+    padding: 10px 0;
 
     background: #ed1c24;
 
@@ -1009,7 +969,7 @@
 
 .bussy-membership {
 
-    margin-top: 8px;
+    margin-top: 12px;
 
     padding-right: 20px;
 
@@ -1052,7 +1012,7 @@
 
     height: 100%;
 
-    padding: 30px 28px;
+    padding: 36px 26px;
 
     display: flex;
 
@@ -1073,7 +1033,7 @@
 
     width: 100%;
 
-    margin-bottom: 10px;
+    margin-bottom: 6px;
 
 }
 
@@ -1084,24 +1044,11 @@
 
     color: #111;
 
-    font-size: 16px;
+    font-size: 18px;
 
     font-weight: 900;
 
-    line-height: 1.3;
-
-}
-
-
-.bussy-qr-enabled {
-
-    margin-top: 5px;
-
-    font-size: 11px;
-
-    color: #777;
-
-    font-weight: 600;
+    line-height: 1.35;
 
 }
 
@@ -1112,13 +1059,15 @@
 
 .bussy-qr-wrapper {
 
-    margin-top: 15px;
+    margin-top: 26px;
 
-    padding: 12px;
+    padding: 14px;
 
     background: white;
 
-    border: 1px solid #ddd;
+    border: 10px solid #000;
+
+    border-radius: 4px;
 
     display: flex;
 
@@ -1133,9 +1082,9 @@
 
     display: block;
 
-    width: 175px;
+    width: 190px;
 
-    height: 175px;
+    height: 190px;
 
 }
 
@@ -1146,64 +1095,15 @@
 
 .bussy-scan-me {
 
-    margin-top: 10px;
+    margin-top: 22px;
 
-    font-size: 15px;
+    font-size: 28px;
 
     font-weight: 900;
-
-    color: #00a651;
-
-    letter-spacing: .5px;
-
-}
-
-
-/* ================================================================
-   BACK CARD NUMBER
-================================================================ */
-
-.bussy-back-card-number {
-
-    width: 100%;
-
-    margin-top: 15px;
-
-    padding: 8px 10px;
-
-    background: #f6f7f7;
-
-    border: 1px solid #e1e1e1;
-
-}
-
-
-.bussy-back-card-number div {
-
-    font-size: 9px;
-
-    font-weight: 700;
-
-    color: #777;
-
-    letter-spacing: .5px;
-
-}
-
-
-.bussy-back-card-number strong {
-
-    display: block;
-
-    margin-top: 2px;
 
     color: #111;
 
-    font-size: 12px;
-
-    font-weight: 900;
-
-    word-break: break-word;
+    letter-spacing: .5px;
 
 }
 
@@ -1216,11 +1116,11 @@
 
     width: 100%;
 
-    margin-top: 17px;
+    margin-top: 28px;
 
-    font-size: 11px;
+    font-size: 15px;
 
-    line-height: 1.5;
+    line-height: 1.6;
 
     color: #222;
 
@@ -1229,14 +1129,13 @@
 
 .bussy-contact p {
 
-    margin-bottom: 3px;
-
+    margin-bottom: 6px;
 }
 
 
 .bussy-contact strong {
 
-    font-size: 12px;
+    font-size: 22px;
 
 }
 
@@ -1249,49 +1148,20 @@
 
     width: 100%;
 
-    margin-top: 12px;
-
-    padding-top: 10px;
-
-    border-top: 1px solid #ddd;
+    margin-top: 22px;
 
     color: #333;
 
-    font-size: 9px;
+    font-size: 13px;
 
-    line-height: 1.7;
+    line-height: 1.8;
 
 }
 
 
 .bussy-contact-footer strong {
 
-    font-weight: 800;
-
-}
-
-
-/* ================================================================
-   VERIFICATION NOTE
-================================================================ */
-
-.bussy-verification-note {
-
-    margin-top: auto;
-
-    padding: 8px 10px;
-
-    width: 100%;
-
-    background: #f1f8f3;
-
-    border: 1px solid #cfe8d7;
-
-    color: #22613a;
-
-    font-size: 8px;
-
-    line-height: 1.4;
+    font-weight: 600;
 
 }
 

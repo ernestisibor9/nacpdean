@@ -21,6 +21,8 @@ class Payment extends Model
         'payment_reference',
         'paystack_reference',
         'reference',
+        'paystack_authorization_url',
+        'document_field_values',
         'gateway',
         'gateway_transaction_id',
         'gateway_status',
@@ -33,6 +35,7 @@ class Payment extends Model
     protected $casts = [
         'amount' => 'decimal:2',
         'gateway_response' => 'array',
+        'document_field_values' => 'array',
         'paid_at' => 'datetime',
         'verified_at' => 'datetime',
     ];

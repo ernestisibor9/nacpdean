@@ -55,13 +55,13 @@ class MemberProfile extends Model
     protected $casts = [
 
         'submitted_at' =>
-            'datetime',
+        'datetime',
 
         'approved_at' =>
-            'datetime',
+        'datetime',
 
         'date_of_birth' =>
-            'date',
+        'date',
 
     ];
 
@@ -122,5 +122,10 @@ class MemberProfile extends Model
             MembershipCard::class,
             'member_profile_id'
         );
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
     }
 }

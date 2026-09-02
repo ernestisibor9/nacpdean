@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Member;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\MembershipCard;
+use Carbon\Carbon;
 
 class MembershipVerificationController extends Controller
 {
@@ -16,17 +16,19 @@ class MembershipVerificationController extends Controller
 
     public function verify($qrToken)
     {
+        /*
+        |--------------------------------------------------------------------------
+        | FIND CARD
+        |--------------------------------------------------------------------------
+        */
+
         $card = MembershipCard::with([
             'membership',
             'profile',
             'category',
         ])
-            ->where(
-                'qr_token',
-                $qrToken
-            )
+            ->where('qr_token', trim($qrToken))
             ->first();
-
 
         /*
         |--------------------------------------------------------------------------
@@ -35,44 +37,40 @@ class MembershipVerificationController extends Controller
         */
 
         if (!$card) {
-
-            return view(
-                'verification.membership',
-                [
-                    'card' => null,
-                    'valid' => false,
-                ]
-            );
+            return view('verification.membership', [
+                'card' => null,
+                'valid' => false,
+            ]);
         }
-
 
         /*
         |--------------------------------------------------------------------------
-        | CHECK CARD STATUS
+        | CARD STATUS
         |--------------------------------------------------------------------------
         */
 
-        $valid = $card->status === 'active';
+        $valid = true;
 
+        if ($card->status !== 'active') {
+            $valid = false;
+        }
 
         /*
         |--------------------------------------------------------------------------
-        | CHECK EXPIRY
+        | CARD EXPIRY
         |--------------------------------------------------------------------------
         */
 
         if (
             $card->expires_at &&
-            $card->expires_at->isPast()
+            Carbon::parse($card->expires_at)->lt(today())
         ) {
-
             $valid = false;
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | VERIFY MEMBERSHIP
+        | MEMBERSHIP STATUS
         |--------------------------------------------------------------------------
         */
 
@@ -80,17 +78,38 @@ class MembershipVerificationController extends Controller
             !$card->membership ||
             $card->membership->status !== 'active'
         ) {
-
             $valid = false;
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | PROFILE
+        |--------------------------------------------------------------------------
+        */
 
-        return view(
-            'verification.membership',
-            compact(
-                'card',
-                'valid'
-            )
-        );
+        if (!$card->profile) {
+            $valid = false;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | CATEGORY
+        |--------------------------------------------------------------------------
+        */
+
+        if (!$card->category) {
+            $valid = false;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | VERIFICATION VIEW
+        |--------------------------------------------------------------------------
+        */
+
+        return view('verification.membership', [
+            'card' => $card,
+            'valid' => $valid,
+        ]);
     }
 }
