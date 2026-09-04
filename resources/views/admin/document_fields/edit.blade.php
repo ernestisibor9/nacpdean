@@ -6,12 +6,9 @@
     NACPDEAN - Admin Dashboard
 @endsection
 
-
 <div class="container-fluid">
 
-    {{-- ================================================================
-         HEADER
-    ================================================================= --}}
+    {{-- HEADER --}}
 
     <div class="d-flex justify-content-between align-items-center mb-4">
 
@@ -37,9 +34,7 @@
     </div>
 
 
-    {{-- ================================================================
-         VALIDATION ERRORS
-    ================================================================= --}}
+    {{-- ERRORS --}}
 
     @if($errors->any())
 
@@ -52,11 +47,7 @@
             <ul class="mb-0">
 
                 @foreach($errors->all() as $error)
-
-                    <li>
-                        {{ $error }}
-                    </li>
-
+                    <li>{{ $error }}</li>
                 @endforeach
 
             </ul>
@@ -66,9 +57,7 @@
     @endif
 
 
-    {{-- ================================================================
-         SYSTEM FIELD WARNING
-    ================================================================= --}}
+    {{-- SYSTEM WARNING --}}
 
     @if($field->is_system)
 
@@ -88,9 +77,7 @@
     @endif
 
 
-    {{-- ================================================================
-         FORM
-    ================================================================= --}}
+    {{-- UPDATE FORM --}}
 
     <form
         method="POST"
@@ -101,32 +88,23 @@
     >
 
         @csrf
-
         @method('PUT')
-
 
         <div class="row">
 
-            {{-- ========================================================
-                 MAIN FORM
-            ========================================================= --}}
+            {{-- MAIN --}}
 
             <div class="col-lg-8">
 
                 <div class="card shadow-sm mb-4">
 
                     <div class="card-header">
-
-                        <strong>
-                            Field Details
-                        </strong>
-
+                        <strong>Field Details</strong>
                     </div>
 
                     <div class="card-body">
 
-
-                        {{-- Field Key --}}
+                        {{-- FIELD KEY --}}
 
                         <div class="mb-3">
 
@@ -147,25 +125,15 @@
                             >
 
                             @error('field_key')
-
                                 <div class="invalid-feedback">
                                     {{ $message }}
                                 </div>
-
                             @enderror
-
-                            <div class="form-text">
-
-                                Example:
-
-                                <code>container_number</code>
-
-                            </div>
 
                         </div>
 
 
-                        {{-- Label --}}
+                        {{-- LABEL --}}
 
                         <div class="mb-3">
 
@@ -186,17 +154,15 @@
                             >
 
                             @error('label')
-
                                 <div class="invalid-feedback">
                                     {{ $message }}
                                 </div>
-
                             @enderror
 
                         </div>
 
 
-                        {{-- Field Type --}}
+                        {{-- FIELD TYPE --}}
 
                         <div class="mb-3">
 
@@ -207,6 +173,7 @@
 
                             <select
                                 name="field_type"
+                                id="field_type"
                                 class="form-select @error('field_type') is-invalid @enderror"
                                 required
                             >
@@ -240,17 +207,152 @@
                             </select>
 
                             @error('field_type')
-
                                 <div class="invalid-feedback">
                                     {{ $message }}
                                 </div>
-
                             @enderror
 
                         </div>
 
 
-                        {{-- Section --}}
+                        {{-- SELECT OPTIONS --}}
+
+                        <div
+                            id="selectOptionsContainer"
+                            class="card border-primary mb-4"
+                            style="display: none;"
+                        >
+
+                            <div class="card-header bg-primary text-white">
+
+                                <strong>
+                                    Select Options
+                                </strong>
+
+                            </div>
+
+                            <div class="card-body">
+
+                                <div class="small text-muted mb-3">
+
+                                    Configure the choices available to the
+                                    member.
+
+                                </div>
+
+                                <div id="optionsList">
+
+                                    @php
+                                        $options = old(
+                                            'options',
+                                            $field->options ?? []
+                                        );
+                                    @endphp
+
+                                    @forelse($options as $index => $option)
+
+                                        <div class="row g-2 mb-2 option-row">
+
+                                            <div class="col-md-5">
+
+                                                <input
+                                                    type="text"
+                                                    name="options[{{ $index }}][label]"
+                                                    value="{{ $option['label'] ?? '' }}"
+                                                    class="form-control"
+                                                    placeholder="Label"
+                                                >
+
+                                            </div>
+
+                                            <div class="col-md-5">
+
+                                                <input
+                                                    type="text"
+                                                    name="options[{{ $index }}][value]"
+                                                    value="{{ $option['value'] ?? '' }}"
+                                                    class="form-control"
+                                                    placeholder="Value"
+                                                >
+
+                                            </div>
+
+                                            <div class="col-md-2">
+
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-outline-danger w-100 remove-option"
+                                                >
+                                                    Remove
+                                                </button>
+
+                                            </div>
+
+                                        </div>
+
+                                    @empty
+
+                                        <div class="row g-2 mb-2 option-row">
+
+                                            <div class="col-md-5">
+
+                                                <input
+                                                    type="text"
+                                                    name="options[0][label]"
+                                                    class="form-control"
+                                                    placeholder="Label"
+                                                >
+
+                                            </div>
+
+                                            <div class="col-md-5">
+
+                                                <input
+                                                    type="text"
+                                                    name="options[0][value]"
+                                                    class="form-control"
+                                                    placeholder="Value"
+                                                >
+
+                                            </div>
+
+                                            <div class="col-md-2">
+
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-outline-danger w-100 remove-option"
+                                                >
+                                                    Remove
+                                                </button>
+
+                                            </div>
+
+                                        </div>
+
+                                    @endforelse
+
+                                </div>
+
+                                <button
+                                    type="button"
+                                    id="addOption"
+                                    class="btn btn-outline-primary btn-sm mt-2"
+                                >
+                                    + Add Option
+                                </button>
+
+                                @error('options')
+                                    <div class="text-danger small mt-2">
+                                        {{ $message }}
+                                    </div>
+                                @enderror
+
+                            </div>
+
+                        </div>
+
+
+                        {{-- SECTION --}}
 
                         <div class="mb-3">
 
@@ -272,7 +374,7 @@
                         </div>
 
 
-                        {{-- Placeholder --}}
+                        {{-- PLACEHOLDER --}}
 
                         <div class="mb-3">
 
@@ -293,7 +395,7 @@
                         </div>
 
 
-                        {{-- Default Value --}}
+                        {{-- DEFAULT --}}
 
                         <div class="mb-3">
 
@@ -313,7 +415,7 @@
                         </div>
 
 
-                        {{-- Sort Order --}}
+                        {{-- SORT ORDER --}}
 
                         <div class="mb-3">
 
@@ -341,26 +443,19 @@
             </div>
 
 
-            {{-- ========================================================
-                 BEHAVIOUR
-            ========================================================= --}}
+            {{-- BEHAVIOUR --}}
 
             <div class="col-lg-4">
 
                 <div class="card shadow-sm mb-4">
 
                     <div class="card-header">
-
-                        <strong>
-                            Field Behaviour
-                        </strong>
-
+                        <strong>Field Behaviour</strong>
                     </div>
 
                     <div class="card-body">
 
-
-                        {{-- System --}}
+                        {{-- SYSTEM --}}
 
                         <div class="form-check form-switch mb-4">
 
@@ -387,15 +482,13 @@
                             </label>
 
                             <div class="form-text">
-
                                 Automatically populated by the system.
-
                             </div>
 
                         </div>
 
 
-                        {{-- Required --}}
+                        {{-- REQUIRED --}}
 
                         <div class="form-check form-switch mb-4">
 
@@ -422,16 +515,14 @@
                             </label>
 
                             <div class="form-text">
-
                                 Manual fields must have a value before
                                 generation.
-
                             </div>
 
                         </div>
 
 
-                        {{-- Field Information --}}
+                        {{-- FIELD INFORMATION --}}
 
                         <div class="border rounded p-3 bg-light">
 
@@ -470,7 +561,7 @@
                 </div>
 
 
-                {{-- Save --}}
+                {{-- SAVE --}}
 
                 <div class="d-grid">
 
@@ -483,61 +574,207 @@
 
                 </div>
 
-
-                {{-- Delete --}}
-
-                @if(!$field->is_system)
-
-                    <div class="card border-danger mt-4">
-
-                        <div class="card-body">
-
-                            <h6 class="text-danger">
-                                Delete Field
-                            </h6>
-
-                            <p class="small text-muted">
-                                This permanently removes the field from
-                                this document configuration.
-                            </p>
-
-                            <form
-                                method="POST"
-                                action="{{ route(
-                                    'admin.documents.fields.destroy',
-                                    [$document, $field]
-                                ) }}"
-                                onsubmit="return confirm(
-                                    'Are you sure you want to delete this field?'
-                                );"
-                            >
-
-                                @csrf
-
-                                @method('DELETE')
-
-                                <button
-                                    type="submit"
-                                    class="btn btn-outline-danger"
-                                >
-                                    Delete Field
-                                </button>
-
-                            </form>
-
-                        </div>
-
-                    </div>
-
-                @endif
-
             </div>
 
         </div>
 
     </form>
 
+
+    {{-- DELETE FORM --}}
+    {{-- IMPORTANT: This is outside the update form. --}}
+
+    @if(!$field->is_system)
+
+        <div class="row">
+
+            <div class="col-lg-4 ms-auto">
+
+                <div class="card border-danger mt-4">
+
+                    <div class="card-body">
+
+                        <h6 class="text-danger">
+                            Delete Field
+                        </h6>
+
+                        <p class="small text-muted">
+                            This permanently removes the field from
+                            this document configuration.
+                        </p>
+
+                        <form
+                            method="POST"
+                            action="{{ route(
+                                'admin.documents.fields.destroy',
+                                [$document, $field]
+                            ) }}"
+                            onsubmit="return confirm(
+                                'Are you sure you want to delete this field?'
+                            );"
+                        >
+
+                            @csrf
+                            @method('DELETE')
+
+                            <button
+                                type="submit"
+                                class="btn btn-outline-danger"
+                            >
+                                Delete Field
+                            </button>
+
+                        </form>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    @endif
+
 </div>
+
+
+{{-- SELECT OPTIONS JAVASCRIPT --}}
+
+<script>
+
+document.addEventListener('DOMContentLoaded', function () {
+
+    const fieldType = document.getElementById('field_type');
+
+    const optionsContainer =
+        document.getElementById(
+            'selectOptionsContainer'
+        );
+
+    const optionsList =
+        document.getElementById('optionsList');
+
+    const addOptionButton =
+        document.getElementById('addOption');
+
+
+    let optionIndex =
+        optionsList.querySelectorAll(
+            '.option-row'
+        ).length;
+
+
+    function toggleOptions() {
+
+        if (fieldType.value === 'select') {
+
+            optionsContainer.style.display =
+                'block';
+
+        } else {
+
+            optionsContainer.style.display =
+                'none';
+
+        }
+
+    }
+
+
+    fieldType.addEventListener(
+        'change',
+        toggleOptions
+    );
+
+
+    addOptionButton.addEventListener(
+        'click',
+        function () {
+
+            const row =
+                document.createElement('div');
+
+            row.className =
+                'row g-2 mb-2 option-row';
+
+            row.innerHTML = `
+                <div class="col-md-5">
+
+                    <input
+                        type="text"
+                        name="options[${optionIndex}][label]"
+                        class="form-control"
+                        placeholder="Label"
+                    >
+
+                </div>
+
+                <div class="col-md-5">
+
+                    <input
+                        type="text"
+                        name="options[${optionIndex}][value]"
+                        class="form-control"
+                        placeholder="Value"
+                    >
+
+                </div>
+
+                <div class="col-md-2">
+
+                    <button
+                        type="button"
+                        class="btn btn-outline-danger w-100 remove-option"
+                    >
+                        Remove
+                    </button>
+
+                </div>
+            `;
+
+            optionsList.appendChild(row);
+
+            optionIndex++;
+
+        }
+    );
+
+
+    optionsList.addEventListener(
+        'click',
+        function (event) {
+
+            if (
+                event.target.classList.contains(
+                    'remove-option'
+                )
+            ) {
+
+                const rows =
+                    optionsList.querySelectorAll(
+                        '.option-row'
+                    );
+
+                if (rows.length > 1) {
+
+                    event.target
+                        .closest('.option-row')
+                        .remove();
+
+                }
+
+            }
+
+        }
+    );
+
+
+    toggleOptions();
+
+});
+
+</script>
 
 
 @endsection

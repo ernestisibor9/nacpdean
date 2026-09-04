@@ -24,10 +24,7 @@
         </div>
 
 
-        <a href="{{ route(
-            'admin.payment-items.index'
-        ) }}"
-           class="btn btn-outline-secondary">
+        <a href="{{ route('admin.payment-items.index') }}" class="btn btn-outline-secondary">
 
             <i class="bi bi-arrow-left"></i>
             Back
@@ -37,8 +34,7 @@
     </div>
 
 
-    @if($errors->any())
-
+    @if ($errors->any())
         <div class="alert alert-danger">
 
             <strong>
@@ -47,18 +43,15 @@
 
             <ul class="mb-0 mt-2">
 
-                @foreach($errors->all() as $error)
-
+                @foreach ($errors->all() as $error)
                     <li>
                         {{ $error }}
                     </li>
-
                 @endforeach
 
             </ul>
 
         </div>
-
     @endif
 
 
@@ -76,10 +69,7 @@
         <div class="card-body">
 
             <form method="POST"
-                  action="{{ route(
-                      'admin.payment-items.update',
-                      $paymentItem
-                  ) }}">
+                action="{{ route('admin.payment-items.update', $paymentItem) }}">
 
                 @csrf
                 @method('PUT')
@@ -95,14 +85,9 @@
                             <span class="text-danger">*</span>
                         </label>
 
-                        <input type="text"
-                               name="name"
-                               class="form-control @error('name') is-invalid @enderror"
-                               value="{{ old(
-                                   'name',
-                                   $paymentItem->name
-                               ) }}"
-                               required>
+                        <input type="text" name="name" class="form-control @error('name') is-invalid @enderror"
+                            value="{{ old('name', $paymentItem->name) }}"
+                            required>
 
                         @error('name')
                             <div class="invalid-feedback">
@@ -121,14 +106,9 @@
                             <span class="text-danger">*</span>
                         </label>
 
-                        <input type="text"
-                               name="code"
-                               class="form-control @error('code') is-invalid @enderror"
-                               value="{{ old(
-                                   'code',
-                                   $paymentItem->code
-                               ) }}"
-                               required>
+                        <input type="text" name="code" class="form-control @error('code') is-invalid @enderror"
+                            value="{{ old('code', $paymentItem->code) }}"
+                            required>
 
                         @error('code')
                             <div class="invalid-feedback">
@@ -147,31 +127,15 @@
                             <span class="text-danger">*</span>
                         </label>
 
-                        <select name="type"
-                                class="form-select @error('type') is-invalid @enderror"
-                                required>
+                        <select name="type" class="form-select @error('type') is-invalid @enderror" required>
 
-                            @foreach([
-                                'membership',
-                                'member_fee',
-                                'member_afforestation',
-                                'additional',
-                                'penalty',
-                                'other'
-                            ] as $type)
-
+                            @foreach (['membership', 'member_fee', 'member_afforestation', 'additional', 'penalty', 'other'] as $type)
                                 <option value="{{ $type }}"
-                                    {{ old(
-                                        'type',
-                                        $paymentItem->type
-                                    ) === $type ? 'selected' : '' }}>
+                                    {{ old('type', $paymentItem->type) === $type ? 'selected' : '' }}>
 
-                                    {{ ucwords(
-                                        str_replace('_', ' ', $type)
-                                    ) }}
+                                    {{ ucwords(str_replace('_', ' ', $type)) }}
 
                                 </option>
-
                             @endforeach
 
                         </select>
@@ -199,16 +163,10 @@
                                 ₦
                             </span>
 
-                            <input type="number"
-                                   name="amount"
-                                   step="0.01"
-                                   min="0"
-                                   class="form-control @error('amount') is-invalid @enderror"
-                                   value="{{ old(
-                                       'amount',
-                                       $paymentItem->amount
-                                   ) }}"
-                                   required>
+                            <input type="number" name="amount" step="0.01" min="0"
+                                class="form-control @error('amount') is-invalid @enderror"
+                                value="{{ old('amount', $paymentItem->amount) }}"
+                                required>
 
                         </div>
 
@@ -228,25 +186,19 @@
                             Membership Category
                         </label>
 
-                        <select name="membership_category_id"
-                                class="form-select">
+                        <select name="membership_category_id" class="form-select">
 
                             <option value="">
                                 None / All Categories
                             </option>
 
-                            @foreach($membershipCategories as $category)
-
+                            @foreach ($membershipCategories as $category)
                                 <option value="{{ $category->id }}"
-                                    {{ old(
-                                        'membership_category_id',
-                                        $paymentItem->membership_category_id
-                                    ) == $category->id ? 'selected' : '' }}>
+                                    {{ old('membership_category_id', $paymentItem->membership_category_id) == $category->id ? 'selected' : '' }}>
 
                                     {{ $category->name }}
 
                                 </option>
-
                             @endforeach
 
                         </select>
@@ -261,27 +213,20 @@
                             Document to Generate
                         </label>
 
-                        <select name="document_id"
-                                id="document_id"
-                                class="form-select">
+                        <select name="document_id" id="document_id" class="form-select">
 
                             <option value="">
                                 No Document
                             </option>
 
-                            @foreach($documents as $document)
-
+                            @foreach ($documents as $document)
                                 <option value="{{ $document->id }}"
-                                    {{ old(
-                                        'document_id',
-                                        $paymentItem->document_id
-                                    ) == $document->id ? 'selected' : '' }}>
+                                    {{ old('document_id', $paymentItem->document_id) == $document->id ? 'selected' : '' }}>
 
                                     {{ $document->name }}
                                     — {{ $document->code }}
 
                                 </option>
-
                             @endforeach
 
                         </select>
@@ -301,22 +246,13 @@
 
                         <div class="form-check form-switch mt-3">
 
-                            <input type="hidden"
-                                   name="is_renewable"
-                                   value="0">
+                            <input type="hidden" name="is_renewable" value="0">
 
-                            <input class="form-check-input"
-                                   type="checkbox"
-                                   name="is_renewable"
-                                   value="1"
-                                   id="is_renewable"
-                                   {{ old(
-                                       'is_renewable',
-                                       $paymentItem->is_renewable
-                                   ) ? 'checked' : '' }}>
+                            <input class="form-check-input" type="checkbox" name="is_renewable" value="1"
+                                id="is_renewable"
+                                {{ old('is_renewable', $paymentItem->is_renewable) ? 'checked' : '' }}>
 
-                            <label class="form-check-label"
-                                   for="is_renewable">
+                            <label class="form-check-label" for="is_renewable">
 
                                 Renewable Payment
 
@@ -332,28 +268,57 @@
 
                         <div class="form-check form-switch mt-3">
 
-                            <input type="hidden"
-                                   name="is_active"
-                                   value="0">
+                            <input type="hidden" name="is_active" value="0">
 
-                            <input class="form-check-input"
-                                   type="checkbox"
-                                   name="is_active"
-                                   value="1"
-                                   id="is_active"
-                                   {{ old(
-                                       'is_active',
-                                       $paymentItem->is_active
-                                   ) ? 'checked' : '' }}>
+                            <input class="form-check-input" type="checkbox" name="is_active" value="1"
+                                id="is_active"
+                                {{ old('is_active', $paymentItem->is_active) ? 'checked' : '' }}>
 
-                            <label class="form-check-label"
-                                   for="is_active">
+                            <label class="form-check-label" for="is_active">
 
                                 Active
 
                             </label>
 
                         </div>
+
+                    </div>
+
+                    {{-- Renewal Payment Item --}}
+                    <div class="col-md-6">
+
+                        <label class="form-label">
+                            Renewal Payment Item
+                        </label>
+
+                        <select name="renewal_payment_item_id" id="renewal_payment_item_id"
+                            class="form-select @error('renewal_payment_item_id') is-invalid @enderror">
+
+                            <option value="">
+                                No Renewal Payment Item
+                            </option>
+
+                            @foreach ($renewalPaymentItems as $renewalItem)
+                                <option value="{{ $renewalItem->id }}"
+                                    {{ old('renewal_payment_item_id', $paymentItem->renewal_payment_item_id) == $renewalItem->id ? 'selected' : '' }}>
+
+                                    {{ $renewalItem->name }}
+                                    — ₦{{ number_format($renewalItem->amount, 2) }}
+
+                                </option>
+                            @endforeach
+
+                        </select>
+
+                        <div class="form-text">
+                            Select the payment item members will use when renewing this payment item.
+                        </div>
+
+                        @error('renewal_payment_item_id')
+                            <div class="invalid-feedback">
+                                {{ $message }}
+                            </div>
+                        @enderror
 
                     </div>
 
@@ -364,8 +329,7 @@
 
 
                 {{-- Current Document --}}
-                @if($paymentItem->document)
-
+                @if ($paymentItem->document)
                     <div class="alert alert-success">
 
                         <div class="d-flex align-items-start">
@@ -393,9 +357,7 @@
                         </div>
 
                     </div>
-
                 @else
-
                     <div class="alert alert-warning">
 
                         <strong>
@@ -410,24 +372,20 @@
                         </p>
 
                     </div>
-
                 @endif
 
 
                 <div class="d-flex justify-content-end gap-2">
 
-                    <a href="{{ route(
-                        'admin.payment-items.index'
-                    ) }}"
-                       class="btn btn-outline-secondary">
+                    <a href="{{ route('admin.payment-items.index') }}"
+                        class="btn btn-outline-secondary">
 
                         Cancel
 
                     </a>
 
 
-                    <button type="submit"
-                            class="btn btn-primary">
+                    <button type="submit" class="btn btn-primary">
 
                         <i class="bi bi-check-lg"></i>
                         Update Payment Item
@@ -444,5 +402,40 @@
 
 </div>
 
-@endsection
+<script>
+document.addEventListener('DOMContentLoaded', function () {
 
+    const renewableCheckbox =
+        document.getElementById('is_renewable');
+
+    const renewalPaymentItem =
+        document.getElementById('renewal_payment_item_id');
+
+    function updateRenewalField() {
+
+        if (!renewableCheckbox || !renewalPaymentItem) {
+            return;
+        }
+
+        if (renewableCheckbox.checked) {
+
+            renewalPaymentItem.disabled = false;
+
+        } else {
+
+            renewalPaymentItem.value = '';
+            renewalPaymentItem.disabled = true;
+
+        }
+    }
+
+    renewableCheckbox.addEventListener(
+        'change',
+        updateRenewalField
+    );
+
+    updateRenewalField();
+});
+</script>
+
+@endsection

@@ -13,6 +13,7 @@ class MembershipCategory extends Model
         'member_type',
         'description',
         'status',
+        'document_id',
     ];
 
     protected $casts = [
@@ -28,6 +29,10 @@ class MembershipCategory extends Model
     {
         return $this->hasMany(Payment::class);
     }
+    public function document()
+{
+    return $this->belongsTo(Document::class);
+}
 
     // public function profiles(): HasMany
     // {

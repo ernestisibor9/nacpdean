@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -14,6 +15,7 @@ class GeneratedDocument extends Model
         'tracking_code',
         'issued_at',
         'expires_at',
+        'replaced_by_document_id',
         'status',
         'field_values',
     ];
@@ -38,4 +40,12 @@ class GeneratedDocument extends Model
     {
         return $this->belongsTo(Transaction::class);
     }
+
+    public function replacedBy(): BelongsTo
+{
+    return $this->belongsTo(
+        GeneratedDocument::class,
+        'replaced_by_document_id'
+    );
+}
 }

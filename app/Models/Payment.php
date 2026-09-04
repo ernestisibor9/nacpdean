@@ -27,6 +27,7 @@ class Payment extends Model
         'gateway_transaction_id',
         'gateway_status',
         'gateway_response',
+        'renewal_document_id',
         'status',
         'paid_at',
         'verified_at',
@@ -69,11 +70,9 @@ class Payment extends Model
         );
     }
 
-    public function paymentItem()
+    public function paymentItem(): BelongsTo
     {
-        return $this->belongsTo(
-            PaymentItem::class
-        );
+        return $this->belongsTo(PaymentItem::class);
     }
 
     public function operationalRightsDocument(): HasOne
@@ -81,6 +80,14 @@ class Payment extends Model
         return $this->hasOne(
             OperationalRightsDocument::class,
             'payment_id'
+        );
+    }
+
+    public function renewalDocument(): BelongsTo
+    {
+        return $this->belongsTo(
+            GeneratedDocument::class,
+            'renewal_document_id'
         );
     }
 }

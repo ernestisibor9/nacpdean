@@ -19,6 +19,7 @@ class PaymentItemController extends Controller
         $paymentItems = PaymentItem::with([
             'membershipCategory',
             'document',
+            'renewalPaymentItem',
         ])
             ->latest('id')
             ->paginate(20);
@@ -46,11 +47,28 @@ class PaymentItemController extends Controller
             ->orderBy('name')
             ->get();
 
+        /*
+        |--------------------------------------------------------------------------
+        | Renewal Payment Items
+        |--------------------------------------------------------------------------
+        |
+        | These are the payment items that can be selected as the
+        | renewal item for another payment item.
+        |
+        */
+        $renewalPaymentItems = PaymentItem::where(
+            'is_active',
+            true
+        )
+            ->orderBy('name')
+            ->get();
+
         return view(
             'admin.payment_items.create',
             compact(
                 'documents',
-                'membershipCategories'
+                'membershipCategories',
+                'renewalPaymentItems'
             )
         );
     }
@@ -62,6 +80,7 @@ class PaymentItemController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
+
             'name' => [
                 'required',
                 'string',
@@ -89,11 +108,13 @@ class PaymentItemController extends Controller
 
             'membership_category_id' => [
                 'nullable',
+                'integer',
                 'exists:membership_categories,id',
             ],
 
             'document_id' => [
                 'nullable',
+                'integer',
                 'exists:documents,id',
             ],
 
@@ -106,17 +127,47 @@ class PaymentItemController extends Controller
                 'nullable',
                 'boolean',
             ],
+
+            'renewal_payment_item_id' => [
+                'nullable',
+                'integer',
+                'exists:payment_items,id',
+            ],
         ]);
+
+
 
         /*
         |--------------------------------------------------------------------------
         | CREATE
         |--------------------------------------------------------------------------
         */
-        $data['is_active'] = $request->boolean('is_active');
-        $data['is_renewable'] = $request->boolean('is_renewable');
+
+        $data['is_active'] =
+            $request->boolean('is_active');
+
+        $data['is_renewable'] =
+            $request->boolean('is_renewable');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | RENEWAL CONFIGURATION
+        |--------------------------------------------------------------------------
+        |
+        | If the payment item is not renewable, there should be no
+        | renewal payment item attached to it.
+        |
+        */
+
+        if (!$data['is_renewable']) {
+
+            $data['renewal_payment_item_id'] = null;
+        }
+
 
         PaymentItem::create($data);
+
 
         return redirect()
             ->route('admin.payment-items.index')
@@ -137,21 +188,46 @@ class PaymentItemController extends Controller
             ->get();
 
         $membershipCategories = MembershipCategory::where(
-            'is_active',
+            'status',
             true
         )
             ->orderBy('name')
             ->get();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Renewal Payment Items
+        |--------------------------------------------------------------------------
+        |
+        | Exclude the current payment item so an item cannot be configured
+        | to renew itself.
+        |
+        */
+
+        $renewalPaymentItems = PaymentItem::where(
+            'is_active',
+            true
+        )
+            ->where(
+                'id',
+                '!=',
+                $paymentItem->id
+            )
+            ->orderBy('name')
+            ->get();
+
 
         return view(
             'admin.payment_items.edit',
             compact(
                 'paymentItem',
                 'documents',
-                'membershipCategories'
+                'membershipCategories',
+                'renewalPaymentItems'
             )
         );
     }
+
 
     /**
      * Update payment item.
@@ -212,7 +288,49 @@ class PaymentItemController extends Controller
                 'nullable',
                 'boolean',
             ],
+
+            'renewal_payment_item_id' => [
+                'nullable',
+                'integer',
+                'exists:payment_items,id',
+                Rule::notIn([
+                    $paymentItem->id,
+                ]),
+            ],
         ]);
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | UPDATE FLAGS
+        |--------------------------------------------------------------------------
+        */
+
+        $isActive =
+            $request->boolean('is_active');
+
+        $isRenewable =
+            $request->boolean('is_renewable');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | RENEWAL CONFIGURATION
+        |--------------------------------------------------------------------------
+        |
+        | A non-renewable payment item must not have a renewal item.
+        |
+        */
+
+        $renewalPaymentItemId =
+            $validated['renewal_payment_item_id']
+            ?? null;
+
+
+        if (!$isRenewable) {
+
+            $renewalPaymentItemId = null;
+        }
 
 
         /*
@@ -224,33 +342,38 @@ class PaymentItemController extends Controller
         $paymentItem->update([
 
             'name' =>
-            $validated['name'],
+                $validated['name'],
 
             'code' =>
-            $validated['code'],
+                $validated['code'],
 
             'type' =>
-            $validated['type'],
+                $validated['type'],
 
             'amount' =>
-            $validated['amount'],
+                $validated['amount'],
 
             'membership_category_id' =>
-            $validated['membership_category_id'] ?? null,
+                $validated['membership_category_id']
+                ?? null,
 
             'document_id' =>
-            $validated['document_id'] ?? null,
+                $validated['document_id']
+                ?? null,
 
             'is_active' =>
-            $request->boolean('is_active'),
+                $isActive,
 
             'is_renewable' =>
-            $request->boolean('is_renewable'),
+                $isRenewable,
+
+            'renewal_payment_item_id' =>
+                $renewalPaymentItemId,
         ]);
 
 
         return redirect()
-            ->route('payment-items.index')
+            ->route('admin.payment-items.index')
             ->with(
                 'success',
                 'Payment item updated successfully.'

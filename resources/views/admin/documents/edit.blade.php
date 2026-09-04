@@ -716,92 +716,94 @@
 {{-- ============================================================= --}}
 {{-- VALIDITY JAVASCRIPT --}}
 {{-- ============================================================= --}}
-
 <script>
 
-document.addEventListener(
-    'DOMContentLoaded',
-    function () {
+document.addEventListener('DOMContentLoaded', function () {
 
-        const validityType =
-            document.getElementById(
-                'validity_type'
-            );
+    const validityType = document.getElementById('validity_type');
 
-        const valueContainer =
-            document.getElementById(
-                'validity_value_container'
-            );
+    const valueContainer =
+        document.getElementById('validity_value_container');
 
-        const dateContainer =
-            document.getElementById(
-                'validity_date_container'
-            );
+    const dateContainer =
+        document.getElementById('validity_date_container');
+
+    const validityValue =
+        document.querySelector('[name="validity_value"]');
+
+    const validityDate =
+        document.querySelector('[name="validity_date"]');
 
 
-        function updateValidityFields()
-        {
-            const type =
-                validityType.value;
+    function updateValidityFields() {
+
+        const type = validityType.value;
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | Numeric validity
-            |--------------------------------------------------------------------------
-            */
+        /*
+        |--------------------------------------------------------------------------
+        | Numeric validity
+        |--------------------------------------------------------------------------
+        */
 
-            if (
-                [
-                    'days',
-                    'months',
-                    'years'
-                ].includes(type)
-            ) {
+        const isNumericValidity = [
+            'days',
+            'months',
+            'years'
+        ].includes(type);
 
-                valueContainer.style.display =
-                    'block';
 
-            } else {
+        if (isNumericValidity) {
 
-                valueContainer.style.display =
-                    'none';
+            valueContainer.style.display = 'block';
 
-            }
+        } else {
 
+            valueContainer.style.display = 'none';
 
             /*
-            |--------------------------------------------------------------------------
-            | Fixed date
-            |--------------------------------------------------------------------------
+            | Prevent stale values from being submitted
             */
 
-            if (
-                type === 'fixed_date'
-            ) {
+            validityValue.value = '';
 
-                dateContainer.style.display =
-                    'block';
-
-            } else {
-
-                dateContainer.style.display =
-                    'none';
-
-            }
         }
 
 
-        validityType.addEventListener(
-            'change',
-            updateValidityFields
-        );
+        /*
+        |--------------------------------------------------------------------------
+        | Fixed date
+        |--------------------------------------------------------------------------
+        */
 
+        if (type === 'fixed_date') {
 
-        updateValidityFields();
+            dateContainer.style.display = 'block';
+
+        } else {
+
+            dateContainer.style.display = 'none';
+
+            /*
+            | Prevent stale values from being submitted
+            */
+
+            validityDate.value = '';
+
+        }
 
     }
-);
+
+
+    validityType.addEventListener(
+        'change',
+        updateValidityFields
+    );
+
+
+    updateValidityFields();
+
+});
 
 </script>
 

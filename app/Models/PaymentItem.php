@@ -17,6 +17,7 @@ class PaymentItem extends Model
         'document_id',
         'is_active',
         'is_renewable',
+        'renewal_payment_item_id',
     ];
 
 
@@ -55,6 +56,22 @@ class PaymentItem extends Model
     {
         return $this->hasMany(
             Transaction::class
+        );
+    }
+
+    public function renewalPaymentItem(): BelongsTo
+    {
+        return $this->belongsTo(
+            PaymentItem::class,
+            'renewal_payment_item_id'
+        );
+    }
+
+    public function renewalPaymentItems(): HasMany
+    {
+        return $this->hasMany(
+            PaymentItem::class,
+            'renewal_payment_item_id'
         );
     }
 }

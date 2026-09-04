@@ -19,9 +19,22 @@ use App\Http\Controllers\Admin\DocumentController as AdminDocumentController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\Admin\PaymentItemController;
 use App\Http\Controllers\GeneratedDocumentController;
+use App\Http\Controllers\PublicMemberController;
 use App\Http\Controllers\Admin\DocumentFieldController;
 
 // Public Routes
+
+// Public Routes
+
+Route::get('/exporters', [PublicMemberController::class, 'exporters'])->name('exporters');
+
+Route::get('/producers', [PublicMemberController::class, 'producers'])->name('producers');
+
+Route::get('/dealers', [PublicMemberController::class, 'dealers'])->name('dealers');
+
+Route::get('/suppliers', [PublicMemberController::class, 'suppliers'])->name('suppliers');
+
+
 Route::get('/', [HomeController::class, 'Index'])->name('index');
 Route::get('/about', [HomeController::class, 'About'])->name('about');
 Route::get('/board_of_trustees', [HomeController::class, 'Bot'])->name('bot');
@@ -81,7 +94,9 @@ Route::middleware(['auth', 'user.role:admin'])->prefix('admin')->name('admin.')-
         Route::post('/{field}/move-down', [DocumentFieldController::class, 'moveDown'])->name('move-down');
     });
 
-    Route::get('/payment/additional/fields', [PaymentController::class, 'getAdditionalPaymentFields'])->name('payment.additional.fields');
+    Route::post('/members/{id}/generate-renewal-debit',[MemberApplicationController::class, 'generateRenewalDebit'])->name('members.generate-renewal-debit');
+
+
 });
 
 /*
@@ -127,6 +142,13 @@ Route::middleware(['auth', 'user.role:member'])->group(function () {
     Route::get('/member/documents/{generatedDocument}', [GeneratedDocumentController::class, 'show'])->name('member.documents.show');
     Route::get('/member/documents/{generatedDocument}/print', [GeneratedDocumentController::class, 'print'])->name('member.documents.print');
     Route::get('/member/documents/{generatedDocument}/download', [GeneratedDocumentController::class, 'download'])->name('member.documents.download');
+
+   Route::get('/member/documents/{generatedDocument}/renew',[GeneratedDocumentController::class, 'renew'])->name('member.documents.renew');
+
+   Route::get('/membership/renewal',[PaymentController::class, 'membershipRenewal'])->name('membership.renewal');
+   Route::post('/membership/renewal/initialize',[PaymentController::class, 'initializeMembershipRenewal'])->name('membership.renewal.initialize');
+   Route::get('/membership/renewal/callback',[PaymentController::class, 'membershipRenewalCallback'])->name('membership.renewal.callback');
+
 });
 
 /*

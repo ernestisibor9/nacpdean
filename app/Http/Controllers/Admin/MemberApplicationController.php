@@ -9,6 +9,9 @@ use App\Models\MembershipCard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Services\DocumentGenerationService;
+use App\Services\TransactionService;
+use Illuminate\Support\Facades\Log;
 
 class MemberApplicationController extends Controller
 {
@@ -29,7 +32,6 @@ class MemberApplicationController extends Controller
 
                 $query->where('status', 'paid')
                     ->latest();
-
             },
         ])
             ->latest()
@@ -60,7 +62,6 @@ class MemberApplicationController extends Controller
 
                 $query->where('status', 'paid')
                     ->latest();
-
             },
         ])
             ->findOrFail($id);
@@ -87,15 +88,20 @@ class MemberApplicationController extends Controller
     |
     */
 
-    public function approve($id)
-    {
-        return DB::transaction(function () use ($id) {
+    public function approve(
+        $id,
+        DocumentGenerationService $documentGenerationService
+    ) {
+        return DB::transaction(function () use (
+            $id,
+            $documentGenerationService
+        ) {
 
             /*
-            |--------------------------------------------------------------------------
-            | GET APPLICATION
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | GET APPLICATION
+        |--------------------------------------------------------------------------
+        */
 
             $application = MemberProfile::with([
                 'user',
@@ -108,26 +114,26 @@ class MemberApplicationController extends Controller
 
 
             /*
-            |--------------------------------------------------------------------------
-            | ALREADY APPROVED
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | ALREADY APPROVED
+        |--------------------------------------------------------------------------
+        */
 
             if ($application->status === 'approved') {
 
                 return back()->with(
                     'error',
                     'This member has already been approved. Membership Number: ' .
-                    ($application->membership_number ?? 'Not assigned')
+                        ($application->membership_number ?? 'Not assigned')
                 );
             }
 
 
             /*
-            |--------------------------------------------------------------------------
-            | ONLY SUBMITTED APPLICATIONS
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | ONLY SUBMITTED APPLICATIONS
+        |--------------------------------------------------------------------------
+        */
 
             if ($application->status !== 'submitted') {
 
@@ -139,38 +145,10 @@ class MemberApplicationController extends Controller
 
 
             /*
-            |--------------------------------------------------------------------------
-            | PAYMENT
-            |--------------------------------------------------------------------------
-            */
-
-            $hasPaid = $application->user
-                ->payments()
-                ->where(
-                    'payment_type',
-                    'membership'
-                )
-                ->where(
-                    'status',
-                    'paid'
-                )
-                ->exists();
-
-
-            if (!$hasPaid) {
-
-                return back()->with(
-                    'error',
-                    'This member cannot be approved because payment has not been completed.'
-                );
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | MEMBERSHIP CATEGORY
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | MEMBERSHIP CATEGORY
+        |--------------------------------------------------------------------------
+        */
 
             if (!$application->membershipCategory) {
 
@@ -182,10 +160,10 @@ class MemberApplicationController extends Controller
 
 
             /*
-            |--------------------------------------------------------------------------
-            | CATEGORY CODE
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | CATEGORY CODE
+        |--------------------------------------------------------------------------
+        */
 
             $categoryCode = strtoupper(
                 trim(
@@ -197,10 +175,10 @@ class MemberApplicationController extends Controller
 
 
             /*
-            |--------------------------------------------------------------------------
-            | MEMBER TYPE
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | MEMBER TYPE
+        |--------------------------------------------------------------------------
+        */
 
             $memberType = strtolower(
                 trim(
@@ -212,10 +190,10 @@ class MemberApplicationController extends Controller
 
 
             /*
-            |--------------------------------------------------------------------------
-            | ALLOWED CATEGORIES
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | ALLOWED CATEGORIES
+        |--------------------------------------------------------------------------
+        */
 
             $allowedCategories = [
 
@@ -238,16 +216,16 @@ class MemberApplicationController extends Controller
                 return back()->with(
                     'error',
                     'Invalid membership category code: ' .
-                    $categoryCode
+                        $categoryCode
                 );
             }
 
 
             /*
-            |--------------------------------------------------------------------------
-            | ALLOWED MEMBER TYPES
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | ALLOWED MEMBER TYPES
+        |--------------------------------------------------------------------------
+        */
 
             $allowedMemberTypes = [
 
@@ -266,16 +244,16 @@ class MemberApplicationController extends Controller
                 return back()->with(
                     'error',
                     'Invalid member type: ' .
-                    $memberType
+                        $memberType
                 );
             }
 
 
             /*
-            |--------------------------------------------------------------------------
-            | RCG MUST BE AFFILIATE
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | RCG MUST BE AFFILIATE
+        |--------------------------------------------------------------------------
+        */
 
             if (
                 $categoryCode === 'RCG'
@@ -291,10 +269,10 @@ class MemberApplicationController extends Controller
 
 
             /*
-            |--------------------------------------------------------------------------
-            | REGULAR MEMBERSHIP TYPES
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | REGULAR MEMBERSHIP TYPES
+        |--------------------------------------------------------------------------
+        */
 
             if (
                 in_array(
@@ -319,10 +297,10 @@ class MemberApplicationController extends Controller
 
 
             /*
-            |--------------------------------------------------------------------------
-            | EXISTING MEMBERSHIP
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | EXISTING MEMBERSHIP
+        |--------------------------------------------------------------------------
+        */
 
             if ($application->membership) {
 
@@ -334,10 +312,46 @@ class MemberApplicationController extends Controller
 
 
             /*
-            |--------------------------------------------------------------------------
-            | STATE CODE
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | PAYMENT
+        |--------------------------------------------------------------------------
+        |
+        | The member must have a successful membership payment for
+        | THIS membership category.
+        |
+        */
+
+            $hasPaid = $application->user
+                ->payments()
+                ->where(
+                    'payment_type',
+                    'membership'
+                )
+                ->where(
+                    'membership_category_id',
+                    $application->membership_category_id
+                )
+                ->where(
+                    'status',
+                    'paid'
+                )
+                ->exists();
+
+
+            if (!$hasPaid) {
+
+                return back()->with(
+                    'error',
+                    'This member cannot be approved because payment has not been completed for the selected membership category.'
+                );
+            }
+
+
+            /*
+        |--------------------------------------------------------------------------
+        | STATE CODE
+        |--------------------------------------------------------------------------
+        */
 
             $stateCode = $this->getStateCode(
                 $application->state
@@ -371,10 +385,10 @@ class MemberApplicationController extends Controller
 
 
             /*
-            |--------------------------------------------------------------------------
-            | GENERATE MEMBERSHIP NUMBER
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | GENERATE MEMBERSHIP NUMBER
+        |--------------------------------------------------------------------------
+        */
 
             $lastNumber = MemberProfile::where(
                 'membership_category_id',
@@ -399,7 +413,6 @@ class MemberApplicationController extends Controller
                     }
 
                     return 0;
-
                 })
                 ->max();
 
@@ -417,10 +430,10 @@ class MemberApplicationController extends Controller
 
 
             /*
-            |--------------------------------------------------------------------------
-            | MEMBERSHIP NUMBER
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | BUILD MEMBERSHIP NUMBER
+        |--------------------------------------------------------------------------
+        */
 
             if ($categoryCode === 'RCG') {
 
@@ -429,7 +442,6 @@ class MemberApplicationController extends Controller
                     $stateCode .
                     '-' .
                     $sequence;
-
             } elseif ($categoryCode === 'EXP') {
 
                 $membershipNumber =
@@ -437,7 +449,6 @@ class MemberApplicationController extends Controller
                     $stateCode .
                     '-' .
                     $sequence;
-
             } else {
 
                 $membershipNumber =
@@ -451,10 +462,10 @@ class MemberApplicationController extends Controller
 
 
             /*
-            |--------------------------------------------------------------------------
-            | DOUBLE CHECK NUMBER
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | DOUBLE CHECK MEMBERSHIP NUMBER
+        |--------------------------------------------------------------------------
+        */
 
             $duplicate = MemberProfile::where(
                 'membership_number',
@@ -472,161 +483,236 @@ class MemberApplicationController extends Controller
 
 
             /*
-            |--------------------------------------------------------------------------
-            | DATES
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | MEMBERSHIP DATES
+        |--------------------------------------------------------------------------
+        |
+        | Membership is valid until December 31 of the current year.
+        |
+        */
 
             $issuedAt = now();
 
-            $expiresAt = now()->addYear();
+            $expiresAt = now()->endOfYear();
 
 
             /*
-            |--------------------------------------------------------------------------
-            | UPDATE PROFILE
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | UPDATE MEMBER PROFILE
+        |--------------------------------------------------------------------------
+        */
 
             $application->update([
 
                 'membership_number' =>
-                    $membershipNumber,
+                $membershipNumber,
 
                 'status' =>
-                    'approved',
+                'approved',
 
                 'approved_at' =>
-                    $issuedAt,
+                $issuedAt,
 
                 'rejection_reason' =>
-                    null,
+                null,
 
                 'admin_comment' =>
-                    null,
+                null,
 
             ]);
 
 
             /*
-            |--------------------------------------------------------------------------
-            | CREATE MEMBERSHIP
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | CREATE MEMBERSHIP
+        |--------------------------------------------------------------------------
+        */
 
             $membership = Membership::create([
 
                 'user_id' =>
-                    $application->user_id,
+                $application->user_id,
 
                 'member_profile_id' =>
-                    $application->id,
+                $application->id,
 
                 'membership_category_id' =>
-                    $application->membership_category_id,
+                $application->membership_category_id,
 
                 'membership_number' =>
-                    $membershipNumber,
+                $membershipNumber,
 
                 'status' =>
-                    'active',
+                'active',
 
                 'issued_at' =>
-                    $issuedAt->toDateString(),
+                $issuedAt->toDateString(),
 
                 'expires_at' =>
-                    $expiresAt->toDateString(),
+                $expiresAt->toDateString(),
 
                 'approved_at' =>
-                    $issuedAt,
+                $issuedAt,
 
                 'approved_by' =>
-                    auth()->id(),
+                auth()->id(),
 
             ]);
 
 
             /*
-            |--------------------------------------------------------------------------
-            | GENERATE CARD NUMBER
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | GENERATE CARD NUMBER
+        |--------------------------------------------------------------------------
+        */
 
             $cardNumber = $this->generateCardNumber();
 
 
             /*
-            |--------------------------------------------------------------------------
-            | GENERATE QR TOKEN
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | GENERATE QR TOKEN
+        |--------------------------------------------------------------------------
+        */
 
             $qrToken = (string) Str::uuid();
 
 
             /*
-            |--------------------------------------------------------------------------
-            | CREATE MEMBERSHIP CARD
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | CREATE MEMBERSHIP CARD
+        |--------------------------------------------------------------------------
+        */
 
             MembershipCard::create([
 
                 'membership_id' =>
-                    $membership->id,
+                $membership->id,
 
                 'member_profile_id' =>
-                    $application->id,
+                $application->id,
 
                 'card_number' =>
-                    $cardNumber,
+                $cardNumber,
 
                 'membership_number' =>
-                    $membershipNumber,
+                $membershipNumber,
 
                 'membership_category_id' =>
-                    $application->membership_category_id,
+                $application->membership_category_id,
 
                 'issued_at' =>
-                    $issuedAt->toDateString(),
+                $issuedAt->toDateString(),
 
                 'expires_at' =>
-                    $expiresAt->toDateString(),
+                $expiresAt->toDateString(),
 
                 'qr_token' =>
-                    $qrToken,
+                $qrToken,
 
                 'status' =>
-                    'active',
+                'active',
 
                 'replaced_card_id' =>
-                    null,
+                null,
 
                 'generated_at' =>
-                    now(),
+                now(),
 
             ]);
 
 
             /*
-            |--------------------------------------------------------------------------
-            | UPDATE USER MEMBER TYPE
-            |--------------------------------------------------------------------------
-            */
+        |--------------------------------------------------------------------------
+        | UPDATE USER MEMBER TYPE
+        |--------------------------------------------------------------------------
+        */
 
             $application->user->update([
 
                 'member_type' =>
-                    $memberType,
+                $memberType,
 
             ]);
 
 
             /*
-            |--------------------------------------------------------------------------
-            | REDIRECT
-            |--------------------------------------------------------------------------
-            */
+|--------------------------------------------------------------------------
+| GENERATE MEMBERSHIP CERTIFICATE
+|--------------------------------------------------------------------------
+|
+| The membership certificate is OPTIONAL.
+|
+| Certificate generation must NOT prevent the member from being
+| approved successfully.
+|
+| If certificate generation fails, membership approval continues.
+| The failure is recorded in the Laravel log so it can be fixed
+| separately.
+|
+*/
+
+            $generatedCertificate = null;
+
+            try {
+
+                $generatedCertificate =
+                    $documentGenerationService
+                    ->generateMembershipCertificate(
+                        $application->user,
+                        $membership
+                    );
+            } catch (\Throwable $e) {
+
+                Log::warning(
+                    'OPTIONAL MEMBERSHIP CERTIFICATE GENERATION FAILED - APPROVAL CONTINUED',
+                    [
+                        'user_id' =>
+                        $application->user_id,
+
+                        'membership_id' =>
+                        $membership->id,
+
+                        'membership_number' =>
+                        $membershipNumber,
+
+                        'membership_category_id' =>
+                        $application->membership_category_id,
+
+                        'error' =>
+                        $e->getMessage(),
+
+                        'file' =>
+                        $e->getFile(),
+
+                        'line' =>
+                        $e->getLine(),
+                    ]
+                );
+            }
+
+
+            /*
+|--------------------------------------------------------------------------
+| REDIRECT
+|--------------------------------------------------------------------------
+*/
+
+            $message =
+                'Member application approved successfully. Membership Number: ' .
+                $membershipNumber;
+
+
+            if ($generatedCertificate) {
+
+                $message .=
+                    '. Membership certificate generated successfully.';
+            } else {
+
+                $message .=
+                    '. Membership certificate was not generated.';
+            }
+
 
             return redirect()
                 ->route(
@@ -635,8 +721,7 @@ class MemberApplicationController extends Controller
                 )
                 ->with(
                     'success',
-                    'Member application approved successfully. Membership Number: ' .
-                    $membershipNumber
+                    $message
                 );
         });
     }
@@ -692,13 +777,13 @@ class MemberApplicationController extends Controller
         $application->update([
 
             'status' =>
-                'rejected',
+            'rejected',
 
             'rejection_reason' =>
-                $request->rejection_reason,
+            $request->rejection_reason,
 
             'approved_at' =>
-                null,
+            null,
 
         ]);
 
@@ -786,122 +871,247 @@ class MemberApplicationController extends Controller
         $stateCodes = [
 
             'abia' =>
-                'ABI',
+            'ABI',
 
             'adamawa' =>
-                'ADA',
+            'ADA',
 
             'akwa ibom' =>
-                'AKW',
+            'AKW',
 
             'anambra' =>
-                'ANA',
+            'ANA',
 
             'bauchi' =>
-                'BAU',
+            'BAU',
 
             'bayelsa' =>
-                'BAY',
+            'BAY',
 
             'benue' =>
-                'BEN',
+            'BEN',
 
             'borno' =>
-                'BOR',
+            'BOR',
 
             'cross river' =>
-                'CRO',
+            'CRO',
 
             'delta' =>
-                'DEL',
+            'DEL',
 
             'ebonyi' =>
-                'EBO',
+            'EBO',
 
             'edo' =>
-                'EDO',
+            'EDO',
 
             'ekiti' =>
-                'EKT',
+            'EKT',
 
             'enugu' =>
-                'ENU',
+            'ENU',
 
             'gombe' =>
-                'GOM',
+            'GOM',
 
             'imo' =>
-                'IMO',
+            'IMO',
 
             'jigawa' =>
-                'JIG',
+            'JIG',
 
             'kaduna' =>
-                'KAD',
+            'KAD',
 
             'kano' =>
-                'KAN',
+            'KAN',
 
             'katsina' =>
-                'KAT',
+            'KAT',
 
             'kebbi' =>
-                'KEB',
+            'KEB',
 
             'kogi' =>
-                'KOG',
+            'KOG',
 
             'kwara' =>
-                'KWA',
+            'KWA',
 
             'lagos' =>
-                'LAG',
+            'LAG',
 
             'nasarawa' =>
-                'NAS',
+            'NAS',
 
             'niger' =>
-                'NIG',
+            'NIG',
 
             'ogun' =>
-                'OGU',
+            'OGU',
 
             'ondo' =>
-                'OND',
+            'OND',
 
             'osun' =>
-                'OSU',
+            'OSU',
 
             'oyo' =>
-                'OYO',
+            'OYO',
 
             'plateau' =>
-                'PLA',
+            'PLA',
 
             'rivers' =>
-                'RIV',
+            'RIV',
 
             'sokoto' =>
-                'SOK',
+            'SOK',
 
             'taraba' =>
-                'TAR',
+            'TAR',
 
             'yobe' =>
-                'YOB',
+            'YOB',
 
             'zamfara' =>
-                'ZAM',
+            'ZAM',
 
             'federal capital territory' =>
-                'FCT',
+            'FCT',
 
             'fct' =>
-                'FCT',
+            'FCT',
 
         ];
 
 
         return $stateCodes[$normalizedState] ?? null;
+    }
+
+
+
+
+
+    // Manual renewal for admin
+    /*
+|--------------------------------------------------------------------------
+| GENERATE RENEWAL DEBIT
+|--------------------------------------------------------------------------
+|
+| Temporary manual admin action for client presentation.
+|
+| This does NOT renew the membership.
+|
+| It only creates the financial debit that the member must pay
+| to renew the expired membership.
+|
+*/
+
+    public function generateRenewalDebit(
+        $id,
+        TransactionService $transactionService
+    ) {
+
+        /*
+    |--------------------------------------------------------------------------
+    | GET MEMBER APPLICATION
+    |--------------------------------------------------------------------------
+    */
+
+        $application = MemberProfile::with([
+            'user',
+            'membership',
+            'membershipCategory',
+        ])
+            ->findOrFail($id);
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | MEMBERSHIP MUST EXIST
+    |--------------------------------------------------------------------------
+    */
+
+        if (!$application->membership) {
+
+            return redirect()
+                ->back()
+                ->with(
+                    'error',
+                    'No membership record was found for this member.'
+                );
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | MEMBERSHIP MUST BE EXPIRED
+    |--------------------------------------------------------------------------
+    |
+    | We check the actual expiration date rather than relying only
+    | on the membership status.
+    |
+    */
+
+        if (
+            !$application->membership->expires_at ||
+            !today()->gt(
+                $application->membership->expires_at
+            )
+        ) {
+
+            return redirect()
+                ->back()
+                ->with(
+                    'error',
+                    'Renewal debit can only be generated for an expired membership.'
+                );
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | CREATE RENEWAL DEBIT
+    |--------------------------------------------------------------------------
+    */
+
+        $transaction =
+            $transactionService
+            ->createRenewalDebitIfExpired(
+                $application->user_id
+            );
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | FAILED
+    |--------------------------------------------------------------------------
+    */
+
+        if (!$transaction) {
+
+            return redirect()
+                ->back()
+                ->with(
+                    'error',
+                    'A renewal debit could not be generated.'
+                );
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | SUCCESS
+    |--------------------------------------------------------------------------
+    */
+
+        return redirect()
+            ->back()
+            ->with(
+                'success',
+                'Renewal debit generated successfully.'
+            );
     }
 }

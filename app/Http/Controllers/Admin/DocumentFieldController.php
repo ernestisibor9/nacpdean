@@ -23,16 +23,12 @@ class DocumentFieldController extends Controller
 
         return view(
             'admin.document_fields.index',
-            compact(
-                'document',
-                'fields'
-            )
+            compact('document', 'fields')
         );
     }
 
-
     /**
-     * Show create field form.
+     * Show create form.
      */
     public function create(Document $document)
     {
@@ -42,16 +38,12 @@ class DocumentFieldController extends Controller
         );
     }
 
-
     /**
      * Store a new document field.
      */
-    public function store(
-        Request $request,
-        Document $document
-    ) {
+    public function store(Request $request, Document $document)
+    {
         $validated = $request->validate([
-
             'field_key' => [
                 'required',
                 'string',
@@ -104,6 +96,23 @@ class DocumentFieldController extends Controller
                 'string',
             ],
 
+            'options' => [
+                'nullable',
+                'array',
+            ],
+
+            'options.*.label' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'options.*.value' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
             'is_required' => [
                 'nullable',
                 'boolean',
@@ -121,27 +130,11 @@ class DocumentFieldController extends Controller
             ],
         ]);
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | System Field Protection
-        |--------------------------------------------------------------------------
-        |
-        | A system field is populated automatically by the application.
-        |
-        | A manually supplied field is populated from user/admin input.
-        |
-        */
-
         $isSystem = $request->boolean('is_system');
 
-
         /*
-        |--------------------------------------------------------------------------
-        | System Fields Cannot Be File Inputs
-        |--------------------------------------------------------------------------
-        */
-
+         * System-generated fields cannot be file fields.
+         */
         if (
             $isSystem &&
             $validated['field_type'] === 'file'
@@ -154,50 +147,52 @@ class DocumentFieldController extends Controller
                 ]);
         }
 
-
         /*
-        |--------------------------------------------------------------------------
-        | Create Field
-        |--------------------------------------------------------------------------
-        */
+         * Only select fields should have options.
+         */
+        $options = [];
+
+        if ($validated['field_type'] === 'select') {
+            $options = $this->cleanOptions(
+                $validated['options'] ?? []
+            );
+
+            if (empty($options)) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'options' =>
+                            'Select fields must have at least one option.',
+                    ]);
+            }
+        }
 
         $field = new DocumentField();
 
         $field->document_id = $document->id;
+        $field->field_key = $validated['field_key'];
+        $field->label = $validated['label'];
+        $field->field_type = $validated['field_type'];
+        $field->section = $validated['section'] ?? null;
+        $field->placeholder = $validated['placeholder'] ?? null;
+        $field->default_value = $validated['default_value'] ?? null;
 
-        $field->field_key =
-            $validated['field_key'];
+        $field->options = $options;
 
-        $field->label =
-            $validated['label'];
+        /*
+         * System fields are never required from the member.
+         */
+        $field->is_required = $isSystem
+            ? false
+            : $request->boolean('is_required');
 
-        $field->field_type =
-            $validated['field_type'];
-
-        $field->section =
-            $validated['section'] ?? null;
-
-        $field->placeholder =
-            $validated['placeholder'] ?? null;
-
-        $field->default_value =
-            $validated['default_value'] ?? null;
-
-        $field->is_required =
-            $isSystem
-                ? false
-                : $request->boolean('is_required');
-
-        $field->is_system =
-            $isSystem;
+        $field->is_system = $isSystem;
 
         $field->sort_order =
             $validated['sort_order']
             ?? $this->getNextSortOrder($document);
 
-
         $field->save();
-
 
         return redirect()
             ->route(
@@ -210,9 +205,8 @@ class DocumentFieldController extends Controller
             );
     }
 
-
     /**
-     * Show edit field form.
+     * Show edit form.
      */
     public function edit(
         Document $document,
@@ -225,16 +219,12 @@ class DocumentFieldController extends Controller
 
         return view(
             'admin.document_fields.edit',
-            compact(
-                'document',
-                'field'
-            )
+            compact('document', 'field')
         );
     }
 
-
     /**
-     * Update document field.
+     * Update a document field.
      */
     public function update(
         Request $request,
@@ -246,9 +236,7 @@ class DocumentFieldController extends Controller
             $field
         );
 
-
         $validated = $request->validate([
-
             'field_key' => [
                 'required',
                 'string',
@@ -302,6 +290,23 @@ class DocumentFieldController extends Controller
                 'string',
             ],
 
+            'options' => [
+                'nullable',
+                'array',
+            ],
+
+            'options.*.label' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'options.*.value' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
             'is_required' => [
                 'nullable',
                 'boolean',
@@ -319,16 +324,11 @@ class DocumentFieldController extends Controller
             ],
         ]);
 
-
         $isSystem = $request->boolean('is_system');
 
-
         /*
-        |--------------------------------------------------------------------------
-        | System Field Cannot Be File
-        |--------------------------------------------------------------------------
-        */
-
+         * System-generated fields cannot be file fields.
+         */
         if (
             $isSystem &&
             $validated['field_type'] === 'file'
@@ -341,50 +341,46 @@ class DocumentFieldController extends Controller
                 ]);
         }
 
-
         /*
-        |--------------------------------------------------------------------------
-        | Update
-        |--------------------------------------------------------------------------
-        */
-
-        $field->field_key =
-            $validated['field_key'];
-
-        $field->label =
-            $validated['label'];
-
-        $field->field_type =
-            $validated['field_type'];
-
-        $field->section =
-            $validated['section'] ?? null;
-
-        $field->placeholder =
-            $validated['placeholder'] ?? null;
-
-        $field->default_value =
-            $validated['default_value'] ?? null;
-
-        $field->is_system =
-            $isSystem;
-
-        /*
-         * System fields are automatically populated.
-         * Therefore they should not be required as manual input.
+         * Only select fields should have options.
          */
-        $field->is_required =
-            $isSystem
-                ? false
-                : $request->boolean('is_required');
+        $options = [];
+
+        if ($validated['field_type'] === 'select') {
+            $options = $this->cleanOptions(
+                $validated['options'] ?? []
+            );
+
+            if (empty($options)) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'options' =>
+                            'Select fields must have at least one option.',
+                    ]);
+            }
+        }
+
+        $field->field_key = $validated['field_key'];
+        $field->label = $validated['label'];
+        $field->field_type = $validated['field_type'];
+        $field->section = $validated['section'] ?? null;
+        $field->placeholder = $validated['placeholder'] ?? null;
+        $field->default_value = $validated['default_value'] ?? null;
+
+        $field->options = $options;
+
+        $field->is_system = $isSystem;
+
+        $field->is_required = $isSystem
+            ? false
+            : $request->boolean('is_required');
 
         $field->sort_order =
             $validated['sort_order']
             ?? $field->sort_order;
 
-
         $field->save();
-
 
         return redirect()
             ->route(
@@ -397,9 +393,8 @@ class DocumentFieldController extends Controller
             );
     }
 
-
     /**
-     * Delete document field.
+     * Delete a document field.
      */
     public function destroy(
         Document $document,
@@ -410,28 +405,14 @@ class DocumentFieldController extends Controller
             $field
         );
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | Protect System Fields
-        |--------------------------------------------------------------------------
-        |
-        | System fields are part of the document configuration and should not
-        | accidentally be deleted.
-        |
-        */
-
         if ($field->is_system) {
-            return back()
-                ->with(
-                    'error',
-                    'System-generated fields cannot be deleted. Edit the field instead.'
-                );
+            return back()->with(
+                'error',
+                'System-generated fields cannot be deleted. Edit the field instead.'
+            );
         }
 
-
         $field->delete();
-
 
         return redirect()
             ->route(
@@ -443,7 +424,6 @@ class DocumentFieldController extends Controller
                 'Document field deleted successfully.'
             );
     }
-
 
     /**
      * Move field up.
@@ -457,60 +437,51 @@ class DocumentFieldController extends Controller
             $field
         );
 
-
         $previous = $document->fields()
             ->where(function ($query) use ($field) {
-                $query->where(
-                    'sort_order',
-                    '<',
-                    $field->sort_order
-                )->orWhere(function ($query) use ($field) {
-                    $query->where(
+                $query
+                    ->where(
                         'sort_order',
-                        $field->sort_order
-                    )->where(
-                        'id',
                         '<',
-                        $field->id
-                    );
-                });
+                        $field->sort_order
+                    )
+                    ->orWhere(function ($query) use ($field) {
+                        $query
+                            ->where(
+                                'sort_order',
+                                $field->sort_order
+                            )
+                            ->where(
+                                'id',
+                                '<',
+                                $field->id
+                            );
+                    });
             })
             ->orderByDesc('sort_order')
             ->orderByDesc('id')
             ->first();
 
-
         if (!$previous) {
-            return back()
-                ->with(
-                    'info',
-                    'This field is already at the top.'
-                );
+            return back()->with(
+                'info',
+                'This field is already at the top.'
+            );
         }
 
+        $currentOrder = $field->sort_order;
 
-        $currentOrder =
-            $field->sort_order;
-
-        $field->sort_order =
-            $previous->sort_order;
-
-        $previous->sort_order =
-            $currentOrder;
-
+        $field->sort_order = $previous->sort_order;
+        $previous->sort_order = $currentOrder;
 
         $field->save();
-
         $previous->save();
 
-
-        return back()
-            ->with(
-                'success',
-                'Field order updated.'
-            );
+        return back()->with(
+            'success',
+            'Field order updated.'
+        );
     }
-
 
     /**
      * Move field down.
@@ -524,76 +495,99 @@ class DocumentFieldController extends Controller
             $field
         );
 
-
         $next = $document->fields()
             ->where(function ($query) use ($field) {
-                $query->where(
-                    'sort_order',
-                    '>',
-                    $field->sort_order
-                )->orWhere(function ($query) use ($field) {
-                    $query->where(
+                $query
+                    ->where(
                         'sort_order',
-                        $field->sort_order
-                    )->where(
-                        'id',
                         '>',
-                        $field->id
-                    );
-                });
+                        $field->sort_order
+                    )
+                    ->orWhere(function ($query) use ($field) {
+                        $query
+                            ->where(
+                                'sort_order',
+                                $field->sort_order
+                            )
+                            ->where(
+                                'id',
+                                '>',
+                                $field->id
+                            );
+                    });
             })
             ->orderBy('sort_order')
             ->orderBy('id')
             ->first();
 
-
         if (!$next) {
-            return back()
-                ->with(
-                    'info',
-                    'This field is already at the bottom.'
-                );
+            return back()->with(
+                'info',
+                'This field is already at the bottom.'
+            );
         }
 
+        $currentOrder = $field->sort_order;
 
-        $currentOrder =
-            $field->sort_order;
-
-        $field->sort_order =
-            $next->sort_order;
-
-        $next->sort_order =
-            $currentOrder;
-
+        $field->sort_order = $next->sort_order;
+        $next->sort_order = $currentOrder;
 
         $field->save();
-
         $next->save();
 
-
-        return back()
-            ->with(
-                'success',
-                'Field order updated.'
-            );
+        return back()->with(
+            'success',
+            'Field order updated.'
+        );
     }
 
+    /**
+     * Clean select options before saving.
+     */
+    protected function cleanOptions(array $options): array
+    {
+        $cleaned = [];
+
+        foreach ($options as $option) {
+            $label = trim($option['label'] ?? '');
+            $value = trim($option['value'] ?? '');
+
+            /*
+             * Ignore completely empty rows.
+             */
+            if ($label === '' && $value === '') {
+                continue;
+            }
+
+            /*
+             * Both label and value are required for a real option.
+             */
+            if ($label === '' || $value === '') {
+                continue;
+            }
+
+            $cleaned[] = [
+                'label' => $label,
+                'value' => $value,
+            ];
+        }
+
+        return $cleaned;
+    }
 
     /**
-     * Get next field sort order.
+     * Get the next field sort order.
      */
     protected function getNextSortOrder(
         Document $document
     ): int {
-        return (
-            (int) $document->fields()
-                ->max('sort_order')
-        ) + 1;
+        return ((int) $document
+            ->fields()
+            ->max('sort_order')) + 1;
     }
 
-
     /**
-     * Make sure field belongs to the document in the URL.
+     * Ensure the field belongs to the selected document.
      */
     protected function ensureFieldBelongsToDocument(
         Document $document,

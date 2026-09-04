@@ -6,8 +6,8 @@
 
     <style>
         /* =========================================================
-                                           NACPDEAN MEMBER DASHBOARD
-                                        ========================================================= */
+                                                   NACPDEAN MEMBER DASHBOARD
+                                                ========================================================= */
 
         .nacp-dashboard {
             min-height: calc(100vh - 60px);
@@ -21,8 +21,8 @@
 
 
         /* =========================================================
-                                           HERO
-                                        ========================================================= */
+                                                   HERO
+                                                ========================================================= */
 
         .nacp-hero {
             position: relative;
@@ -94,8 +94,8 @@
 
 
         /* =========================================================
-                                           ALERT
-                                        ========================================================= */
+                                                   ALERT
+                                                ========================================================= */
 
         .nacp-alert {
             border: 0;
@@ -109,8 +109,8 @@
 
 
         /* =========================================================
-                                           PAYMENT REQUIRED
-                                        ========================================================= */
+                                                   PAYMENT REQUIRED
+                                                ========================================================= */
 
         .payment-required {
             background: #fff;
@@ -224,8 +224,8 @@
 
 
         /* =========================================================
-                                           BUTTONS
-                                        ========================================================= */
+                                                   BUTTONS
+                                                ========================================================= */
 
         .nacp-btn {
             display: inline-flex;
@@ -274,8 +274,8 @@
 
 
         /* =========================================================
-                                           STAT CARDS
-                                        ========================================================= */
+                                                   STAT CARDS
+                                                ========================================================= */
 
         .nacp-stat {
             background: #fff;
@@ -347,8 +347,8 @@
         }
 
         /* =========================================================
-                           GENERATED NACPDEAN ID CARD
-                        ========================================================= */
+                                   GENERATED NACPDEAN ID CARD
+                                ========================================================= */
 
         .nacp-generated-id-card {
             width: 100%;
@@ -536,8 +536,8 @@
 
 
         /* =========================================================
-                                           MAIN CARDS
-                                        ========================================================= */
+                                                   MAIN CARDS
+                                                ========================================================= */
 
         .nacp-card {
             background: #fff;
@@ -589,8 +589,8 @@
 
 
         /* =========================================================
-                                           MEMBER PROFILE
-                                        ========================================================= */
+                                                   MEMBER PROFILE
+                                                ========================================================= */
 
         .member-profile {
             display: flex;
@@ -638,8 +638,8 @@
 
 
         /* =========================================================
-                                           STATUS BADGES
-                                        ========================================================= */
+                                                   STATUS BADGES
+                                                ========================================================= */
 
         .nacp-status {
             display: inline-flex;
@@ -675,8 +675,8 @@
 
 
         /* =========================================================
-                                           DETAILS
-                                        ========================================================= */
+                                                   DETAILS
+                                                ========================================================= */
 
         .nacp-detail {
             display: flex;
@@ -707,8 +707,8 @@
 
 
         /* =========================================================
-                                           PAYMENT CARD
-                                        ========================================================= */
+                                                   PAYMENT CARD
+                                                ========================================================= */
 
         .payment-summary {
             display: flex;
@@ -745,8 +745,8 @@
 
 
         /* =========================================================
-                                           MEMBERSHIP
-                                        ========================================================= */
+                                                   MEMBERSHIP
+                                                ========================================================= */
 
         .membership-highlight {
             padding: 17px;
@@ -773,8 +773,8 @@
 
 
         /* =========================================================
-                                           QUICK ACTIONS
-                                        ========================================================= */
+                                                   QUICK ACTIONS
+                                                ========================================================= */
 
         .quick-action {
             display: flex;
@@ -835,8 +835,8 @@
 
 
         /* =========================================================
-                                           ID CARD
-                                        ========================================================= */
+                                                   ID CARD
+                                                ========================================================= */
 
         .id-card-preview {
             width: 100%;
@@ -886,8 +886,72 @@
 
 
         /* =========================================================
-                                           APPLICATION STATUS
-                                        ========================================================= */
+   UNPAID MEMBERSHIP ID CARD
+========================================================= */
+
+.id-card-unpaid {
+    position: relative;
+    overflow: hidden;
+}
+
+.id-card-unpaid::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 85%;
+    height: 85%;
+    transform: translate(-50%, -50%) rotate(-12deg);
+    border: 14px solid #dc2626;
+    border-radius: 18px;
+    opacity: .92;
+    pointer-events: none;
+    z-index: 20;
+}
+
+.id-card-unpaid::before {
+    content: "×";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) rotate(-12deg);
+    color: #dc2626;
+    font-size: 230px;
+    line-height: 1;
+    font-weight: 900;
+    opacity: .92;
+    pointer-events: none;
+    z-index: 21;
+    text-shadow:
+        0 2px 3px rgba(0, 0, 0, .15);
+}
+
+
+/* UNPAID LABEL */
+
+.id-card-unpaid-label {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) rotate(-12deg);
+    z-index: 22;
+    background: #dc2626;
+    color: #fff;
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, .2);
+    pointer-events: none;
+}
+
+
+        /* =========================================================
+                                                   APPLICATION STATUS
+                                                ========================================================= */
 
         .application-status-card {
             background: #fff;
@@ -964,8 +1028,8 @@
 
 
         /* =========================================================
-                                           MOBILE
-                                        ========================================================= */
+                                                   MOBILE
+                                                ========================================================= */
 
         @media (max-width: 768px) {
 
@@ -1116,6 +1180,8 @@
 
         }
     </style>
+
+
 
 
     <div class="nacp-dashboard">
@@ -1661,7 +1727,7 @@
 
                                         @if ($membershipCard)
 
-                                            <div class="nacp-generated-id-card">
+                                            <div class="nacp-generated-id-card {{ $membershipDebitNotPaid ? 'id-card-unpaid' : '' }}">
 
                                                 {{-- CARD HEADER --}}
                                                 <div class="nacp-id-header">
@@ -1823,12 +1889,22 @@
 
                                         </div>
 
-                                        @if ($membershipCard)
+                                        @if ($membershipCard && !$membershipDebitNotPaid)
                                             <a href="{{ route('membership.card') }}" class="nacp-btn-outline">
 
                                                 <i class="fas fa-expand"></i>
 
                                                 View Card
+
+                                            </a>
+                                        @endif
+
+                                        @if ($membershipCard && $membershipDebitNotPaid)
+                                            <a href="{{ route('membership.renewal') }}" class="nacp-btn-outline">
+
+                                                <i class="fas fa-expand"></i>
+
+                                                Renew Membership
 
                                             </a>
                                         @endif
@@ -1958,8 +2034,8 @@
                                             Membership Fee
                                         </h5>
 
-                                        <p class="nacp-card-subtitle">
-                                            Annual membership payment
+                                        <p class="nacp-card-subtitle text-danger">
+                                            Outstanding balance
                                         </p>
 
                                     </div>
@@ -2221,7 +2297,7 @@
                                                 </span>
 
                                                 <span class="quick-action-description">
-                                                    Membership approved
+                                                    Status
                                                 </span>
 
                                             </div>

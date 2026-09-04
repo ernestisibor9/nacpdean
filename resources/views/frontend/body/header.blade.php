@@ -152,6 +152,13 @@
                                 </a>
                             </li>
 
+                            <li>
+                                <a href="#"
+                                    class="{{ request()->routeIs('partnership') ? 'active' : '' }}">
+                                    Stakeholders Data
+                                </a>
+                            </li>
+
                         </ul>
 
                     </li>
@@ -213,25 +220,25 @@
                         <ul>
 
                             <li>
-                                <a href="exporters.php">
+                                <a href="{{route('exporters')}}">
                                     Exporter
                                 </a>
                             </li>
 
                             <li>
-                                <a href="suppliers.php">
+                                <a href="{{route('suppliers')}}">
                                     Suppliers
                                 </a>
                             </li>
 
                             <li>
-                                <a href="dealers.php">
+                                <a href="{{route('dealers')}}">
                                     Dealers
                                 </a>
                             </li>
 
                             <li>
-                                <a href="producers.php">
+                                <a href="{{ route('producers') }}">
                                     Producers
                                 </a>
                             </li>

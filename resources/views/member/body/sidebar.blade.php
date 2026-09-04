@@ -241,6 +241,47 @@
 
                     </a>
 
+
+                    {{-- DOCUMENTS --}}
+
+
+                {{-- Layouts --}}
+
+                <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#collapseLayouts"
+                    aria-expanded="false" aria-controls="collapseLayouts">
+
+                    <div class="sb-nav-link-icon">
+                        <i class="fas fa-columns"></i>
+                    </div>
+
+                    Documents
+
+                    <div class="sb-sidenav-collapse-arrow">
+                        <i class="fas fa-angle-down"></i>
+                    </div>
+
+                </a>
+
+
+                <div class="collapse" id="collapseLayouts" aria-labelledby="headingOne"
+                    data-bs-parent="#sidenavAccordion">
+
+                    <nav class="sb-sidenav-menu-nested nav">
+
+                        <a class="nav-link" href="{{ route('payment.additional') }}">
+                            Pay Documents
+                        </a>
+
+                        <a class="nav-link" href="{{ route('member.documents.index') }}">
+                            My Documents
+                        </a>
+
+                    </nav>
+
+                </div>
+
+
+{{--
                     <a class="nav-link" href="{{ route('payment.additional') }}">
 
                         <div class="sb-nav-link-icon">
@@ -249,72 +290,21 @@
 
                         Documents
 
-                    </a>
+                    </a>  --}}
 
 
                     {{-- CERTIFICATES --}}
 
-                    <a class="nav-link" href="#">
+                    {{--  <a class="nav-link" href="{{ route('member.documents.index') }}">
 
                         <div class="sb-nav-link-icon">
                             <i class="fas fa-certificate"></i>
                         </div>
 
-                        Certificates
+                       My Certificates
 
-                    </a>
+                    </a>  --}}
 
-
-                    {{-- RIGHTS DOCUMENTS --}}
-
-                    <a class="nav-link" href="#">
-
-                        <div class="sb-nav-link-icon">
-                            <i class="fas fa-file-contract"></i>
-                        </div>
-
-                        Rights Documents
-
-                    </a>
-
-
-                    {{-- PAYMENT RECEIPTS --}}
-
-                    <a class="nav-link" href="#">
-
-                        <div class="sb-nav-link-icon">
-                            <i class="fas fa-receipt"></i>
-                        </div>
-
-                        Payment Receipts
-
-                    </a>
-
-
-                    {{-- AFFORESTATION --}}
-
-                    <a class="nav-link" href="#">
-
-                        <div class="sb-nav-link-icon">
-                            <i class="fas fa-tree"></i>
-                        </div>
-
-                        Afforestation
-
-                    </a>
-
-
-                    {{-- TRANSIT PASS --}}
-
-                    <a class="nav-link" href="#">
-
-                        <div class="sb-nav-link-icon">
-                            <i class="fas fa-truck"></i>
-                        </div>
-
-                        Transit Pass
-
-                    </a>
                 @endif
 
 

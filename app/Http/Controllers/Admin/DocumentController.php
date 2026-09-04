@@ -43,6 +43,26 @@ class DocumentController extends Controller
      */
     public function store(Request $request)
     {
+        /*
+        |--------------------------------------------------------------------------
+        | Normalize Code First
+        |--------------------------------------------------------------------------
+        */
+
+        $normalizedCode = strtoupper(
+            Str::slug(
+                trim($request->input('code')),
+                '_'
+            )
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Validate
+        |--------------------------------------------------------------------------
+        */
+
         $validated = $request->validate([
 
             'name' => [
@@ -56,7 +76,6 @@ class DocumentController extends Controller
                 'string',
                 'max:100',
                 'alpha_dash',
-                'unique:documents,code',
             ],
 
             'description' => [
@@ -96,56 +115,106 @@ class DocumentController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Normalize Code
+        | Normalized Code Uniqueness
         |--------------------------------------------------------------------------
         */
 
-        $validated['code'] = strtoupper(
-            Str::slug(
-                $validated['code'],
-                '_'
-            )
-        );
+        if (
+            Document::where(
+                'code',
+                $normalizedCode
+            )->exists()
+        ) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'code' =>
+                        'A document with this code already exists.',
+                ]);
+        }
 
 
         /*
         |--------------------------------------------------------------------------
-        | Validity Protection
+        | Validity Configuration
+        |--------------------------------------------------------------------------
+        */
+
+        $validityType =
+            $validated['validity_type'];
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Days / Months / Years
         |--------------------------------------------------------------------------
         */
 
         if (
             in_array(
-                $validated['validity_type'],
-                ['days', 'months', 'years']
+                $validityType,
+                ['days', 'months', 'years'],
+                true
             )
+            &&
+            empty($validated['validity_value'])
         ) {
-
-            if (
-                empty($validated['validity_value'])
-            ) {
-                return back()
-                    ->withInput()
-                    ->withErrors([
-                        'validity_value' =>
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'validity_value' =>
                         'Validity value is required for this validity type.',
-                    ]);
-            }
+                ]);
         }
 
 
+        /*
+        |--------------------------------------------------------------------------
+        | Fixed Date
+        |--------------------------------------------------------------------------
+        */
+
         if (
-            $validated['validity_type'] === 'fixed_date'
+            $validityType === 'fixed_date'
             &&
             empty($validated['validity_date'])
         ) {
-
             return back()
                 ->withInput()
                 ->withErrors([
                     'validity_date' =>
-                    'Validity date is required when using a fixed date.',
+                        'Validity date is required when using a fixed date.',
                 ]);
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Normalize Unused Validity Values
+        |--------------------------------------------------------------------------
+        */
+
+        $validityValue = null;
+        $validityDate = null;
+
+
+        if (
+            in_array(
+                $validityType,
+                ['days', 'months', 'years'],
+                true
+            )
+        ) {
+            $validityValue =
+                $validated['validity_value'];
+        }
+
+
+        if (
+            $validityType === 'fixed_date'
+        ) {
+            $validityDate =
+                $validated['validity_date'];
         }
 
 
@@ -158,25 +227,25 @@ class DocumentController extends Controller
         $document = Document::create([
 
             'name' =>
-            $validated['name'],
+                $validated['name'],
 
             'code' =>
-            $validated['code'],
+                $normalizedCode,
 
             'description' =>
-            $validated['description'] ?? null,
+                $validated['description'] ?? null,
 
             'validity_type' =>
-            $validated['validity_type'],
+                $validityType,
 
             'validity_value' =>
-            $validated['validity_value'] ?? null,
+                $validityValue,
 
             'validity_date' =>
-            $validated['validity_date'] ?? null,
+                $validityDate,
 
             'is_active' =>
-            $request->boolean('is_active'),
+                $request->boolean('is_active'),
         ]);
 
 
@@ -213,6 +282,25 @@ class DocumentController extends Controller
         Request $request,
         Document $document
     ) {
+        /*
+        |--------------------------------------------------------------------------
+        | Normalize Code First
+        |--------------------------------------------------------------------------
+        */
+
+        $normalizedCode = strtoupper(
+            Str::slug(
+                trim($request->input('code')),
+                '_'
+            )
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Validate
+        |--------------------------------------------------------------------------
+        */
 
         $validated = $request->validate([
 
@@ -227,10 +315,6 @@ class DocumentController extends Controller
                 'string',
                 'max:100',
                 'alpha_dash',
-                Rule::unique(
-                    'documents',
-                    'code'
-                )->ignore($document->id),
             ],
 
             'description' => [
@@ -270,54 +354,99 @@ class DocumentController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Normalize Code
+        | Normalized Code Uniqueness
         |--------------------------------------------------------------------------
         */
 
-        $validated['code'] = strtoupper(
-            Str::slug(
-                $validated['code'],
-                '_'
+        $codeExists = Document::query()
+            ->where('code', $normalizedCode)
+            ->where(
+                'id',
+                '!=',
+                $document->id
             )
-        );
+            ->exists();
+
+
+        if ($codeExists) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'code' =>
+                        'A document with this code already exists.',
+                ]);
+        }
 
 
         /*
         |--------------------------------------------------------------------------
-        | Validity Protection
+        | Validity Configuration
         |--------------------------------------------------------------------------
         */
 
+        $validityType =
+            $validated['validity_type'];
+
+
         if (
             in_array(
-                $validated['validity_type'],
-                ['days', 'months', 'years']
+                $validityType,
+                ['days', 'months', 'years'],
+                true
             )
             &&
             empty($validated['validity_value'])
         ) {
-
             return back()
                 ->withInput()
                 ->withErrors([
                     'validity_value' =>
-                    'Validity value is required for this validity type.',
+                        'Validity value is required for this validity type.',
                 ]);
         }
 
 
         if (
-            $validated['validity_type'] === 'fixed_date'
+            $validityType === 'fixed_date'
             &&
             empty($validated['validity_date'])
         ) {
-
             return back()
                 ->withInput()
                 ->withErrors([
                     'validity_date' =>
-                    'Validity date is required when using a fixed date.',
+                        'Validity date is required when using a fixed date.',
                 ]);
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Normalize Unused Validity Values
+        |--------------------------------------------------------------------------
+        */
+
+        $validityValue = null;
+        $validityDate = null;
+
+
+        if (
+            in_array(
+                $validityType,
+                ['days', 'months', 'years'],
+                true
+            )
+        ) {
+            $validityValue =
+                $validated['validity_value'];
+        }
+
+
+        if (
+            $validityType === 'fixed_date'
+        ) {
+            $validityDate =
+                $validated['validity_date'];
         }
 
 
@@ -330,25 +459,25 @@ class DocumentController extends Controller
         $document->update([
 
             'name' =>
-            $validated['name'],
+                $validated['name'],
 
             'code' =>
-            $validated['code'],
+                $normalizedCode,
 
             'description' =>
-            $validated['description'] ?? null,
+                $validated['description'] ?? null,
 
             'validity_type' =>
-            $validated['validity_type'],
+                $validityType,
 
             'validity_value' =>
-            $validated['validity_value'] ?? null,
+                $validityValue,
 
             'validity_date' =>
-            $validated['validity_date'] ?? null,
+                $validityDate,
 
             'is_active' =>
-            $request->boolean('is_active'),
+                $request->boolean('is_active'),
         ]);
 
 
@@ -367,15 +496,14 @@ class DocumentController extends Controller
     /**
      * Delete document.
      *
-     * We protect documents that are already being used
-     * by payment items or generated documents.
+     * Documents already used by payment items
+     * or generated documents cannot be deleted.
      */
     public function destroy(Document $document)
     {
         if (
             $document->paymentItems()->exists()
         ) {
-
             return back()->with(
                 'error',
                 'This document cannot be deleted because it is linked to one or more payment items.'
@@ -386,7 +514,6 @@ class DocumentController extends Controller
         if (
             $document->generatedDocuments()->exists()
         ) {
-
             return back()->with(
                 'error',
                 'This document cannot be deleted because generated documents already exist for it.'
@@ -409,23 +536,41 @@ class DocumentController extends Controller
             );
     }
 
+
+    /**
+     * Preview document configuration.
+     */
     public function preview(Document $document)
     {
         $document->load([
             'fields' => function ($query) {
-                $query->orderBy('sort_order')
+                $query
+                    ->orderBy('sort_order')
                     ->orderBy('id');
             },
+
             'paymentItems',
         ]);
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | Supported System Fields
+        |--------------------------------------------------------------------------
+        */
+
         $systemFieldKeys = [
+
             'receipt_no',
+
             'document_no',
             'document_number',
+
             'tracking_code',
+
             'issued_at',
             'issue_date',
+
             'document_name',
             'document_code',
             'document_id',
@@ -433,18 +578,23 @@ class DocumentController extends Controller
             'member_name',
             'membership_no',
             'membership_number',
+
             'phone',
             'email',
+
             'surname',
             'first_name',
             'middle_name',
+
             'date_of_birth',
             'gender',
             'nationality',
+
             'address',
             'city',
             'state',
             'lga',
+
             'business_name',
             'business_registration_number',
             'business_type',
@@ -455,6 +605,7 @@ class DocumentController extends Controller
 
             'payment_reference',
             'reference',
+
             'payment_amount',
             'amount',
             'payment_date',
@@ -470,24 +621,51 @@ class DocumentController extends Controller
             'seller_dealing_right_number',
         ];
 
-        $fields = $document->fields->map(function ($field) use ($systemFieldKeys) {
 
-            $isSupportedSystemField =
-                in_array(
-                    $field->field_key,
-                    $systemFieldKeys,
-                    true
-                );
+        /*
+        |--------------------------------------------------------------------------
+        | Inspect Fields
+        |--------------------------------------------------------------------------
+        */
 
-            $field->is_supported_system_field =
-                !$field->is_system || $isSupportedSystemField;
+        $fields = $document->fields->map(
+            function ($field) use ($systemFieldKeys) {
 
-            return $field;
-        });
+                $isSupportedSystemField =
+                    in_array(
+                        $field->field_key,
+                        $systemFieldKeys,
+                        true
+                    );
+
+
+                $field->is_supported_system_field =
+                    !$field->is_system
+                    ||
+                    $isSupportedSystemField;
+
+
+                return $field;
+            }
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Configuration Warnings
+        |--------------------------------------------------------------------------
+        */
 
         $warnings = [];
 
+
         foreach ($fields as $field) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | Unsupported System Field
+            |--------------------------------------------------------------------------
+            */
 
             if (
                 $field->is_system &&
@@ -499,8 +677,16 @@ class DocumentController extends Controller
                     '" is not supported by the current DocumentGenerationService.';
             }
 
+
+            /*
+            |--------------------------------------------------------------------------
+            | Select Without Options
+            |--------------------------------------------------------------------------
+            */
+
             if (
-                $field->field_type === 'select' &&
+                $field->field_type === 'select'
+                &&
                 empty($field->options)
             ) {
                 $warnings[] =
@@ -508,6 +694,13 @@ class DocumentController extends Controller
                     $field->field_key .
                     '" does not have any options configured.';
             }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Empty Label
+            |--------------------------------------------------------------------------
+            */
 
             if (
                 empty($field->label)
@@ -517,7 +710,25 @@ class DocumentController extends Controller
                     $field->field_key .
                     '" has no label.';
             }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | System Field Marked Required
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                $field->is_system &&
+                $field->is_required
+            ) {
+                $warnings[] =
+                    'System field "' .
+                    $field->field_key .
+                    '" should not be marked as required.';
+            }
         }
+
 
         return view(
             'admin.documents.preview',

@@ -101,6 +101,45 @@ class DashboardController extends Controller
 
 
         /*
+|--------------------------------------------------------------------------
+| MEMBERSHIP DEBIT TRANSACTION
+|--------------------------------------------------------------------------
+|
+| The membership ID card is only valid when the membership
+| debit transaction has been paid.
+|
+| A membership debit has no payment_item_id.
+|
+*/
+
+        $membershipDebitTransaction = null;
+
+        $membershipDebitNotPaid = false;
+
+        if ($isApproved) {
+
+            $membershipDebitTransaction = Transaction::where(
+                'user_id',
+                $user->id
+            )
+                ->where(
+                    'type',
+                    'debit'
+                )
+                ->whereNull(
+                    'payment_item_id'
+                )
+                ->latest('id')
+                ->first();
+
+
+            $membershipDebitNotPaid =
+                $membershipDebitTransaction &&
+                $membershipDebitTransaction->status === 'not paid';
+        }
+
+
+        /*
         |--------------------------------------------------------------------------
         | MEMBER DASHBOARD STATUS
         |--------------------------------------------------------------------------
@@ -376,6 +415,8 @@ class DashboardController extends Controller
                 'outstandingBalance',
                 'membershipFee',
                 'membershipCard',
+                'membershipDebitTransaction',
+                'membershipDebitNotPaid',
             )
         );
     }

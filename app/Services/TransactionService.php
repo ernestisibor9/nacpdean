@@ -665,4 +665,121 @@ class TransactionService
             );
         });
     }
+
+
+
+
+    /*
+|--------------------------------------------------------------------------
+| CREATE RENEWAL DEBIT IF MEMBERSHIP IS EXPIRED
+|--------------------------------------------------------------------------
+|
+| This is currently triggered manually by an admin.
+|
+| Later, the scheduler/cron can call this same method automatically.
+|
+*/
+
+public function createRenewalDebitIfExpiredAdmin(int $userId): ?Transaction
+{
+    return DB::transaction(function () use ($userId) {
+
+        /*
+        |--------------------------------------------------------------------------
+        | GET LATEST MEMBERSHIP
+        |--------------------------------------------------------------------------
+        */
+
+        $membership = Membership::where(
+            'user_id',
+            $userId
+        )
+            ->latest()
+            ->lockForUpdate()
+            ->first();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | NO MEMBERSHIP
+        |--------------------------------------------------------------------------
+        */
+
+        if (!$membership) {
+
+            return null;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | CHECK EXPIRATION
+        |--------------------------------------------------------------------------
+        |
+        | Renewal debit can ONLY be generated when the membership
+        | has actually expired.
+        |
+        */
+
+        if (
+            !$membership->expires_at ||
+            !today()->gt($membership->expires_at)
+        ) {
+
+            return null;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | MARK MEMBERSHIP AS EXPIRED
+        |--------------------------------------------------------------------------
+        */
+
+        if ($membership->status !== 'expired') {
+
+            $membership->update([
+                'status' => 'expired',
+            ]);
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | MEMBERSHIP CATEGORY
+        |--------------------------------------------------------------------------
+        */
+
+        $categoryId =
+            $membership->membership_category_id;
+
+
+        if (!$categoryId) {
+
+            return null;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | CREATE MEMBERSHIP RENEWAL DEBIT
+        |--------------------------------------------------------------------------
+        |
+        | createMembershipDebit() already contains the logic for:
+        |
+        | - Renewal fee
+        | - Existing-member fee
+        | - Duplicate unpaid debit protection
+        |
+        */
+
+        return $this->createMembershipDebit(
+            $userId,
+            $categoryId,
+            true
+        );
+    });
+}
+
+
 }
