@@ -68,11 +68,10 @@ return new class extends Migration
             */
 
             $table->string('reference')->unique();
-
+            /* |-------------------------------------------------------------------------- | Paystack Reference |-------------------------------------------------------------------------- | | This stores the reference explicitly used with Paystack. | It is kept separately from the local payment reference for | compatibility with the existing payment/document workflow. | */
+            $table->string('paystack_reference')->nullable()->unique();
             $table->string('gateway')->default('paystack');
-
             $table->string('gateway_transaction_id')->nullable();
-
             $table->string('gateway_status')->nullable();
 
             /*

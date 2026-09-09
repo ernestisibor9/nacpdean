@@ -15,13 +15,9 @@
 
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet"
-    >
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
     <style>
-
         * {
             margin: 0;
             padding: 0;
@@ -73,13 +69,11 @@
             padding: 70px;
 
             background:
-                linear-gradient(
-                    135deg,
+                linear-gradient(135deg,
                     #022c22 0%,
                     #064e3b 40%,
                     #047857 75%,
-                    #059669 100%
-                );
+                    #059669 100%);
 
             color: white;
 
@@ -767,11 +761,9 @@
             border-radius: 11px;
 
             background:
-                linear-gradient(
-                    135deg,
+                linear-gradient(135deg,
                     #047857,
-                    #059669
-                );
+                    #059669);
 
             color: white;
 
@@ -906,7 +898,6 @@
             }
 
         }
-
     </style>
 
 </head>
@@ -932,10 +923,7 @@
 
                     <div class="brand-logo">
 
-                        <img
-                            src="{{ asset('frontend/assets/img/logo.png') }}"
-                            alt="NACPDEAN Logo"
-                        >
+                        <img src="{{ asset('frontend/assets/img/logo.png') }}" alt="NACPDEAN Logo">
 
                     </div>
 
@@ -1064,26 +1052,22 @@
                 <!-- SUCCESS -->
 
                 @if (session('success'))
-
                     <div class="alert alert-success">
 
                         {{ session('success') }}
 
                     </div>
-
                 @endif
 
 
                 <!-- ERROR -->
 
                 @if (session('error'))
-
                     <div class="alert alert-danger">
 
                         {{ session('error') }}
 
                     </div>
-
                 @endif
 
 
@@ -1096,11 +1080,9 @@
                         <ul>
 
                             @foreach ($errors->all() as $error)
-
                                 <li>
                                     {{ $error }}
                                 </li>
-
                             @endforeach
 
                         </ul>
@@ -1114,10 +1096,7 @@
                      REGISTRATION FORM
                 ================================================== -->
 
-                <form
-                    method="POST"
-                    action="{{ route('register') }}"
-                >
+                <form method="POST" action="{{ route('register') }}">
 
                     @csrf
 
@@ -1142,13 +1121,8 @@
 
                             <label class="membership-option">
 
-                                <input
-                                    type="radio"
-                                    name="member_type"
-                                    value="regular"
-                                    {{ old('member_type') === 'regular' ? 'checked' : '' }}
-                                    required
-                                >
+                                <input type="radio" name="member_type" value="regular"
+                                    {{ old('member_type') === 'regular' ? 'checked' : '' }} required>
 
 
                                 <div class="membership-option-content">
@@ -1175,12 +1149,8 @@
 
                             <label class="membership-option">
 
-                                <input
-                                    type="radio"
-                                    name="member_type"
-                                    value="affiliate"
-                                    {{ old('member_type') === 'affiliate' ? 'checked' : '' }}
-                                >
+                                <input type="radio" name="member_type" value="affiliate"
+                                    {{ old('member_type') === 'affiliate' ? 'checked' : '' }}>
 
 
                                 <div class="membership-option-content">
@@ -1206,13 +1176,11 @@
 
 
                         @error('member_type')
-
                             <div class="error-message">
 
                                 {{ $message }}
 
                             </div>
-
                         @enderror
 
                     </div>
@@ -1222,10 +1190,7 @@
                          MEMBERSHIP CATEGORY
                     ================================================== -->
 
-                    <div
-                        class="form-group"
-                        id="category-section"
-                    >
+                    <div class="form-group" id="category-section">
 
                         <label class="form-label">
 
@@ -1234,26 +1199,16 @@
                         </label>
 
 
-                        <div
-                            class="membership-options"
-                            id="category-options"
-                        >
+                        <div class="membership-options" id="category-options">
 
 
                             @forelse ($categories as $category)
+                                <label class="membership-option category-option"
+                                    data-member-type="{{ $category->member_type }}">
 
-                                <label
-                                    class="membership-option category-option"
-                                    data-member-type="{{ $category->member_type }}"
-                                >
-
-                                    <input
-                                        type="radio"
-                                        name="membership_category_id"
-                                        value="{{ $category->id }}"
+                                    <input type="radio" name="membership_category_id" value="{{ $category->id }}"
                                         data-member-type="{{ $category->member_type }}"
-                                        {{ old('membership_category_id') == $category->id ? 'checked' : '' }}
-                                    >
+                                        {{ old('membership_category_id') == $category->id ? 'checked' : '' }}>
 
 
                                     <div class="membership-option-content">
@@ -1263,22 +1218,18 @@
                                             {{ $category->name }}
 
                                             @if ($category->code)
-
                                                 ({{ $category->code }})
-
                                             @endif
 
                                         </div>
 
 
                                         @if (!empty($category->description))
-
                                             <div class="membership-card-description">
 
                                                 {{ $category->description }}
 
                                             </div>
-
                                         @endif
 
 
@@ -1287,24 +1238,18 @@
                                             $categoryFee = null;
 
                                             if (method_exists($category, 'fees')) {
-
-                                                $categoryFee = $category->fees
-                                                    ->where('is_active', true)
-                                                    ->first();
-
+                                                $categoryFee = $category->fees->where('is_active', true)->first();
                                             }
 
                                         @endphp
 
 
                                         @if ($categoryFee)
-
                                             <div class="membership-price">
 
                                                 ₦{{ number_format($categoryFee->amount, 2) }}
 
                                             </div>
-
                                         @endif
 
                                     </div>
@@ -1319,18 +1264,13 @@
                                     available.
 
                                 </div>
-
                             @endforelse
 
 
                         </div>
 
 
-                        <div
-                            class="category-empty"
-                            id="no-category-message"
-                            style="display: none;"
-                        >
+                        <div class="category-empty" id="no-category-message" style="display: none;">
 
                             No membership categories are currently available
                             for the selected membership type.
@@ -1349,13 +1289,51 @@
 
 
                         @error('membership_category_id')
-
                             <div class="error-message">
 
                                 {{ $message }}
 
                             </div>
+                        @enderror
 
+                    </div>
+
+                    {{-- USERNAME --}}
+
+                    <div class="form-group">
+
+                        <label for="username">
+                            Username
+                        </label>
+
+                        <input id="username" class="form-input" type="text" name="username"
+                            value="{{ old('username') }}" placeholder="Choose a username" required autofocus
+                            autocomplete="username">
+
+                        @error('username')
+                            <div class="text-danger">
+                                {{ $message }}
+                            </div>
+                        @enderror
+
+                    </div>
+
+                    {{-- PHONE --}}
+
+                    <div class="form-group">
+
+                        <label for="phone">
+                            Phone Number
+                        </label>
+
+                        <input id="phone" class="form-input" type="tel" name="phone"
+                            value="{{ old('phone') }}" placeholder="Enter your phone number" required
+                            autocomplete="tel">
+
+                        @error('phone')
+                            <div class="text-danger">
+                                {{ $message }}
+                            </div>
                         @enderror
 
                     </div>
@@ -1367,37 +1345,23 @@
 
                     <div class="form-group">
 
-                        <label
-                            for="email"
-                            class="form-label"
-                        >
+                        <label for="email" class="form-label">
 
                             Email Address
 
                         </label>
 
 
-                        <input
-                            id="email"
-                            type="email"
-                            name="email"
-                            class="form-input"
-                            value="{{ old('email') }}"
-                            placeholder="Enter your email address"
-                            required
-                            autofocus
-                            autocomplete="email"
-                        >
+                        <input id="email" type="email" name="email" class="form-input"
+                            value="{{ old('email') }}" placeholder="Enter your email address">
 
 
                         @error('email')
-
                             <div class="error-message">
 
                                 {{ $message }}
 
                             </div>
-
                         @enderror
 
                     </div>
@@ -1409,10 +1373,7 @@
 
                     <div class="form-group">
 
-                        <label
-                            for="password"
-                            class="form-label"
-                        >
+                        <label for="password" class="form-label">
 
                             Password
 
@@ -1421,22 +1382,12 @@
 
                         <div class="input-wrapper">
 
-                            <input
-                                id="password"
-                                type="password"
-                                name="password"
-                                class="form-input password-input"
-                                placeholder="Create a password"
-                                required
-                                autocomplete="new-password"
-                            >
+                            <input id="password" type="password" name="password" class="form-input password-input"
+                                placeholder="Create a password" required autocomplete="new-password">
 
 
-                            <button
-                                type="button"
-                                class="toggle-password"
-                                onclick="togglePassword('password', this)"
-                            >
+                            <button type="button" class="toggle-password"
+                                onclick="togglePassword('password', this)">
 
                                 Show
 
@@ -1453,13 +1404,11 @@
 
 
                         @error('password')
-
                             <div class="error-message">
 
                                 {{ $message }}
 
                             </div>
-
                         @enderror
 
                     </div>
@@ -1471,10 +1420,7 @@
 
                     <div class="form-group">
 
-                        <label
-                            for="password_confirmation"
-                            class="form-label"
-                        >
+                        <label for="password_confirmation" class="form-label">
 
                             Confirm Password
 
@@ -1483,25 +1429,16 @@
 
                         <div class="input-wrapper">
 
-                            <input
-                                id="password_confirmation"
-                                type="password"
-                                name="password_confirmation"
-                                class="form-input password-input"
-                                placeholder="Re-enter your password"
-                                required
-                                autocomplete="new-password"
-                            >
+                            <input id="password_confirmation" type="password" name="password_confirmation"
+                                class="form-input password-input" placeholder="Re-enter your password" required
+                                autocomplete="new-password">
 
 
-                            <button
-                                type="button"
-                                class="toggle-password"
+                            <button type="button" class="toggle-password"
                                 onclick="togglePassword(
                                     'password_confirmation',
                                     this
-                                )"
-                            >
+                                )">
 
                                 Show
 
@@ -1511,13 +1448,11 @@
 
 
                         @error('password_confirmation')
-
                             <div class="error-message">
 
                                 {{ $message }}
 
                             </div>
-
                         @enderror
 
                     </div>
@@ -1527,10 +1462,7 @@
                          SUBMIT
                     ================================================== -->
 
-                    <button
-                        type="submit"
-                        class="register-button"
-                    >
+                    <button type="submit" class="register-button">
 
                         Create Membership Account
 
@@ -1574,12 +1506,11 @@
     ========================================================== -->
 
     <script>
-
         /*
-        |--------------------------------------------------------------------------
-        | TOGGLE PASSWORD
-        |--------------------------------------------------------------------------
-        */
+            |--------------------------------------------------------------------------
+            | TOGGLE PASSWORD
+            |--------------------------------------------------------------------------
+            */
 
         function togglePassword(fieldId, button) {
 
@@ -1610,7 +1541,7 @@
         |--------------------------------------------------------------------------
         */
 
-        document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', function() {
 
             const memberTypeInputs =
                 document.querySelectorAll(
@@ -1665,7 +1596,7 @@
                 let visibleCategories = 0;
 
 
-                categoryOptions.forEach(function (option) {
+                categoryOptions.forEach(function(option) {
 
                     const optionType =
                         option.dataset.memberType;
@@ -1730,11 +1661,11 @@
             |--------------------------------------------------------------------------
             */
 
-            memberTypeInputs.forEach(function (input) {
+            memberTypeInputs.forEach(function(input) {
 
                 input.addEventListener(
                     'change',
-                    function () {
+                    function() {
 
                         filterCategories(
                             this.value
@@ -1770,7 +1701,6 @@
             }
 
         });
-
     </script>
 
 

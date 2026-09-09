@@ -1,104 +1,276 @@
 @extends('member.member_dashboard')
 
-@section('title', 'NACPDEAN - View Document')
+@section('title', 'NACPDEAN - Document')
 
 @section('member')
 
-<div class="container-fluid py-4">
+<style>
+    /* =========================================================
+       NACPDEAN GENERATED DOCUMENT VIEW
+    ========================================================= */
 
-    {{-- =========================================================
-         TOP BAR
-    ========================================================== --}}
+    .nacp-generated-document-page {
+        min-height: calc(100vh - 60px);
+        background: #f5f7f6;
+        padding: 24px 0 50px;
+    }
 
-    <div class="card border-0 shadow-sm mb-4">
+    .nacp-generated-document-page * {
+        box-sizing: border-box;
+    }
 
-        <div class="card-body">
+    /* =========================================================
+       TOP BAR
+    ========================================================= */
 
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+    .nacp-document-toolbar {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        padding: 15px 18px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 15px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, .035);
+    }
 
-                {{-- Document Information --}}
-                <div>
+    .nacp-document-toolbar-left {
+        min-width: 0;
+    }
 
-                    <h4 class="mb-1">
-                        {{ $document->name ?? 'Document' }}
-                    </h4>
+    .nacp-document-toolbar-title {
+        margin: 0;
+        color: #111827;
+        font-size: 17px;
+        font-weight: 800;
+    }
 
-                    <div class="text-muted small">
+    .nacp-document-toolbar-number {
+        margin-top: 3px;
+        color: #6b7280;
+        font-size: 12px;
+        word-break: break-word;
+    }
 
-                        {{ $document->code ?? 'N/A' }}
+    .nacp-document-toolbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
 
-                        @if($generatedDocument->document_number)
+    /* =========================================================
+       BUTTONS
+    ========================================================= */
 
-                            <span class="mx-2">•</span>
+    .nacp-doc-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        border: 1px solid #d1d5db;
+        border-radius: 9px;
+        padding: 10px 15px;
+        background: #fff;
+        color: #374151 !important;
+        text-decoration: none !important;
+        font-size: 12px;
+        font-weight: 700;
+        transition: all .2s ease;
+    }
 
+    .nacp-doc-btn:hover {
+        border-color: #047857;
+        color: #047857 !important;
+        background: #f0fdf4;
+    }
+
+    .nacp-doc-btn-primary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        border: 0;
+        border-radius: 9px;
+        padding: 10px 15px;
+        background: #047857;
+        color: #fff !important;
+        text-decoration: none !important;
+        font-size: 12px;
+        font-weight: 700;
+        transition: all .2s ease;
+    }
+
+    .nacp-doc-btn-primary:hover {
+        background: #065f46;
+        color: #fff !important;
+    }
+
+    /* =========================================================
+       DOCUMENT CONTAINER
+    ========================================================= */
+
+    .nacp-document-container {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 18px;
+        padding: 25px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, .055);
+        overflow-x: auto;
+    }
+
+    .nacp-document-content {
+        width: 100%;
+        margin: 0 auto;
+    }
+
+    /* =========================================================
+       MOBILE
+    ========================================================= */
+
+    @media (max-width: 768px) {
+
+        .nacp-generated-document-page {
+            padding: 15px 0 35px;
+        }
+
+        .nacp-generated-document-page .container-fluid {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+        }
+
+        .nacp-document-toolbar {
+            padding: 14px;
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .nacp-document-toolbar-actions {
+            width: 100%;
+        }
+
+        .nacp-document-toolbar-actions .nacp-doc-btn,
+        .nacp-document-toolbar-actions .nacp-doc-btn-primary {
+            flex: 1;
+        }
+
+        .nacp-document-container {
+            padding: 12px;
+            border-radius: 14px;
+        }
+    }
+
+    /* =========================================================
+       PRINT
+    ========================================================= */
+
+    @media print {
+
+        body {
+            background: #fff !important;
+        }
+
+        .nacp-document-toolbar {
+            display: none !important;
+        }
+
+        .nacp-generated-document-page {
+            padding: 0 !important;
+            background: #fff !important;
+        }
+
+        .nacp-document-container {
+            border: 0 !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+        }
+    }
+</style>
+
+
+<div class="nacp-generated-document-page">
+
+    <div class="container-fluid px-4">
+
+        {{-- =====================================================
+             DOCUMENT TOOLBAR
+        ====================================================== --}}
+
+        <div class="nacp-document-toolbar">
+
+            <div class="nacp-document-toolbar-left">
+
+                <h5 class="nacp-document-toolbar-title">
+
+                    {{ $generatedDocument->document->name ?? 'NACPDEAN Document' }}
+
+                </h5>
+
+                @if ($generatedDocument->document_number)
+
+                    <div class="nacp-document-toolbar-number">
+
+                        Document No:
+                        <strong>
                             {{ $generatedDocument->document_number }}
-
-                        @endif
+                        </strong>
 
                     </div>
 
-                </div>
+                @endif
+
+            </div>
 
 
-                {{-- Actions --}}
-                <div class="d-flex flex-wrap gap-2">
+            <div class="nacp-document-toolbar-actions">
 
-                    {{-- Back --}}
-                    <a
-                        href="{{ route('member.documents.index') }}"
-                        class="btn btn-outline-secondary"
-                    >
-                        <i class="bi bi-arrow-left me-1"></i>
-                        Back
-                    </a>
+                <a href="{{ route('member.member_dashboard') }}"
+                    class="nacp-doc-btn">
 
+                    <i class="fas fa-arrow-left"></i>
 
-                    {{-- Print --}}
-                    <a
-                        href="{{ route('member.documents.print', $generatedDocument) }}"
-                        target="_blank"
-                        class="btn btn-primary"
-                    >
-                        <i class="bi bi-printer me-1"></i>
-                        Print
-                    </a>
+                    Back
+
+                </a>
 
 
-                    {{-- Download --}}
-                    <a
-                        href="{{ route('member.documents.download', $generatedDocument) }}"
-                        class="btn btn-success"
-                    >
-                        <i class="bi bi-download me-1"></i>
-                        Download PDF
-                    </a>
+                <a href="{{ route('member.documents.print', $generatedDocument->id) }}"
+                    class="nacp-doc-btn"
+                    target="_blank">
 
-                </div>
+                    <i class="fas fa-print"></i>
+
+                    Print
+
+                </a>
+
+
+                <a href="{{ route('member.documents.download', $generatedDocument->id) }}"
+                    class="nacp-doc-btn-primary">
+
+                    <i class="fas fa-download"></i>
+
+                    Download PDF
+
+                </a>
 
             </div>
 
         </div>
 
-    </div>
 
+        {{-- =====================================================
+             GENERATED DOCUMENT
+        ====================================================== --}}
 
-    {{-- =========================================================
-         DOCUMENT
-    ========================================================== --}}
+        <div class="nacp-document-container">
 
-    <div class="card border-0 shadow-sm">
+            <div class="nacp-document-content">
 
-        <div class="card-body p-0">
-
-            <div class="document-preview">
-
-                @include($template, [
-                    'generatedDocument' => $generatedDocument,
-                    'document'          => $document,
-                    'qrCode'             => $qrCode,
-                    'printMode'          => false,
-                    'downloadMode'      => false,
-                ])
+                @include($template)
 
             </div>
 
@@ -107,50 +279,5 @@
     </div>
 
 </div>
-
-
-<style>
-
-    /*
-    |--------------------------------------------------------------------------
-    | DOCUMENT PREVIEW
-    |--------------------------------------------------------------------------
-    */
-
-    .document-preview {
-        width: 100%;
-        overflow-x: auto;
-        background: #f5f5f5;
-        padding: 25px;
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Prevent the document from shrinking strangely
-    |--------------------------------------------------------------------------
-    */
-
-    .document-preview > * {
-        margin-left: auto;
-        margin-right: auto;
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Mobile
-    |--------------------------------------------------------------------------
-    */
-
-    @media (max-width: 768px) {
-
-        .document-preview {
-            padding: 10px;
-        }
-
-    }
-
-</style>
 
 @endsection

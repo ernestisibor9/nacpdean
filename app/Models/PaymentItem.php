@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -43,6 +44,21 @@ class PaymentItem extends Model
         );
     }
 
+    public function documents(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Document::class,
+            'payment_item_documents',
+            'payment_item_id',
+            'document_id'
+        )
+            ->withPivot([
+                'is_primary',
+                'generate_after_payment',
+            ])
+            ->withTimestamps();
+    }
+
 
     public function payments(): HasMany
     {
@@ -74,4 +90,59 @@ class PaymentItem extends Model
             'renewal_payment_item_id'
         );
     }
+
+    /**
+     * Categories this payment item applies to.
+     */
+    public function membershipCategories(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            MembershipCategory::class,
+            'payment_item_categories',
+            'payment_item_id',
+            'membership_category_id'
+        )->withTimestamps();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ELIGIBILITY
+    |--------------------------------------------------------------------------
+    */
+
+    public function eligibilities(): HasMany
+    {
+        return $this->hasMany(
+            PaymentItemEligibility::class
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | VIOLATIONS
+    |--------------------------------------------------------------------------
+    */
+
+    public function violations(): HasMany
+    {
+        return $this->hasMany(
+            Violation::class
+        );
+    }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | ITEMS THAT RENEW THIS ITEM
+    |--------------------------------------------------------------------------
+    */
+
+    public function renewedBy()
+    {
+        return $this->hasMany(
+            self::class,
+            'renewal_payment_item_id'
+        );
+    }
+
 }

@@ -48,6 +48,9 @@ return [
         'public_key' =>
         env('PAYSTACK_PUBLIC_KEY'),
 
+        'placeholder_email_domain' =>
+        env('PAYSTACK_PLACEHOLDER_EMAIL_DOMAIN', 'no-email.local'),
+
     ],
 
 ];

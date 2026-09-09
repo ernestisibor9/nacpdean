@@ -2,27 +2,26 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | Mass Assignable Attributes
+    |--------------------------------------------------------------------------
+    */
+
     protected $fillable = [
         'name',
+        'username',
         'email',
+        'phone',
         'password',
         'member_type',
         'membership_category_id',
@@ -31,22 +30,24 @@ class User extends Authenticatable
         'status',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | Hidden Attributes
+    |--------------------------------------------------------------------------
+    */
+
     protected $hidden = [
         'password',
         'remember_token',
         'otp',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | Attribute Casting
+    |--------------------------------------------------------------------------
+    */
+
     protected function casts(): array
     {
         return [
@@ -56,36 +57,99 @@ class User extends Authenticatable
         ];
     }
 
-    public function payments(): HasMany
+    /*
+    |--------------------------------------------------------------------------
+    | Payments
+    |--------------------------------------------------------------------------
+    */
+
+    public function payments()
     {
         return $this->hasMany(Payment::class);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Profile
+    |--------------------------------------------------------------------------
+    */
 
     public function profile()
     {
         return $this->hasOne(MemberProfile::class);
     }
 
-    public function memberFees(): HasMany
+    /*
+    |--------------------------------------------------------------------------
+    | Member Fees
+    |--------------------------------------------------------------------------
+    */
+
+    public function memberFees()
     {
         return $this->hasMany(MemberFee::class);
     }
 
-    public function membership(): HasOne
+    /*
+    |--------------------------------------------------------------------------
+    | Membership
+    |--------------------------------------------------------------------------
+    */
+
+    public function membership()
     {
         return $this->hasOne(Membership::class);
     }
-    public function transactions(): HasMany
+
+    /*
+    |--------------------------------------------------------------------------
+    | Transactions
+    |--------------------------------------------------------------------------
+    */
+
+    public function transactions()
     {
         return $this->hasMany(Transaction::class);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Membership Category
+    |--------------------------------------------------------------------------
+    */
+
     public function membershipCategory()
     {
-        return $this->belongsTo(MembershipCategory::class);
+        return $this->belongsTo(
+            MembershipCategory::class
+        );
     }
 
-    public function generatedDocuments(): HasMany
+    /*
+    |--------------------------------------------------------------------------
+    | Generated Documents
+    |--------------------------------------------------------------------------
+    */
+
+    public function generatedDocuments()
     {
-        return $this->hasMany(GeneratedDocument::class);
+        return $this->hasMany(
+            GeneratedDocument::class
+        );
     }
+
+
+    /*
+|--------------------------------------------------------------------------
+| VIOLATIONS
+|--------------------------------------------------------------------------
+*/
+
+public function violations(): HasMany
+{
+    return $this->hasMany(
+        Violation::class
+    );
+}
+
 }

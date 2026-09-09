@@ -1,45 +1,26 @@
 @php
-    /*
-    |--------------------------------------------------------------------------
-    | RESOLVE FIELD VALUES
-    |--------------------------------------------------------------------------
-    |
-    | Document #32 — NACPDEAN Charcoal Lifting Right - Dealer
-    | ("Charcoal Dealing Right" certificate).
-    |
-    | These were already resolved (system + manual) by
-    | DocumentGenerationService::generate() and stored on
-    | $generatedDocument->field_values. We just read them back
-    | out here — nothing is recalculated in the view.
-    |--------------------------------------------------------------------------
-    */
-
     $fields = collect($generatedDocument->field_values ?? []);
 
-    $memberName = $fields->get('member_name')
-        ?: optional($generatedDocument->user)->name;
+    $memberName = $fields->get('member_name', '');
 
-    $membershipNumber = $fields->get(
-        'membership_number',
-        $fields->get('membership_no')
+    $membershipNumber = $fields->get('membership_number', '');
+
+    $refNo = $fields->get(
+        'ref_no',
+        $generatedDocument->document_number
     );
 
-    // Sequential reference number (distinct from the internal
-    // document_number). Falls back to document_number if no
-    // dedicated ref_no field has been configured.
-    $refNo = $fields->get('ref_no', $generatedDocument->document_number);
-
-    $issuedAt = $generatedDocument->issued_at
-        ? \Carbon\Carbon::parse($generatedDocument->issued_at)->format('d F Y')
+    $issuedAt = $fields->get('issued_at')
+        ? \Carbon\Carbon::parse($fields->get('issued_at'))->format('d F Y')
         : '';
 
-    $validTill = $generatedDocument->expires_at
-        ? \Carbon\Carbon::parse($generatedDocument->expires_at)->format('jS F, Y')
+    $validTill = $fields->get('expires_at')
+        ? \Carbon\Carbon::parse($fields->get('expires_at'))->format('jS F, Y')
         : '';
 
-    $verificationUrl = route(
-        'documents.verify',
-        $generatedDocument->tracking_code
+    $verificationUrl = $fields->get(
+        'verification_url',
+        route('documents.verify', $generatedDocument->tracking_code)
     );
 @endphp
 
@@ -89,13 +70,15 @@
         |--------------------------------------------------------------------------
         | CERTIFICATE
         |
-        | A rounded, thick green border approximates the reference's
-        | frame. NOTE: the reference has a scalloped/notched corner
-        | detail (a rounded quarter-circle cut at each corner) that
-        | can't be reproduced reliably with CSS in Dompdf. If
-        | pixel-perfect corners matter, export that artwork as a
-        | transparent-center PNG and set it as the background-image
-        | of .certificate instead of this border.
+        | NOTE: the reference has a twisted-rope motif running down
+        | each side plus 2x2 dot-square corner ornaments. The dot
+        | squares are reproduced below (table-based, Dompdf-safe,
+        | same technique as the afforestation receipt). The woven
+        | rope pattern itself is genuine illustration work and can't
+        | be reproduced reliably with plain CSS in Dompdf — a solid
+        | border is used along the sides instead. For pixel-perfect
+        | fidelity, export the rope motif as a repeatable PNG strip
+        | and set it as a background-image on .certificate.
         |--------------------------------------------------------------------------
         */
 
@@ -108,8 +91,7 @@
 
             background: #fff;
 
-            border: 10px solid #1c9a4b;
-            border-radius: 45px;
+            border: 12px solid #1c9a4b;
 
             padding: 8px;
         }
@@ -123,9 +105,74 @@
             bottom: 16px;
 
             border: 1px solid #1c9a4b;
-            border-radius: 36px;
 
             pointer-events: none;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | CORNER ORNAMENTS (2x2 dot squares, dompdf-safe: table layout)
+        |--------------------------------------------------------------------------
+        */
+
+        .corner {
+            position: absolute;
+
+            width: 36px;
+            height: 36px;
+
+            background: #1c9a4b;
+
+            border: 3px solid #fff;
+
+            display: table;
+
+            z-index: 5;
+        }
+
+        .corner-row {
+            display: table-row;
+        }
+
+        .corner-dot {
+            display: table-cell;
+
+            width: 50%;
+            height: 18px;
+
+            padding: 2px;
+        }
+
+        .corner-dot span {
+            display: block;
+
+            width: 100%;
+            height: 100%;
+
+            background: #fff;
+
+            border-radius: 50%;
+        }
+
+        .corner-top-left {
+            top: -6px;
+            left: -6px;
+        }
+
+        .corner-top-right {
+            top: -6px;
+            right: -6px;
+        }
+
+        .corner-bottom-left {
+            bottom: -6px;
+            left: -6px;
+        }
+
+        .corner-bottom-right {
+            bottom: -6px;
+            right: -6px;
         }
 
 
@@ -179,12 +226,32 @@
 
         /*
         |--------------------------------------------------------------------------
+        | REF NO. (top right, above the title — unlike the exporter /
+        | dealer certificates, which put it lower down)
+        |--------------------------------------------------------------------------
+        */
+
+        .ref-no-top {
+            margin-top: 18px;
+
+            text-align: right;
+
+            font-size: 13px;
+        }
+
+        .ref-no-top strong {
+            font-weight: 800;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
         | TITLE
         |--------------------------------------------------------------------------
         */
 
         .title {
-            margin-top: 22px;
+            margin-top: 16px;
 
             font-size: 30px;
 
@@ -251,7 +318,7 @@
 
             font-weight: bold;
 
-            color: #e30613;
+            color: #1c9a4b;
         }
 
         .association {
@@ -273,8 +340,8 @@
         |--------------------------------------------------------------------------
         | MEMBERSHIP / QR ROW
         |
-        | QR sits on the RIGHT for this certificate (the exporter
-        | version puts it on the left) — matches the reference.
+        | QR sits on the RIGHT (same as the dealer certificate).
+        | No REF NO. row here — it already appeared at the top.
         |--------------------------------------------------------------------------
         */
 
@@ -348,16 +415,6 @@
             font-weight: 600;
         }
 
-        .ref-no {
-            margin-top: 18px;
-
-            font-size: 15px;
-        }
-
-        .ref-no strong {
-            font-weight: 800;
-        }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -372,7 +429,7 @@
 
             table-layout: fixed;
 
-            margin-top: 40px;
+            margin-top: 45px;
         }
 
         .signature-cell {
@@ -578,6 +635,24 @@
         <div class="certificate-inner-border"></div>
 
 
+        {{-- ==============================================================
+             CORNER ORNAMENTS
+        =============================================================== --}}
+
+        @foreach (['top-left', 'top-right', 'bottom-left', 'bottom-right'] as $corner)
+            <div class="corner corner-{{ $corner }}">
+                <div class="corner-row">
+                    <div class="corner-dot"><span></span></div>
+                    <div class="corner-dot"><span></span></div>
+                </div>
+                <div class="corner-row">
+                    <div class="corner-dot"><span></span></div>
+                    <div class="corner-dot"><span></span></div>
+                </div>
+            </div>
+        @endforeach
+
+
         <div class="certificate-inner">
 
 
@@ -602,18 +677,29 @@
 
 
             {{-- ==========================================================
+                 REF NO. (top right)
+            =========================================================== --}}
+
+            <div class="ref-no-top">
+
+                REF NO.: <strong>{{ $refNo }}</strong>
+
+            </div>
+
+
+            {{-- ==========================================================
                  TITLE + ROLE BADGE
             =========================================================== --}}
 
             <div class="title">
 
-                Charcoal Dealing Right
+                Charcoal Dealer Right
 
             </div>
 
             <div class="role-badge">
 
-                Dealer
+                dealer
 
             </div>
 
@@ -640,7 +726,7 @@
 
                 NATIONAL ASSOCIATION OF<br>
 
-                CHARCOAL PRODUCERS, DEALERS,<br>
+                CHARCOAL dealerS, DEALERS,<br>
 
                 EXPORTERS AND AFFORESTATION OF NIGERIA
 
@@ -676,12 +762,6 @@
                     <div class="valid-till">
 
                         Valid till: <span>{{ $validTill }}</span>
-
-                    </div>
-
-                    <div class="ref-no">
-
-                        REF NO.: <strong>{{ $refNo }}</strong>
 
                     </div>
 

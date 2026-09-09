@@ -1,3 +1,4 @@
+
 <?php
 
 use Illuminate\Database\Migrations\Migration;
@@ -9,22 +10,16 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('payments', function (Blueprint $table) {
-
             $table->text('paystack_authorization_url')
                 ->nullable()
-                ->after('paystack_reference');
-
+                ->after('reference');
         });
     }
 
     public function down(): void
     {
         Schema::table('payments', function (Blueprint $table) {
-
-            $table->dropColumn(
-                'paystack_authorization_url'
-            );
-
+            $table->dropColumn('paystack_authorization_url');
         });
     }
 };

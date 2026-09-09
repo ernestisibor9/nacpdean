@@ -27,6 +27,18 @@ class MemberProfile extends Model
         'phone',
         'photo',
 
+        /*
+        |--------------------------------------------------------------------------
+        | APPLICANT DOCUMENTS
+        |--------------------------------------------------------------------------
+        */
+
+        'cac_certificate',
+
+        'cac_particulars_of_directors',
+
+        'nepc_export_license',
+
         'date_of_birth',
         'gender',
         'nationality',
@@ -123,6 +135,13 @@ class MemberProfile extends Model
             'member_profile_id'
         );
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | PAYMENTS
+    |--------------------------------------------------------------------------
+    */
 
     public function payments()
     {

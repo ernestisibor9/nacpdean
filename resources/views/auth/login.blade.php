@@ -704,43 +704,35 @@
                 @csrf
 
 
-                <!-- EMAIL -->
+  {{-- LOGIN IDENTIFIER --}}
 
-                <div class="form-group">
+            <div class="form-group">
 
-                    <label
-                        for="email"
-                        class="form-label">
+                <label for="login">
+                    Email, Username or Phone Number
+                </label>
 
-                        Email Address
+                <input
+                    id="login"
+                    class="form-input"
+                    type="text"
+                    name="login"
+                    value="{{ old('login') }}"
+                    placeholder="Enter email, username or phone number"
+                    required
+                    autofocus
+                    autocomplete="username"
+                >
 
-                    </label>
+                @error('login')
 
+                    <div class="text-danger">
+                        {{ $message }}
+                    </div>
 
-                    <input
-                        id="email"
-                        class="form-input"
-                        type="email"
-                        name="email"
-                        value="{{ old('email') }}"
-                        placeholder="Enter your email address"
-                        required
-                        autofocus
-                        autocomplete="username">
+                @enderror
 
-
-                    @error('email')
-
-                        <div class="error-message">
-
-                            {{ $message }}
-
-                        </div>
-
-                    @enderror
-
-                </div>
-
+            </div>
 
 
                 <!-- PASSWORD -->

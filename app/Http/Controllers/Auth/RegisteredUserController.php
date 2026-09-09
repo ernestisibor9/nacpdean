@@ -6,60 +6,41 @@ use App\Http\Controllers\Controller;
 use App\Models\MembershipCategory;
 use App\Models\User;
 use App\Services\TransactionService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\View\View;
+use Throwable;
 
 class RegisteredUserController extends Controller
 {
-    /*
-    |--------------------------------------------------------------------------
-    | SHOW REGISTRATION FORM
-    |--------------------------------------------------------------------------
-    */
-
-    public function create()
+    /**
+     * Display the registration view.
+     */
+    public function create(): View
     {
-        /*
-        |--------------------------------------------------------------------------
-        | LOAD ACTIVE MEMBERSHIP CATEGORIES
-        |--------------------------------------------------------------------------
-        |
-        | Only active categories are displayed on the registration form.
-        |
-        */
-
-        $categories = MembershipCategory::where(
-            'status',
-            true
-        )
+        $categories = MembershipCategory::query()
+            ->where('status', true)
             ->with([
                 'fees' => function ($query) {
                     $query->where('status', true);
-                }
+                },
             ])
             ->orderBy('name')
             ->get();
 
-        return view(
-            'auth.register',
-            compact('categories')
-        );
+        return view('auth.register', compact('categories'));
     }
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | REGISTER USER
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * Handle an incoming registration request.
+     */
     public function store(
         Request $request,
         TransactionService $transactionService
-    ) {
-
+    ): RedirectResponse {
         /*
         |--------------------------------------------------------------------------
         | VALIDATE REGISTRATION
@@ -67,11 +48,24 @@ class RegisteredUserController extends Controller
         */
 
         $validated = $request->validate([
+            /*
+            |--------------------------------------------------------------------------
+            | MEMBER TYPE
+            |--------------------------------------------------------------------------
+            */
 
             'member_type' => [
                 'required',
+                'string',
                 'in:regular,affiliate',
             ],
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | MEMBERSHIP CATEGORY
+            |--------------------------------------------------------------------------
+            */
 
             'membership_category_id' => [
                 'required',
@@ -79,13 +73,68 @@ class RegisteredUserController extends Controller
                 'exists:membership_categories,id',
             ],
 
+
+            /*
+            |--------------------------------------------------------------------------
+            | USERNAME
+            |--------------------------------------------------------------------------
+            |
+            | Username is optional.
+            | If supplied, it must be unique.
+            |
+            */
+
+            'username' => [
+                'nullable',
+                'string',
+                'min:3',
+                'max:50',
+                'unique:users,username',
+            ],
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | PHONE
+            |--------------------------------------------------------------------------
+            |
+            | Phone number is optional.
+            | If supplied, it must be unique.
+            |
+            */
+
+            'phone' => [
+                'nullable',
+                'string',
+                'max:30',
+                'unique:users,phone',
+            ],
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | EMAIL
+            |--------------------------------------------------------------------------
+            |
+            | Email is optional.
+            | If supplied, it must be valid and unique.
+            |
+            */
+
             'email' => [
-                'required',
+                'nullable',
                 'string',
                 'email',
                 'max:255',
                 'unique:users,email',
             ],
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | PASSWORD
+            |--------------------------------------------------------------------------
+            */
 
             'password' => [
                 'required',
@@ -93,136 +142,183 @@ class RegisteredUserController extends Controller
                 'min:8',
                 'confirmed',
             ],
-
-        ], [
-
-            'member_type.required' =>
-                'Please select your membership type.',
-
-            'member_type.in' =>
-                'Invalid membership type selected.',
-
-            'membership_category_id.required' =>
-                'Please select a membership category.',
-
-            'membership_category_id.exists' =>
-                'The selected membership category is invalid.',
-
-            'email.required' =>
-                'Email address is required.',
-
-            'email.email' =>
-                'Please enter a valid email address.',
-
-            'email.unique' =>
-                'This email address is already registered.',
-
-            'password.min' =>
-                'Password must be at least 8 characters.',
-
-            'password.confirmed' =>
-                'Password confirmation does not match.',
-
         ]);
 
 
         /*
         |--------------------------------------------------------------------------
-        | FIND SELECTED MEMBERSHIP CATEGORY
+        | NORMALIZE INPUT
         |--------------------------------------------------------------------------
-        |
-        | We NEVER trust the category name or amount coming from
-        | the frontend.
-        |
-        | The category and fee are retrieved from the database.
-        |
         */
 
-        $category = MembershipCategory::where(
-            'id',
-            $validated['membership_category_id']
-        )
-            ->where(
-                'status',
-                true
-            )
-            ->first();
+        $username = !empty($validated['username'])
+            ? strtolower(trim($validated['username']))
+            : null;
 
+        $email = !empty($validated['email'])
+            ? strtolower(trim($validated['email']))
+            : null;
 
-        if (!$category) {
-
-            return back()
-                ->withInput()
-                ->with(
-                    'error',
-                    'The selected membership category is no longer available.'
-                );
-        }
+        $phone = !empty($validated['phone'])
+            ? trim($validated['phone'])
+            : null;
 
 
         /*
         |--------------------------------------------------------------------------
-        | VERIFY MEMBER TYPE AGAINST CATEGORY
+        | ENSURE AT LEAST ONE LOGIN IDENTIFIER EXISTS
         |--------------------------------------------------------------------------
         |
-        | A regular member should not be able to register against
-        | an affiliate category and vice versa.
+        | Email, username and phone are individually optional.
         |
-        | If your membership_categories table uses member_type,
-        | this check protects the registration process.
+        | However, at least ONE must be provided because the user needs
+        | at least one identifier to log into the system.
         |
         */
 
         if (
-            isset($category->member_type) &&
-            $category->member_type !== $validated['member_type']
+            empty($username) &&
+            empty($email) &&
+            empty($phone)
         ) {
-
             return back()
                 ->withInput()
-                ->with(
-                    'error',
-                    'The selected membership category does not match your membership type.'
-                );
+                ->withErrors([
+                    'email' =>
+                        'Please provide at least an email address, username, or phone number.',
+                ]);
         }
 
 
         /*
         |--------------------------------------------------------------------------
-        | AFFILIATE VALIDATION
+        | CHECK NORMALIZED USERNAME
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            !empty($username) &&
+            User::where('username', $username)->exists()
+        ) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'username' =>
+                        'This username is already taken.',
+                ]);
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | CHECK NORMALIZED EMAIL
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            !empty($email) &&
+            User::where('email', $email)->exists()
+        ) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'email' =>
+                        'This email address is already registered.',
+                ]);
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | CHECK NORMALIZED PHONE
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            !empty($phone) &&
+            User::where('phone', $phone)->exists()
+        ) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'phone' =>
+                        'This phone number is already registered.',
+                ]);
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | FIND MEMBERSHIP CATEGORY
+        |--------------------------------------------------------------------------
+        */
+
+        $category = MembershipCategory::query()
+            ->where('id', $validated['membership_category_id'])
+            ->where('status', true)
+            ->with([
+                'fees' => function ($query) {
+                    $query->where('status', true);
+                },
+            ])
+            ->first();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | CATEGORY NOT AVAILABLE
+        |--------------------------------------------------------------------------
+        */
+
+        if (!$category) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'membership_category_id' =>
+                        'The selected membership category is not available.',
+                ]);
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | VALIDATE CATEGORY MEMBER TYPE
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            !empty($category->member_type) &&
+            $category->member_type !== $validated['member_type']
+        ) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'membership_category_id' =>
+                        'The selected membership category is not available for the selected member type.',
+                ]);
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | AFFILIATE RESTRICTION
         |--------------------------------------------------------------------------
         |
-        | Affiliate registration is specifically for RCG.
-        |
-        | If the affiliate membership category is identified by
-        | code = RCG, make sure that is the category selected.
+        | Affiliate members can only register under RCG.
         |
         */
 
         if (
             $validated['member_type'] === 'affiliate' &&
-            strtoupper($category->code) !== 'RCG'
+            strtoupper($category->code ?? '') !== 'RCG'
         ) {
-
             return back()
                 ->withInput()
-                ->with(
-                    'error',
-                    'Affiliate members must select the RCG membership category.'
-                );
+                ->withErrors([
+                    'membership_category_id' =>
+                        'Affiliate members can only register under the RCG membership category.',
+                ]);
         }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | GENERATE OTP
-        |--------------------------------------------------------------------------
-        */
-
-        $otp = (string) random_int(
-            100000,
-            999999
-        );
 
 
         /*
@@ -230,117 +326,74 @@ class RegisteredUserController extends Controller
         | CREATE USER + MEMBERSHIP DEBIT
         |--------------------------------------------------------------------------
         |
-        | Everything inside this transaction succeeds or fails together.
+        | Both operations happen inside the same database transaction.
         |
-        | User
-        | +
-        | OTP
-        | +
-        | Membership category
-        | +
-        | Membership debit
+        | This preserves your existing ledger process.
         |
         */
 
         try {
 
-            $user = DB::transaction(
-                function () use (
-                    $validated,
-                    $otp,
-                    $category,
-                    $transactionService
-                ) {
+            DB::transaction(function () use (
+                $validated,
+                $username,
+                $email,
+                $phone,
+                $category,
+                $transactionService,
+                &$user
+            ) {
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | CREATE USER
-                    |--------------------------------------------------------------------------
-                    */
+                /*
+                |--------------------------------------------------------------------------
+                | CREATE USER
+                |--------------------------------------------------------------------------
+                */
 
-                    $user = User::create([
+                $user = User::create([
+                    'name' => null,
 
-                        'name' => null,
+                    'username' => $username,
 
-                        'email' => strtolower(
-                            trim($validated['email'])
-                        ),
+                    'email' => $email,
 
-                        'password' => Hash::make(
-                            $validated['password']
-                        ),
+                    'phone' => $phone,
 
-                        'member_type' =>
-                            $validated['member_type'],
+                    'password' => Hash::make(
+                        $validated['password']
+                    ),
 
-                        /*
-                        |--------------------------------------------------------------------------
-                        | SAVE MEMBERSHIP CATEGORY
-                        |--------------------------------------------------------------------------
-                        |
-                        | This is the important addition.
-                        |
-                        | The category selected during registration is now
-                        | permanently stored against the user.
-                        |
-                        */
+                    'member_type' =>
+                        $validated['member_type'],
 
-                        'membership_category_id' =>
-                            $validated['membership_category_id'],
-
-                        'role' => 'member',
-
-                        'user_type' => 'member',
-
-                        'status' => 1,
-
-                    ]);
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | SAVE OTP
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $user->otp = $otp;
-
-                    $user->otp_expires_at =
-                        now()->addMinutes(10);
-
-                    $user->save();
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | CREATE MEMBERSHIP DEBIT
-                    |--------------------------------------------------------------------------
-                    |
-                    | There is NO registration payment item.
-                    |
-                    | The debit is created from the selected
-                    | membership category and its applicable fee.
-                    |
-                    */
-
-                    $transactionService->createMembershipDebit(
-                        $user->id,
+                    'membership_category_id' =>
                         $category->id,
-                        false
-                    );
+
+                    'role' => 'member',
+
+                    'user_type' => 'member',
+
+                    'status' => 1,
+                ]);
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | RETURN USER
-                    |--------------------------------------------------------------------------
-                    */
+                /*
+                |--------------------------------------------------------------------------
+                | CREATE MEMBERSHIP DEBIT
+                |--------------------------------------------------------------------------
+                |
+                | false = NOT PAID
+                |
+                */
 
-                    return $user;
-                }
-            );
+                $transactionService->createMembershipDebit(
+                    $user->id,
+                    $category->id,
+                    false
+                );
+            });
 
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
 
             /*
             |--------------------------------------------------------------------------
@@ -351,129 +404,37 @@ class RegisteredUserController extends Controller
             report($e);
 
 
+            /*
+            |--------------------------------------------------------------------------
+            | RETURN TO REGISTRATION
+            |--------------------------------------------------------------------------
+            */
+
             return back()
                 ->withInput()
-                ->with(
-                    'error',
-                    'We could not complete your registration. Please try again.'
-                );
+                ->withErrors([
+                    'email' =>
+                        'Registration could not be completed. Please try again.',
+                ]);
         }
 
 
         /*
         |--------------------------------------------------------------------------
-        | STORE USER ID IN SESSION
+        | REGISTRATION SUCCESSFUL
         |--------------------------------------------------------------------------
-        */
-
-        $request->session()->put(
-            'otp_user_id',
-            $user->id
-        );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | SEND OTP EMAIL
-        |--------------------------------------------------------------------------
-        */
-
-        try {
-
-            Mail::send(
-                'emails.otp',
-                [
-                    'user' => $user,
-                    'otp' => $otp,
-                ],
-                function ($message) use ($user) {
-
-                    $message
-                        ->to($user->email)
-                        ->subject(
-                            'NACPDEAN Email Verification OTP'
-                        );
-                }
-            );
-
-        } catch (\Throwable $e) {
-
-            /*
-            |--------------------------------------------------------------------------
-            | EMAIL FAILED
-            |--------------------------------------------------------------------------
-            |
-            | The user and debit have already been created.
-            |
-            | Since the registration cannot continue without OTP,
-            | remove the newly created user and its transactions.
-            |
-            */
-
-            report($e);
-
-
-            try {
-
-                DB::transaction(function () use ($user) {
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | DELETE TRANSACTIONS
-                    |--------------------------------------------------------------------------
-                    */
-
-                    TransactionService::deleteUserTransactions(
-                        $user->id
-                    );
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | DELETE USER
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $user->delete();
-                });
-
-            } catch (\Throwable $cleanupException) {
-
-                report($cleanupException);
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | CLEAR OTP SESSION
-            |--------------------------------------------------------------------------
-            */
-
-            $request->session()->forget(
-                'otp_user_id'
-            );
-
-
-            return back()
-                ->withInput()
-                ->with(
-                    'error',
-                    'We could not send the verification email. Please try again.'
-                );
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | REDIRECT TO OTP VERIFICATION
-        |--------------------------------------------------------------------------
+        |
+        | NO OTP
+        | NO EMAIL VERIFICATION
+        | NO OTP EMAIL
+        |
         */
 
         return redirect()
-            ->route('verification.otp')
+            ->route('login')
             ->with(
-                'success',
-                'Registration successful. A 6-digit verification code has been sent to your email.'
+                'status',
+                'Registration successful. You can now log in with your email, username, or phone number and password.'
             );
     }
 }

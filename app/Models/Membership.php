@@ -10,41 +10,22 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Membership extends Model
 {
     protected $fillable = [
-
         'user_id',
-
         'member_profile_id',
-
         'membership_category_id',
-
         'membership_number',
-
         'status',
-
         'issued_at',
-
         'expires_at',
-
         'approved_at',
-
         'approved_by',
-
     ];
-
 
     protected $casts = [
-
-        'issued_at' =>
-        'date',
-
-        'expires_at' =>
-        'date',
-
-        'approved_at' =>
-        'datetime',
-
+        'issued_at' => 'date',
+        'expires_at' => 'date',
+        'approved_at' => 'datetime',
     ];
-
 
     /*
     |--------------------------------------------------------------------------
@@ -58,7 +39,6 @@ class Membership extends Model
             User::class
         );
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -74,21 +54,24 @@ class Membership extends Model
         );
     }
 
-
     /*
     |--------------------------------------------------------------------------
     | MEMBERSHIP CATEGORY
     |--------------------------------------------------------------------------
+    |
+    | Used by DocumentGenerationService:
+    |
+    | $membership->membershipCategory
+    |
     */
 
-    public function category(): BelongsTo
+    public function membershipCategory(): BelongsTo
     {
         return $this->belongsTo(
             MembershipCategory::class,
             'membership_category_id'
         );
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -104,7 +87,6 @@ class Membership extends Model
         );
     }
 
-
     /*
     |--------------------------------------------------------------------------
     | MEMBERSHIP CARD
@@ -119,17 +101,32 @@ class Membership extends Model
         );
     }
 
-/*
+    /*
+    |--------------------------------------------------------------------------
+    | OPERATIONAL RIGHTS DOCUMENTS
+    |--------------------------------------------------------------------------
+    */
+
+    public function operationalRightsDocuments(): HasMany
+    {
+        return $this->hasMany(
+            OperationalRightsDocument::class,
+            'membership_id'
+        );
+    }
+
+
+    /*
 |--------------------------------------------------------------------------
-| OPERATIONAL RIGHTS DOCUMENTS
+| VIOLATIONS
 |--------------------------------------------------------------------------
 */
 
-public function operationalRightsDocuments(): HasMany
-{
-    return $this->hasMany(
-        OperationalRightsDocument::class,
-        'membership_id'
-    );
-}
+    public function violations(): HasMany
+    {
+        return $this->hasMany(
+            Violation::class,
+            'membership_id'
+        );
+    }
 }

@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\MemberProfile;
 use App\Models\Payment;
 use App\Models\Transaction;
+use App\Models\GeneratedDocument;
+use App\Models\Membership;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
@@ -46,23 +48,15 @@ class DashboardController extends Controller
         $profile = MemberProfile::with([
             'membershipCard',
             'membershipCategory',
-        ])->where(
-            'user_id',
-            $user->id
-        )->first();
+        ])
+            ->where('user_id', $user->id)
+            ->first();
 
 
         /*
         |--------------------------------------------------------------------------
         | PROFILE STATUS
         |--------------------------------------------------------------------------
-        |
-        | Possible states:
-        |
-        | null / draft    = Not yet completed profile
-        | submitted       = Application awaiting approval
-        | approved        = Full member dashboard
-        |
         */
 
         $profileStatus = $profile
@@ -74,16 +68,52 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         | DASHBOARD ACCESS
         |--------------------------------------------------------------------------
-        |
-        | Only an APPROVED profile can see the full
-        | membership dashboard.
-        |
         */
 
         $isApproved = (
             $profile &&
             $profile->status === 'approved'
         );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | MEMBERSHIP
+        |--------------------------------------------------------------------------
+        |
+        | Get the member's latest membership record.
+        |
+        */
+
+        $membership = null;
+
+        if ($isApproved) {
+
+            $membership = Membership::where(
+                'user_id',
+                $user->id
+            )
+                ->latest('id')
+                ->first();
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | MEMBERSHIP CATEGORY
+        |--------------------------------------------------------------------------
+        |
+        | For an approved member, the profile's membership category is
+        | authoritative.
+        |
+        */
+
+        $membershipCategory = null;
+
+        if ($isApproved && $profile) {
+
+            $membershipCategory = $profile->membershipCategory;
+        }
 
 
         /*
@@ -101,16 +131,16 @@ class DashboardController extends Controller
 
 
         /*
-|--------------------------------------------------------------------------
-| MEMBERSHIP DEBIT TRANSACTION
-|--------------------------------------------------------------------------
-|
-| The membership ID card is only valid when the membership
-| debit transaction has been paid.
-|
-| A membership debit has no payment_item_id.
-|
-*/
+        |--------------------------------------------------------------------------
+        | MEMBERSHIP DEBIT TRANSACTION
+        |--------------------------------------------------------------------------
+        |
+        | The membership ID card is only valid when the membership
+        | debit transaction has been paid.
+        |
+        | A membership debit has no payment_item_id.
+        |
+        */
 
         $membershipDebitTransaction = null;
 
@@ -141,41 +171,17 @@ class DashboardController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | MEMBER DASHBOARD STATUS
-        |--------------------------------------------------------------------------
-        */
-
-        if (!$hasPaid) {
-
-            $dashboardStatus = 'payment_required';
-        } elseif (!$profile || $profile->status === 'draft') {
-
-            $dashboardStatus = 'profile_incomplete';
-        } elseif ($profile->status === 'submitted') {
-
-            $dashboardStatus = 'awaiting_approval';
-        } elseif ($profile->status === 'approved') {
-
-            $dashboardStatus = 'approved';
-        } else {
-
-            $dashboardStatus = 'profile_incomplete';
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
         | MEMBERSHIP INFORMATION
         |--------------------------------------------------------------------------
         */
-
-        $membershipCategory = null;
 
         $membershipPaymentDate = null;
 
         $membershipExpirationDate = null;
 
         $membershipIsExpired = false;
+
+        $membershipIsActive = false;
 
 
         /*
@@ -184,16 +190,19 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        if ($isApproved && $membershipPayment) {
+        if ($isApproved) {
 
             /*
             |--------------------------------------------------------------------------
-            | PAYMENT DATE
+            | MEMBERSHIP PAYMENT DATE
             |--------------------------------------------------------------------------
             */
 
-            $membershipPaymentDate =
-                $membershipPayment->updated_at;
+            if ($membershipPayment) {
+
+                $membershipPaymentDate =
+                    $membershipPayment->updated_at;
+            }
 
 
             /*
@@ -201,45 +210,187 @@ class DashboardController extends Controller
             | MEMBERSHIP EXPIRATION
             |--------------------------------------------------------------------------
             |
-            | Membership expires on December 31 of the
-            | same calendar year.
+            | NACPDEAN membership is ANNUAL and CALENDAR-YEAR based.
+            |
+            | Example:
+            |
+            | Issued: 09 Sep 2026
+            | Expires: 31 Dec 2026
+            |
+            | It does NOT expire after 12 months.
             |
             */
 
-            $membershipExpirationDate =
-                Carbon::parse(
-                    $membershipPaymentDate
-                )
-                ->endOfYear()
-                ->endOfDay();
+            if ($membership && $membership->expires_at) {
+
+                $membershipExpirationDate =
+                    Carbon::parse(
+                        $membership->expires_at
+                    )->endOfDay();
+
+            } elseif ($membershipPaymentDate) {
+
+                /*
+                |--------------------------------------------------------------------------
+                | FALLBACK
+                |--------------------------------------------------------------------------
+                |
+                | If the membership record does not have expires_at yet,
+                | calculate the expiry from the membership payment year.
+                |
+                */
+
+                $membershipExpirationDate =
+                    Carbon::parse(
+                        $membershipPaymentDate
+                    )
+                        ->endOfYear()
+                        ->endOfDay();
+            }
 
 
             /*
             |--------------------------------------------------------------------------
-            | CHECK EXPIRATION
+            | CHECK MEMBERSHIP EXPIRATION
             |--------------------------------------------------------------------------
             */
 
             $membershipIsExpired =
-                now()->greaterThan(
+                !$membershipExpirationDate
+                ? false
+                : now()->greaterThan(
                     $membershipExpirationDate
                 );
 
 
             /*
             |--------------------------------------------------------------------------
-            | MEMBERSHIP CATEGORY
+            | CHECK MEMBERSHIP ACTIVE STATUS
+            |--------------------------------------------------------------------------
+            |
+            | Membership must:
+            |
+            | 1. Exist
+            | |2. Have status = active
+            | |3. Not have passed its expiration date
+            |
+            */
+
+            $membershipIsActive =
+                $membership
+                && $membership->status === 'active'
+                && (
+                    !$membershipExpirationDate
+                    || now()->lessThanOrEqualTo(
+                        $membershipExpirationDate
+                    )
+                );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | MEMBER DOCUMENTS
+        |--------------------------------------------------------------------------
+        |
+        | IMPORTANT:
+        |
+        | Only retrieve documents when the member has an ACTIVE membership.
+        |
+        | This means expired members will not receive document cards on
+        | the dashboard.
+        |
+        */
+
+        $generatedDocuments = collect();
+
+        if (
+            $isApproved &&
+            $membershipCategory &&
+            $membershipIsActive
+        ) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | GET DOCUMENT IDS CONFIGURED FOR THIS CATEGORY
+            |--------------------------------------------------------------------------
+            |
+            | membership_category_documents is the source of truth.
+            |
+            */
+
+            $categoryDocumentIds = $membershipCategory
+                ->documents()
+                ->where(
+                    'documents.is_active',
+                    true
+                )
+                ->orderBy(
+                    'membership_category_documents.sort_order'
+                )
+                ->orderBy(
+                    'documents.id'
+                )
+                ->pluck('documents.id');
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | GET ONLY THIS MEMBER'S GENERATED DOCUMENTS
             |--------------------------------------------------------------------------
             */
 
-            if (method_exists(
-                $membershipPayment,
-                'membershipCategory'
-            )) {
+            if ($categoryDocumentIds->isNotEmpty()) {
 
-                $membershipCategory =
-                    $membershipPayment->membershipCategory;
+                $generatedDocuments = GeneratedDocument::with([
+                    'document',
+                ])
+                    ->where(
+                        'user_id',
+                        $user->id
+                    )
+                    ->whereIn(
+                        'document_id',
+                        $categoryDocumentIds
+                    )
+                    ->where(
+                        'status',
+                        'active'
+                    )
+                    ->orderBy(
+                        'issued_at',
+                        'desc'
+                    )
+                    ->get();
             }
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PROFILE STATUS / DASHBOARD STATUS
+        |--------------------------------------------------------------------------
+        */
+
+        if (!$hasPaid) {
+
+            $dashboardStatus = 'payment_required';
+
+        } elseif (!$profile || $profile->status === 'draft') {
+
+            $dashboardStatus = 'profile_incomplete';
+
+        } elseif ($profile->status === 'submitted') {
+
+            $dashboardStatus = 'awaiting_approval';
+
+        } elseif ($profile->status === 'approved') {
+
+            $dashboardStatus = 'approved';
+
+        } else {
+
+            $dashboardStatus = 'profile_incomplete';
         }
 
 
@@ -250,7 +401,6 @@ class DashboardController extends Controller
         */
 
         $memberName = 'Member';
-
 
         if ($isApproved && $profile) {
 
@@ -282,9 +432,11 @@ class DashboardController extends Controller
         if (!$hasPaid) {
 
             $memberStage = 1;
+
         } elseif ($isApproved) {
 
             $memberStage = 3;
+
         } else {
 
             $memberStage = 2;
@@ -299,9 +451,6 @@ class DashboardController extends Controller
         | Outstanding Balance =
         |
         | SUM(DEBIT) - SUM(CREDIT)
-        |
-        | The calculation is restricted to the
-        | currently authenticated member.
         |
         */
 
@@ -331,9 +480,6 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         | FINAL OUTSTANDING BALANCE
         |--------------------------------------------------------------------------
-        |
-        | Prevent negative outstanding balances.
-        |
         */
 
         $outstandingBalance = max(
@@ -346,9 +492,6 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         | MEMBERSHIP FEE
         |--------------------------------------------------------------------------
-        |
-        | Only expose the membership fee to approved members.
-        |
         */
 
         $membershipFee =
@@ -378,9 +521,11 @@ class DashboardController extends Controller
         if (!$membershipPayment) {
 
             $membershipAnnualStatus = 'Outstanding';
+
         } elseif ($membershipIsExpired) {
 
-            $membershipAnnualStatus = 'Outstanding';
+            $membershipAnnualStatus = 'Expired';
+
         } else {
 
             $membershipAnnualStatus = 'Active';
@@ -403,10 +548,12 @@ class DashboardController extends Controller
                 'isApproved',
                 'hasPaid',
                 'membershipPayment',
+                'membership',
                 'membershipCategory',
                 'membershipPaymentDate',
                 'membershipExpirationDate',
                 'membershipIsExpired',
+                'membershipIsActive',
                 'membershipPaymentStatus',
                 'membershipAnnualStatus',
                 'memberName',
@@ -417,6 +564,7 @@ class DashboardController extends Controller
                 'membershipCard',
                 'membershipDebitTransaction',
                 'membershipDebitNotPaid',
+                'generatedDocuments',
             )
         );
     }

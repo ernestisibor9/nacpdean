@@ -19,7 +19,6 @@ class AuthenticatedSessionController extends Controller
         return view('auth.login');
     }
 
-
     /**
      * Handle an incoming authentication request.
      */
@@ -49,7 +48,26 @@ class AuthenticatedSessionController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $user = auth()->user();
+        $user = Auth::user();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | SAFETY CHECK
+        |--------------------------------------------------------------------------
+        */
+
+        if (!$user) {
+
+            Auth::logout();
+
+            return redirect()
+                ->route('login')
+                ->with(
+                    'error',
+                    'Unable to authenticate your account.'
+                );
+        }
 
 
         /*
@@ -58,15 +76,18 @@ class AuthenticatedSessionController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        if ($user->status != 1) {
+        if ((int) $user->status !== 1) {
 
             Auth::logout();
+
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
 
             return redirect()
                 ->route('login')
                 ->with(
                     'error',
-                    'Your account is inactive.'
+                    'Your account is inactive. Please contact the administrator.'
                 );
         }
 
@@ -75,9 +96,6 @@ class AuthenticatedSessionController extends Controller
         |--------------------------------------------------------------------------
         | ADMIN LOGIN
         |--------------------------------------------------------------------------
-        |
-        | Admins do not need member email OTP verification.
-        |
         */
 
         if ($user->role === 'admin') {
@@ -92,66 +110,18 @@ class AuthenticatedSessionController extends Controller
         | MEMBER LOGIN
         |--------------------------------------------------------------------------
         |
-        | Members MUST verify their email before accessing
-        | the member dashboard.
+        | Members no longer require:
+        |
+        | - Email verification
+        | - OTP verification
+        | - email_verified_at
+        | - otp_user_id session
+        |
+        | A valid username/email/phone + password is enough.
         |
         */
 
         if ($user->role === 'member') {
-
-            /*
-            |--------------------------------------------------------------------------
-            | CHECK EMAIL VERIFICATION
-            |--------------------------------------------------------------------------
-            */
-
-            if (!$user->email_verified_at) {
-
-                /*
-                |--------------------------------------------------------------------------
-                | SAVE USER ID FOR OTP VERIFICATION
-                |--------------------------------------------------------------------------
-                */
-
-                $request->session()->put(
-                    'otp_user_id',
-                    $user->id
-                );
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | LOG USER OUT
-                |--------------------------------------------------------------------------
-                |
-                | The user should NOT remain authenticated while
-                | waiting for email verification.
-                |
-                */
-
-                Auth::logout();
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | REDIRECT TO OTP PAGE
-                |--------------------------------------------------------------------------
-                */
-
-                return redirect()
-                    ->route('verification.otp')
-                    ->with(
-                        'error',
-                        'Please verify your email address before accessing your dashboard.'
-                    );
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | VERIFIED MEMBER
-            |--------------------------------------------------------------------------
-            */
 
             return redirect()
                 ->route('member.member_dashboard');
@@ -179,6 +149,9 @@ class AuthenticatedSessionController extends Controller
 
         Auth::logout();
 
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
         return redirect()
             ->route('login')
             ->with(
@@ -199,6 +172,7 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        return redirect()
+            ->route('login');
     }
 }

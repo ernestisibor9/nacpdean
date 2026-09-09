@@ -1,30 +1,343 @@
-
 @php
-    $profile = $generatedDocument->user->profile;
+    /*
+    |--------------------------------------------------------------------------
+    | GENERATED DOCUMENT FIELDS
+    |--------------------------------------------------------------------------
+    */
 
-    $companyName =
-        $profile->business_name
-        ?? trim(
-            ($profile->first_name ?? '') . ' ' .
-            ($profile->middle_name ?? '') . ' ' .
-            ($profile->surname ?? '')
-        );
+    $fields = collect(
+        $generatedDocument->field_values ?? []
+    );
 
-    $membershipNumber =
-        $generatedDocument->field_values['membership_number']
-        ?? $generatedDocument->user->membership?->membership_number
-        ?? $profile->membership_number
-        ?? '';
 
-    $certificateNumber = $generatedDocument->document_number;
+    /*
+    |--------------------------------------------------------------------------
+    | USER
+    |--------------------------------------------------------------------------
+    */
 
-    $issuedDate = $generatedDocument->issued_at
-        ? $generatedDocument->issued_at->format('F jS, Y')
-        : '';
+    $documentUser = $generatedDocument->user ?? null;
 
-    $verificationUrl = route(
-        'documents.verify',
-        $generatedDocument->tracking_code
+
+    /*
+    |--------------------------------------------------------------------------
+    | MEMBERSHIP
+    |--------------------------------------------------------------------------
+    |
+    | Get the actual membership belonging to this generated document user.
+    |
+    */
+
+    $membership = null;
+
+    if ($documentUser) {
+
+        $membership = \App\Models\Membership::query()
+            ->with([
+                'profile',
+                'membershipCategory',
+            ])
+            ->where('user_id', $documentUser->id)
+            ->latest('id')
+            ->first();
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | MEMBER / COMPANY NAME
+    |--------------------------------------------------------------------------
+    |
+    | Priority:
+    |
+    | 1. field_values.member_name
+    | 2. field_values.business_name
+    | 3. field_values.company_name
+    | 4. field_values.organisation_name
+    | 5. field_values.organization_name
+    | 6. field_values.business
+    | 7. field_values.company
+    | 8. field_values.full_name
+    | 9. field_values.name
+    | 10. MemberProfile business/company fields
+    | 11. User business/company/name fields
+    |
+    */
+
+    $companyName = '';
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CHECK GENERATED DOCUMENT FIELDS
+    |--------------------------------------------------------------------------
+    */
+
+    $nameFields = [
+        'member_name',
+        'business_name',
+        'company_name',
+        'organisation_name',
+        'organization_name',
+        'organisation',
+        'organization',
+        'business',
+        'company',
+        'member_business_name',
+        'full_name',
+        'name',
+    ];
+
+    foreach ($nameFields as $fieldKey) {
+
+        $value = $fields->get($fieldKey);
+
+        if (
+            $value !== null &&
+            trim((string) $value) !== ''
+        ) {
+
+            $companyName = trim(
+                (string) $value
+            );
+
+            break;
+        }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CHECK MEMBER PROFILE
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        !$companyName &&
+        $membership &&
+        $membership->profile
+    ) {
+
+        $memberProfile = $membership->profile;
+
+        $profileNameFields = [
+            'business_name',
+            'company_name',
+            'organisation_name',
+            'organization_name',
+            'organisation',
+            'organization',
+            'business',
+            'company',
+            'business_registration_name',
+            'registered_business_name',
+            'registered_company_name',
+            'full_name',
+            'name',
+        ];
+
+        foreach ($profileNameFields as $fieldKey) {
+
+            $value = $memberProfile->{$fieldKey} ?? null;
+
+            if (
+                $value !== null &&
+                trim((string) $value) !== ''
+            ) {
+
+                $companyName = trim(
+                    (string) $value
+                );
+
+                break;
+            }
+        }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CHECK USER
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        !$companyName &&
+        $documentUser
+    ) {
+
+        $userNameFields = [
+            'business_name',
+            'company_name',
+            'organisation_name',
+            'organization_name',
+            'business',
+            'company',
+            'name',
+        ];
+
+        foreach ($userNameFields as $fieldKey) {
+
+            $value = $documentUser->{$fieldKey} ?? null;
+
+            if (
+                $value !== null &&
+                trim((string) $value) !== ''
+            ) {
+
+                $companyName = trim(
+                    (string) $value
+                );
+
+                break;
+            }
+        }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | FINAL FALLBACK
+    |--------------------------------------------------------------------------
+    */
+
+    if (!$companyName) {
+        $companyName = 'Member';
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | MEMBERSHIP NUMBER
+    |--------------------------------------------------------------------------
+    |
+    | Priority:
+    |
+    | 1. field_values.membership_number
+    | 2. field_values.membership_no
+    | 3. actual memberships.membership_number
+    |
+    */
+
+    $membershipNumber = $fields->get(
+        'membership_number',
+        $fields->get(
+            'membership_no',
+            ''
+        )
+    );
+
+    if (
+        !$membershipNumber &&
+        $membership
+    ) {
+
+        $membershipNumber =
+            $membership->membership_number;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CERTIFICATE NUMBER
+    |--------------------------------------------------------------------------
+    */
+
+    $certificateNumber = $fields->get(
+        'certificate_number',
+        $generatedDocument->document_number
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | ISSUE DATE
+    |--------------------------------------------------------------------------
+    |
+    | Priority:
+    |
+    | 1. field_values.issued_at
+    | 2. actual Membership issued_at
+    | 3. generated document issued_at
+    |
+    */
+
+    $issuedDate = $fields->get(
+        'issued_at',
+        ''
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | FALLBACK TO MEMBERSHIP ISSUED DATE
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        !$issuedDate &&
+        $membership &&
+        $membership->issued_at
+    ) {
+
+        $issuedDate =
+            $membership->issued_at;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | FALLBACK TO GENERATED DOCUMENT ISSUED DATE
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        !$issuedDate &&
+        $generatedDocument->issued_at
+    ) {
+
+        $issuedDate =
+            $generatedDocument->issued_at;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | FORMAT ISSUE DATE
+    |--------------------------------------------------------------------------
+    */
+
+    $issuedDateFormatted = '';
+
+    if ($issuedDate) {
+
+        try {
+
+            $issuedDateFormatted =
+                \Carbon\Carbon::parse(
+                    $issuedDate
+                )->format('F jS, Y');
+
+        } catch (\Throwable $e) {
+
+            $issuedDateFormatted =
+                (string) $issuedDate;
+        }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | VERIFICATION URL
+    |--------------------------------------------------------------------------
+    */
+
+    $verificationUrl = $fields->get(
+        'verification_url',
+        route(
+            'documents.verify',
+            $generatedDocument->tracking_code
+        )
     );
 @endphp
 
@@ -737,10 +1050,10 @@
                  MEMBERSHIP NUMBER
             =========================================================== --}}
 
-            <div class="membership-number">
+            <div class="membership-number text-danger bold">
 
                 MEMBERSHIP NO.:
-                {{ $membershipNumber }}
+                {{ $membershipNumber ?: '—' }}
 
             </div>
 
@@ -752,7 +1065,7 @@
             <div class="dated">
 
                 Dated this:
-                {{ $issuedDate }}
+                {{ $issuedDateFormatted ?: '—' }}
 
             </div>
 

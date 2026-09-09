@@ -870,6 +870,492 @@
         </div>
 
 
+        {{-- ============================================================
+APPLICANT DOCUMENTS
+============================================================ --}}
+
+@php
+
+    $categoryName = strtolower(
+        trim(
+            $profile->membershipCategory->name ?? ''
+        )
+    );
+
+    $categoryCode = strtoupper(
+        trim(
+            $profile->membershipCategory->code ?? ''
+        )
+    );
+
+    $isExporter =
+        str_contains($categoryName, 'exporter') ||
+        $categoryCode === 'EXPORTER';
+
+    $isSupplier =
+        str_contains($categoryName, 'supplier') ||
+        $categoryCode === 'SUPPLIER';
+
+    $isDealer =
+        str_contains($categoryName, 'dealer') ||
+        $categoryCode === 'DEALER';
+
+@endphp
+
+
+<div class="card border-0 shadow-sm mb-4">
+
+    <div class="card-header bg-white">
+
+        <div class="d-flex align-items-center justify-content-between">
+
+            <h5 class="fw-bold mb-0">
+
+                <i class="fas fa-file-upload me-2 text-primary"></i>
+
+                Applicant Documents
+
+            </h5>
+
+
+            @if ($isApproved)
+
+                <span class="text-success small fw-semibold">
+
+                    <i class="fas fa-lock me-1"></i>
+
+                    Read Only
+
+                </span>
+
+            @endif
+
+        </div>
+
+    </div>
+
+
+    <div class="card-body">
+
+        {{-- ====================================================
+        CATEGORY INFORMATION
+        ==================================================== --}}
+
+        <div class="alert alert-info">
+
+            <div class="fw-semibold mb-1">
+
+                <i class="fas fa-info-circle me-1"></i>
+
+                Required Documents
+
+            </div>
+
+
+            @if ($isExporter)
+
+                Exporters are required to upload all three documents:
+
+                <strong>
+                    CAC Certificate,
+                    CAC Particulars of Directors,
+                    and NEPC (Export) License.
+                </strong>
+
+
+            @elseif ($isSupplier)
+
+                CAC Certificate and CAC Particulars of Directors
+                are optional for Suppliers.
+
+
+            @elseif ($isDealer)
+
+                CAC Certificate and CAC Particulars of Directors
+                are optional for Dealers.
+
+
+            @else
+
+                Please upload the documents applicable to your
+                membership category.
+
+            @endif
+
+        </div>
+
+
+        @if ($canEditProfile)
+
+            <form
+                method="POST"
+                action="{{ route('member.profile.update') }}"
+                enctype="multipart/form-data"
+            >
+
+                @csrf
+
+                @method('PUT')
+
+                <input
+                    type="hidden"
+                    name="section"
+                    value="documents"
+                >
+
+        @endif
+
+
+        <div class="row g-4">
+
+
+            {{-- ====================================================
+            CAC CERTIFICATE
+            ==================================================== --}}
+
+            <div class="col-md-6">
+
+                <div class="border rounded p-3 h-100">
+
+                    <label class="form-label fw-semibold">
+
+                        CAC Certificate
+
+                        @if ($isExporter && !$profile->cac_certificate)
+
+                            <span class="text-danger">*</span>
+
+                        @endif
+
+                    </label>
+
+
+                    @if ($canEditProfile)
+
+                        <input
+                            type="file"
+                            name="cac_certificate"
+                            class="form-control"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            {{ $isExporter && !$profile->cac_certificate ? 'required' : '' }}
+                        >
+
+                        <small class="text-muted d-block mt-2">
+
+                            PDF, JPG, JPEG or PNG.
+                            Maximum size: 5MB.
+
+                            @if ($isExporter)
+
+                                <span class="text-danger">
+                                    Required for Exporters.
+                                </span>
+
+                            @else
+
+                                <span class="text-muted">
+                                    Optional.
+                                </span>
+
+                            @endif
+
+                        </small>
+
+                    @else
+
+                        <div class="form-control bg-light">
+
+                            <i class="fas fa-lock text-success me-2"></i>
+
+                            Document upload is locked.
+
+                        </div>
+
+                    @endif
+
+
+                    @if ($profile->cac_certificate)
+
+                        <div class="mt-3">
+
+                            <div class="text-success small mb-2">
+
+                                <i class="fas fa-check-circle me-1"></i>
+
+                                CAC Certificate uploaded.
+
+                            </div>
+
+
+                            <a
+                                href="{{ asset('document/' . $profile->cac_certificate) }}"
+                                target="_blank"
+                                class="btn btn-sm btn-outline-primary"
+                            >
+
+                                <i class="fas fa-eye me-1"></i>
+
+                                View Document
+
+                            </a>
+
+                        </div>
+
+                    @endif
+
+                </div>
+
+            </div>
+
+
+            {{-- ====================================================
+            CAC PARTICULARS OF DIRECTORS
+            ==================================================== --}}
+
+            <div class="col-md-6">
+
+                <div class="border rounded p-3 h-100">
+
+                    <label class="form-label fw-semibold">
+
+                        CAC Particulars of Directors
+
+                        @if (
+                            $isExporter &&
+                            !$profile->cac_particulars_of_directors
+                        )
+
+                            <span class="text-danger">*</span>
+
+                        @endif
+
+                    </label>
+
+
+                    @if ($canEditProfile)
+
+                        <input
+                            type="file"
+                            name="cac_particulars_of_directors"
+                            class="form-control"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            {{ $isExporter && !$profile->cac_particulars_of_directors ? 'required' : '' }}
+                        >
+
+
+                        <small class="text-muted d-block mt-2">
+
+                            PDF, JPG, JPEG or PNG.
+                            Maximum size: 5MB.
+
+                            @if ($isExporter)
+
+                                <span class="text-danger">
+                                    Required for Exporters.
+                                </span>
+
+                            @else
+
+                                <span class="text-muted">
+                                    Optional.
+                                </span>
+
+                            @endif
+
+                        </small>
+
+                    @else
+
+                        <div class="form-control bg-light">
+
+                            <i class="fas fa-lock text-success me-2"></i>
+
+                            Document upload is locked.
+
+                        </div>
+
+                    @endif
+
+
+                    @if ($profile->cac_particulars_of_directors)
+
+                        <div class="mt-3">
+
+                            <div class="text-success small mb-2">
+
+                                <i class="fas fa-check-circle me-1"></i>
+
+                                CAC Particulars of Directors uploaded.
+
+                            </div>
+
+
+                            <a
+                                href="{{ asset('document/' . $profile->cac_particulars_of_directors) }}"
+                                target="_blank"
+                                class="btn btn-sm btn-outline-primary"
+                            >
+
+                                <i class="fas fa-eye me-1"></i>
+
+                                View Document
+
+                            </a>
+
+                        </div>
+
+                    @endif
+
+                </div>
+
+            </div>
+
+
+            {{-- ====================================================
+            NEPC EXPORT LICENSE
+            ==================================================== --}}
+
+            @if ($isExporter)
+
+                <div class="col-md-6">
+
+                    <div class="border rounded p-3 h-100">
+
+                        <label class="form-label fw-semibold">
+
+                            NEPC (Export) License
+
+                            @if (!$profile->nepc_export_license)
+
+                                <span class="text-danger">*</span>
+
+                            @endif
+
+                        </label>
+
+
+                        @if ($canEditProfile)
+
+                            <input
+                                type="file"
+                                name="nepc_export_license"
+                                class="form-control"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                {{ !$profile->nepc_export_license ? 'required' : '' }}
+                            >
+
+
+                            <small class="text-muted d-block mt-2">
+
+                                PDF, JPG, JPEG or PNG.
+                                Maximum size: 5MB.
+
+                                <span class="text-danger">
+                                    Required for Exporters.
+                                </span>
+
+                            </small>
+
+                        @else
+
+                            <div class="form-control bg-light">
+
+                                <i class="fas fa-lock text-success me-2"></i>
+
+                                Document upload is locked.
+
+                            </div>
+
+                        @endif
+
+
+                        @if ($profile->nepc_export_license)
+
+                            <div class="mt-3">
+
+                                <div class="text-success small mb-2">
+
+                                    <i class="fas fa-check-circle me-1"></i>
+
+                                    NEPC Export License uploaded.
+
+                                </div>
+
+
+                                <a
+                                    href="{{ asset('document/' . $profile->nepc_export_license) }}"
+                                    target="_blank"
+                                    class="btn btn-sm btn-outline-primary"
+                                >
+
+                                    <i class="fas fa-eye me-1"></i>
+
+                                    View Document
+
+                                </a>
+
+                            </div>
+
+                        @endif
+
+                    </div>
+
+                </div>
+
+            @endif
+
+
+        </div>
+
+
+        {{-- ====================================================
+        SAVE DOCUMENTS BUTTON
+        ==================================================== --}}
+
+        @if ($canEditProfile)
+
+            <div class="mt-4">
+
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                >
+
+                    <i class="fas fa-save me-1"></i>
+
+                    Save Applicant Documents
+
+                </button>
+
+            </div>
+
+        @else
+
+            <div class="alert alert-light border mt-4 mb-0">
+
+                <i class="fas fa-lock text-success me-2"></i>
+
+                <strong>Applicant documents are locked.</strong>
+
+                Your profile has been approved and documents
+                cannot be changed.
+
+            </div>
+
+        @endif
+
+
+        @if ($canEditProfile)
+
+            </form>
+
+        @endif
+
+    </div>
+
+</div>
+
+
 
         {{-- ============================================================
     FINAL SUBMIT / RESUBMIT APPLICATION

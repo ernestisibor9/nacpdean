@@ -376,6 +376,176 @@
             </div>
 
 
+            {{-- ========================================================= --}}
+            {{-- UPLOADED DOCUMENTS --}}
+            {{-- ========================================================= --}}
+
+            <div class="card mb-4">
+
+                <div class="card-header">
+
+                    <i class="fas fa-file-alt me-1"></i>
+
+                    Uploaded Documents
+
+                </div>
+
+                <div class="card-body">
+
+                    {{-- CAC CERTIFICATE --}}
+                    <div class="row align-items-center border-bottom py-3">
+
+                        <div class="col-md-8">
+
+                            <h6 class="mb-1">
+                                CAC Certificate
+                            </h6>
+
+                            @if ($application->cac_certificate)
+                                <span class="badge bg-success">
+                                    Uploaded
+                                </span>
+                            @else
+                                <span class="badge bg-danger">
+                                    Not Uploaded
+                                </span>
+                            @endif
+
+                        </div>
+
+                        <div class="col-md-4 text-md-end mt-2 mt-md-0">
+
+                            @if ($application->cac_certificate)
+                                <a href="{{ route('admin.members.document', [
+                                    'id' => $application->id,
+                                    'document' => 'cac_certificate',
+                                ]) }}"
+                                    target="_blank" class="btn btn-primary btn-sm">
+
+                                    <i class="fas fa-eye me-1"></i>
+
+                                    View Document
+
+                                </a>
+                            @else
+                                <button type="button" class="btn btn-secondary btn-sm" disabled>
+
+                                    <i class="fas fa-ban me-1"></i>
+
+                                    Not Available
+
+                                </button>
+                            @endif
+
+                        </div>
+
+                    </div>
+
+
+                    {{-- CAC PARTICULARS OF DIRECTORS --}}
+                    <div class="row align-items-center border-bottom py-3">
+
+                        <div class="col-md-8">
+
+                            <h6 class="mb-1">
+                                CAC Particulars of Directors
+                            </h6>
+
+                            @if ($application->cac_particulars_of_directors)
+                                <span class="badge bg-success">
+                                    Uploaded
+                                </span>
+                            @else
+                                <span class="badge bg-danger">
+                                    Not Uploaded
+                                </span>
+                            @endif
+
+                        </div>
+
+                        <div class="col-md-4 text-md-end mt-2 mt-md-0">
+
+                            @if ($application->cac_particulars_of_directors)
+                                <a href="{{ route('admin.members.document', [
+                                    'id' => $application->id,
+                                    'document' => 'cac_particulars_of_directors',
+                                ]) }}"
+                                    target="_blank" class="btn btn-primary btn-sm">
+
+                                    <i class="fas fa-eye me-1"></i>
+
+                                    View Document
+
+                                </a>
+                            @else
+                                <button type="button" class="btn btn-secondary btn-sm" disabled>
+
+                                    <i class="fas fa-ban me-1"></i>
+
+                                    Not Available
+
+                                </button>
+                            @endif
+
+                        </div>
+
+                    </div>
+
+
+                    {{-- NEPC EXPORT LICENSE --}}
+                    <div class="row align-items-center py-3">
+
+                        <div class="col-md-8">
+
+                            <h6 class="mb-1">
+                                NEPC Export License
+                            </h6>
+
+                            @if ($application->nepc_export_license)
+                                <span class="badge bg-success">
+                                    Uploaded
+                                </span>
+                            @else
+                                <span class="badge bg-danger">
+                                    Not Uploaded
+                                </span>
+                            @endif
+
+                        </div>
+
+                        <div class="col-md-4 text-md-end mt-2 mt-md-0">
+
+                            @if ($application->nepc_export_license)
+                                <a href="{{ route('admin.members.document', [
+                                    'id' => $application->id,
+                                    'document' => 'nepc_export_license',
+                                ]) }}"
+                                    target="_blank" class="btn btn-primary btn-sm">
+
+                                    <i class="fas fa-eye me-1"></i>
+
+                                    View Document
+
+                                </a>
+                            @else
+                                <button type="button" class="btn btn-secondary btn-sm" disabled>
+
+                                    <i class="fas fa-ban me-1"></i>
+
+                                    Not Available
+
+                                </button>
+                            @endif
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
 
             {{-- =====================================================
                  PAYMENT

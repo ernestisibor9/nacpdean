@@ -4,257 +4,654 @@ namespace App\Services;
 
 use App\Models\Document;
 use App\Models\GeneratedDocument;
+use App\Models\MemberProfile;
 use App\Models\Membership;
+use App\Models\MembershipCategory;
 use App\Models\Payment;
 use App\Models\Transaction;
-use App\Models\User;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
 
 class DocumentGenerationService
 {
-    /**
-     * Generate a document from a successful additional payment.
-     *
-     * The payment MUST already be marked as paid.
-     *
-     * The $credit transaction is the exact CREDIT transaction
-     * created by the payment callback.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | GENERATE DOCUMENT FROM PAYMENT
+    |--------------------------------------------------------------------------
+    */
+
     public function generate(
-        User $user,
         Payment $payment,
-        Transaction $credit,
+        Transaction $creditTransaction,
         array $documentFieldValues = []
-    ): ?GeneratedDocument {
+    ): GeneratedDocument {
+        return DB::transaction(function () use (
+            $payment,
+            $creditTransaction,
+            $documentFieldValues
+        ) {
+            if (
+                (int) $payment->user_id !==
+                (int) $creditTransaction->user_id
+            ) {
+                throw new RuntimeException(
+                    'Payment and credit transaction do not belong to the same user.'
+                );
+            }
 
-        /*
-        |--------------------------------------------------------------------------
-        | 1. Payment must be paid
-        |--------------------------------------------------------------------------
-        */
+            if ($payment->status !== 'paid') {
+                throw new RuntimeException(
+                    'Document cannot be generated until payment is successful.'
+                );
+            }
 
-        if ($payment->status !== 'paid') {
-            throw new RuntimeException(
-                'Document cannot be generated because the payment is not marked as paid.'
+            if ($creditTransaction->type !== 'credit') {
+                throw new RuntimeException(
+                    'The supplied transaction is not a credit transaction.'
+                );
+            }
+
+            if ($creditTransaction->status !== 'paid') {
+                throw new RuntimeException(
+                    'Credit transaction is not marked as paid.'
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | VERIFY CREDIT → DEBIT
+            |--------------------------------------------------------------------------
+            */
+
+            if (!$creditTransaction->debit_transaction_id) {
+                throw new RuntimeException(
+                    'Credit transaction is not linked to a debit transaction.'
+                );
+            }
+
+            $debitTransaction = Transaction::find(
+                $creditTransaction->debit_transaction_id
             );
-        }
 
-        /*
-        |--------------------------------------------------------------------------
-        | 2. Verify payment ownership
-        |--------------------------------------------------------------------------
-        */
+            if (!$debitTransaction) {
+                throw new RuntimeException(
+                    'The debit transaction linked to this credit could not be found.'
+                );
+            }
 
-        if ((int) $payment->user_id !== (int) $user->id) {
-            throw new RuntimeException(
-                'The payment does not belong to this member.'
+            if (
+                (int) $debitTransaction->user_id !==
+                (int) $payment->user_id
+            ) {
+                throw new RuntimeException(
+                    'Debit transaction does not belong to this payment user.'
+                );
+            }
+
+            if ($debitTransaction->type !== 'debit') {
+                throw new RuntimeException(
+                    'The transaction linked to this credit is not a debit transaction.'
+                );
+            }
+
+            if ($debitTransaction->status !== 'paid') {
+                throw new RuntimeException(
+                    'The debit transaction linked to this credit is not marked as paid.'
+                );
+            }
+
+            if (
+                $payment->payment_item_id !== null &&
+                (int) $debitTransaction->payment_item_id !==
+                (int) $payment->payment_item_id
+            ) {
+                throw new RuntimeException(
+                    'Debit transaction does not belong to this payment item.'
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | LOAD PAYMENT
+            |--------------------------------------------------------------------------
+            */
+
+            $payment->loadMissing([
+                'user',
+                'paymentItem.document',
+                'membershipCategory',
+                'membershipCategoryFee',
+                'memberFee',
+            ]);
+
+            $user = $payment->user;
+
+            if (!$user) {
+                throw new RuntimeException(
+                    'Payment user could not be found.'
+                );
+            }
+
+            $paymentItem = $payment->paymentItem;
+
+            /*
+            |--------------------------------------------------------------------------
+            | RESOLVE DOCUMENT
+            |--------------------------------------------------------------------------
+            */
+
+            $document = null;
+
+            if ($paymentItem) {
+                $document = $paymentItem->document;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | LEGACY MEMBERSHIP DOCUMENT FALLBACK
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                !$document &&
+                $payment->membership_category_id
+            ) {
+                $category = MembershipCategory::find(
+                    $payment->membership_category_id
+                );
+
+                if ($category) {
+                    $document = $category->document;
+                }
+            }
+
+            if (!$document) {
+                throw new RuntimeException(
+                    'No document is attached to this payment.'
+                );
+            }
+
+            if (!$document->is_active) {
+                throw new RuntimeException(
+                    'The selected document is currently inactive.'
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | CREDIT PAYMENT ITEM SECURITY
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                $creditTransaction->payment_item_id &&
+                $paymentItem &&
+                (int) $creditTransaction->payment_item_id !==
+                (int) $paymentItem->id
+            ) {
+                throw new RuntimeException(
+                    'Credit transaction does not belong to this payment item.'
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | PREVENT DUPLICATE GENERATION
+            |--------------------------------------------------------------------------
+            */
+
+            $existing = GeneratedDocument::where(
+                'user_id',
+                $user->id
+            )
+                ->where(
+                    'document_id',
+                    $document->id
+                )
+                ->where(
+                    'transaction_id',
+                    $creditTransaction->id
+                )
+                ->first();
+
+            if ($existing) {
+                return $existing;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | DOCUMENT NUMBER
+            |--------------------------------------------------------------------------
+            */
+
+            $documentNumber = $this->generateDocumentNumber(
+                $document,
+                $payment
             );
-        }
 
-        /*
-        |--------------------------------------------------------------------------
-        | 3. Verify CREDIT transaction
-        |--------------------------------------------------------------------------
-        */
+            /*
+            |--------------------------------------------------------------------------
+            | TRACKING CODE
+            |--------------------------------------------------------------------------
+            */
 
-        if ((int) $credit->user_id !== (int) $user->id) {
-            throw new RuntimeException(
-                'The credit transaction does not belong to this member.'
+            $trackingCode = $this->generateTrackingCode();
+
+            /*
+            |--------------------------------------------------------------------------
+            | ISSUED DATE
+            |--------------------------------------------------------------------------
+            */
+
+            $issuedAt = $payment->paid_at
+                ? Carbon::parse($payment->paid_at)
+                : now();
+
+            /*
+            |--------------------------------------------------------------------------
+            | EXPIRY
+            |--------------------------------------------------------------------------
+            */
+
+            $expiresAt = $this->calculateDocumentExpiry(
+                $document,
+                $issuedAt
             );
-        }
 
-        if ($credit->type !== 'credit') {
-            throw new RuntimeException(
-                'The supplied transaction is not a credit transaction.'
+            /*
+            |--------------------------------------------------------------------------
+            | CURRENT MEMBERSHIP
+            |--------------------------------------------------------------------------
+            */
+
+            $membership = Membership::where(
+                'user_id',
+                $user->id
+            )
+                ->latest('id')
+                ->first();
+
+            /*
+            |--------------------------------------------------------------------------
+            | PROFILE
+            |--------------------------------------------------------------------------
+            */
+
+            $profile = MemberProfile::where(
+                'user_id',
+                $user->id
+            )->first();
+
+            /*
+            |--------------------------------------------------------------------------
+            | FIELD VALUES
+            |--------------------------------------------------------------------------
+            */
+
+            $fieldValues = $this->buildGenericFieldValues(
+                $document,
+                $user,
+                $profile,
+                $membership,
+                $payment,
+                $creditTransaction,
+                $documentNumber,
+                $trackingCode,
+                $issuedAt,
+                $expiresAt,
+                $documentFieldValues
             );
-        }
 
-        if ($credit->status !== 'paid') {
-            throw new RuntimeException(
-                'The credit transaction is not marked as paid.'
+            /*
+            |--------------------------------------------------------------------------
+            | CREATE GENERATED DOCUMENT
+            |--------------------------------------------------------------------------
+            */
+
+            $generatedDocument = GeneratedDocument::create([
+                'user_id' => $user->id,
+                'document_id' => $document->id,
+                'transaction_id' => $creditTransaction->id,
+                'document_number' => $documentNumber,
+                'tracking_code' => $trackingCode,
+                'issued_at' => $issuedAt->toDateString(),
+                'expires_at' => $expiresAt
+                    ? $expiresAt->toDateString()
+                    : null,
+                'status' => 'active',
+                'field_values' => $fieldValues,
+            ]);
+
+            /*
+            |--------------------------------------------------------------------------
+            | HANDLE RENEWAL / REPLACEMENT
+            |--------------------------------------------------------------------------
+            */
+
+            $this->handleRenewalReplacement(
+                $generatedDocument,
+                $user->id,
+                $document->id
             );
-        }
 
-        /*
-        |--------------------------------------------------------------------------
-        | 4. Load everything required
-        |--------------------------------------------------------------------------
-        */
+            return $generatedDocument;
+        });
+    }
 
-        $user->loadMissing([
-            'profile',
-            'membership',
+    /*
+    |--------------------------------------------------------------------------
+    | GENERATE ALL MEMBERSHIP DOCUMENTS
+    |--------------------------------------------------------------------------
+    */
+
+    public function generateMembershipDocuments(
+        Membership $membership
+    ): array {
+        $membership->loadMissing([
+            'user',
+            'membershipCategory',
         ]);
 
-        $payment->loadMissing([
-            'paymentItem.document.fields',
-        ]);
+        $user = $membership->user;
 
-        $paymentItem = $payment->paymentItem;
-
-        if (!$paymentItem) {
+        if (!$user) {
             throw new RuntimeException(
-                'The payment item associated with this payment could not be found.'
+                'Membership user could not be found.'
+            );
+        }
+
+        $category = $membership->membershipCategory;
+
+        if (!$category) {
+            throw new RuntimeException(
+                'Membership category could not be determined.'
+            );
+        }
+
+        if (!$category->status) {
+            throw new RuntimeException(
+                'The membership category is inactive.'
+            );
+        }
+
+        if (!$membership->membership_category_id) {
+            throw new RuntimeException(
+                'Membership does not have a membership category.'
             );
         }
 
         /*
         |--------------------------------------------------------------------------
-        | 5. Get attached document
+        | LOAD CATEGORY DOCUMENTS
         |--------------------------------------------------------------------------
         */
 
-        $document = $paymentItem->document;
+        $documents = $category->documents()
+            ->where(
+                'documents.is_active',
+                true
+            )
+            ->orderBy(
+                'membership_category_documents.sort_order'
+            )
+            ->orderBy(
+                'documents.id'
+            )
+            ->get();
 
         /*
         |--------------------------------------------------------------------------
-        | 6. Payment items are allowed to have no document
+        | LEGACY FALLBACK
         |--------------------------------------------------------------------------
         */
 
-        if (!$document) {
-            Log::info(
-                'DOCUMENT GENERATION SKIPPED - NO DOCUMENT ATTACHED',
-                [
-                    'user_id' => $user->id,
-                    'payment_id' => $payment->id,
-                    'payment_item_id' => $paymentItem->id,
-                    'credit_transaction_id' => $credit->id,
-                ]
-            );
+        if (
+            $documents->isEmpty() &&
+            $category->document_id
+        ) {
+            $legacyDocument = Document::with('fields')
+                ->where(
+                    'id',
+                    $category->document_id
+                )
+                ->where(
+                    'is_active',
+                    true
+                )
+                ->first();
 
-            return null;
+            if ($legacyDocument) {
+                $documents = collect([
+                    $legacyDocument,
+                ]);
+            }
+        }
+
+        if ($documents->isEmpty()) {
+            throw new RuntimeException(
+                'No active documents are configured for membership category: ' .
+                $category->name
+            );
         }
 
         /*
         |--------------------------------------------------------------------------
-        | 7. Document must be active
+        | FIND MEMBERSHIP PAYMENT
         |--------------------------------------------------------------------------
         */
+
+        [
+            $payment,
+            $debitTransaction,
+            $creditTransaction
+        ] = $this->findMembershipPaymentTransactions(
+            $membership
+        );
+
+        if (!$payment) {
+            throw new RuntimeException(
+                'A successful membership payment could not be found for this membership category.'
+            );
+        }
+
+        if (!$creditTransaction) {
+            throw new RuntimeException(
+                'A successful membership credit transaction could not be found for this membership payment.'
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | GENERATE DOCUMENTS
+        |--------------------------------------------------------------------------
+        */
+
+        $generatedDocuments = [];
+
+        foreach ($documents as $document) {
+            $generatedDocuments[] =
+                $this->generateMembershipDocument(
+                    $membership,
+                    $document,
+                    $payment,
+                    $debitTransaction,
+                    $creditTransaction
+                );
+        }
+
+        return $generatedDocuments;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | GENERATE SINGLE MEMBERSHIP DOCUMENT
+    |--------------------------------------------------------------------------
+    */
+
+    protected function generateMembershipDocument(
+        Membership $membership,
+        Document $document,
+        Payment $payment,
+        ?Transaction $debitTransaction,
+        Transaction $creditTransaction
+    ): GeneratedDocument {
+        $user = $membership->user;
+
+        if (!$user) {
+            throw new RuntimeException(
+                'Membership user could not be found.'
+            );
+        }
+
+        $profile = MemberProfile::where(
+            'user_id',
+            $user->id
+        )->first();
+
+        $category = $membership->membershipCategory;
+
+        if (!$category) {
+            throw new RuntimeException(
+                'Membership category could not be found.'
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | VERIFY CREDIT → DEBIT
+        |--------------------------------------------------------------------------
+        */
+
+        if (!$creditTransaction->debit_transaction_id) {
+            throw new RuntimeException(
+                'Membership credit transaction is not linked to a debit transaction.'
+            );
+        }
+
+        if (
+            (int) $creditTransaction->user_id !==
+            (int) $membership->user_id
+        ) {
+            throw new RuntimeException(
+                'Credit transaction does not belong to this membership.'
+            );
+        }
+
+        if (!$debitTransaction) {
+            throw new RuntimeException(
+                'The membership payment debit transaction could not be found.'
+            );
+        }
+
+        if (
+            (int) $creditTransaction->debit_transaction_id !==
+            (int) $debitTransaction->id
+        ) {
+            throw new RuntimeException(
+                'Credit transaction is not linked to the membership payment debit.'
+            );
+        }
+
+        if ($debitTransaction->type !== 'debit') {
+            throw new RuntimeException(
+                'The membership payment transaction is not a debit transaction.'
+            );
+        }
+
+        if ($debitTransaction->status !== 'paid') {
+            throw new RuntimeException(
+                'The membership payment debit transaction is not marked as paid.'
+            );
+        }
+
+        if (
+            $payment->payment_item_id !== null &&
+            (int) $debitTransaction->payment_item_id !==
+            (int) $payment->payment_item_id
+        ) {
+            throw new RuntimeException(
+                'Membership payment debit does not belong to the payment item.'
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | VERIFY DOCUMENT BELONGS TO CATEGORY
+        |--------------------------------------------------------------------------
+        */
+
+        $belongsToCategory = $category->documents()
+            ->where(
+                'documents.id',
+                $document->id
+            )
+            ->exists();
+
+        if (
+            !$belongsToCategory &&
+            $category->documents()->count() === 0 &&
+            (int) $category->document_id ===
+            (int) $document->id
+        ) {
+            $belongsToCategory = true;
+        }
+
+        if (!$belongsToCategory) {
+            throw new RuntimeException(
+                'Document "' .
+                $document->name .
+                '" is not configured for membership category "' .
+                $category->name .
+                '".'
+            );
+        }
 
         if (!$document->is_active) {
             throw new RuntimeException(
-                "The document [{$document->code}] is not active."
+                'The document is inactive.'
             );
         }
 
         /*
         |--------------------------------------------------------------------------
-        | 8. Verify CREDIT belongs to this payment item
+        | PREVENT DUPLICATE GENERATION
         |--------------------------------------------------------------------------
         */
 
-        if (
-            $credit->payment_item_id !== null &&
-            (int) $credit->payment_item_id !== (int) $paymentItem->id
-        ) {
-            throw new RuntimeException(
-                'The credit transaction does not belong to this payment item.'
-            );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | 9. Find the exact DEBIT
-        |--------------------------------------------------------------------------
-        */
-
-        $debitTransactionId = $credit->debit_transaction_id;
-
-        /*
-        |--------------------------------------------------------------------------
-        | Compatibility with current transaction structure
-        |--------------------------------------------------------------------------
-        */
-
-        if (!$debitTransactionId && $credit->transaction_id) {
-            $debitTransactionId = $credit->transaction_id;
-        }
-
-        if (!$debitTransactionId) {
-            throw new RuntimeException(
-                'The credit transaction is not linked to a debit transaction.'
-            );
-        }
-
-        $debit = Transaction::query()
-            ->where('id', $debitTransactionId)
-            ->where('type', 'debit')
+        $existing = GeneratedDocument::where(
+            'user_id',
+            $user->id
+        )
+            ->where(
+                'document_id',
+                $document->id
+            )
+            ->where(
+                'transaction_id',
+                $creditTransaction->id
+            )
             ->first();
 
-        if (!$debit) {
-            throw new RuntimeException(
-                'The debit transaction associated with this payment could not be found.'
-            );
+        if ($existing) {
+            return $existing;
         }
 
         /*
         |--------------------------------------------------------------------------
-        | 10. Verify DEBIT ownership
+        | DOCUMENT NUMBER
         |--------------------------------------------------------------------------
         */
 
-        if ((int) $debit->user_id !== (int) $user->id) {
-            throw new RuntimeException(
-                'The debit transaction does not belong to this member.'
-            );
-        }
+        $documentNumber = $this->generateDocumentNumber(
+            $document,
+            $payment
+        );
 
         /*
         |--------------------------------------------------------------------------
-        | 11. Verify DEBIT payment item
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            $debit->payment_item_id !== null &&
-            (int) $debit->payment_item_id !== (int) $paymentItem->id
-        ) {
-            throw new RuntimeException(
-                'The debit transaction does not belong to this payment item.'
-            );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | 12. Prevent duplicate document generation
-        |--------------------------------------------------------------------------
-        */
-
-        $existingDocument = GeneratedDocument::query()
-            ->where('user_id', $user->id)
-            ->where('document_id', $document->id)
-            ->where('transaction_id', $credit->id)
-            ->first();
-
-        if ($existingDocument) {
-            Log::info(
-                'DOCUMENT GENERATION SKIPPED - ALREADY EXISTS',
-                [
-                    'generated_document_id' => $existingDocument->id,
-                    'user_id' => $user->id,
-                    'document_id' => $document->id,
-                    'credit_transaction_id' => $credit->id,
-                ]
-            );
-
-            return $existingDocument;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | 13. Generate document number
-        |--------------------------------------------------------------------------
-        */
-
-        $documentNumber = $this->generateDocumentNumber($document);
-
-        /*
-        |--------------------------------------------------------------------------
-        | 14. Generate verification tracking code
+        | TRACKING CODE
         |--------------------------------------------------------------------------
         */
 
@@ -262,737 +659,1741 @@ class DocumentGenerationService
 
         /*
         |--------------------------------------------------------------------------
-        | 15. Build document field values
+        | ISSUED DATE
         |--------------------------------------------------------------------------
         */
 
-        $fieldValues = [];
-
-        foreach ($document->fields as $field) {
-
-            /*
-            |--------------------------------------------------------------------------
-            | SYSTEM FIELD
-            |--------------------------------------------------------------------------
-            */
-
-            if ($field->is_system) {
-                $fieldValues[$field->field_key] =
-                    $this->resolveSystemField(
-                        $field->field_key,
-                        $user,
-                        $payment,
-                        $paymentItem,
-                        $document,
-                        $credit,
-                        $debit,
-                        $trackingCode,
-                        $documentNumber
-                    );
-
-                continue;
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | MANUAL FIELD
-            |--------------------------------------------------------------------------
-            |
-            | initializeAdditional() has already validated these values.
-            |
-            */
-
-            if (
-                array_key_exists(
-                    $field->field_key,
-                    $documentFieldValues
-                )
-            ) {
-                $fieldValues[$field->field_key] =
-                    $documentFieldValues[$field->field_key];
-
-                continue;
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | DEFAULT VALUE
-            |--------------------------------------------------------------------------
-            */
-
-            if ($field->default_value !== null) {
-                $fieldValues[$field->field_key] =
-                    $field->default_value;
-            }
-        }
+        $issuedAt = $membership->issued_at
+            ? Carbon::parse($membership->issued_at)
+            : (
+                $payment->paid_at
+                    ? Carbon::parse($payment->paid_at)
+                    : now()
+            );
 
         /*
         |--------------------------------------------------------------------------
-        | 16. Issue date
+        | EXPIRY
         |--------------------------------------------------------------------------
         */
 
-        $issuedAt = $payment->paid_at
-            ? Carbon::parse($payment->paid_at)
-            : now();
-
-        /*
-        |--------------------------------------------------------------------------
-        | 17. Expiry date
-        |--------------------------------------------------------------------------
-        */
-
-        $expiresAt =
-            $this->calculateExpiryDate(
+        $expiresAt = $membership->expires_at
+            ? Carbon::parse($membership->expires_at)
+            : $this->calculateDocumentExpiry(
                 $document,
                 $issuedAt
             );
 
         /*
         |--------------------------------------------------------------------------
-        | 18. Create generated document
+        | FIELD VALUES
+        |--------------------------------------------------------------------------
+        */
+
+        $fieldValues = $this->buildMembershipFieldValues(
+            $document,
+            $user,
+            $profile,
+            $membership,
+            $category,
+            $payment,
+            $debitTransaction,
+            $creditTransaction,
+            $documentNumber,
+            $trackingCode,
+            $issuedAt,
+            $expiresAt
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | CREATE
         |--------------------------------------------------------------------------
         */
 
         $generatedDocument = GeneratedDocument::create([
             'user_id' => $user->id,
-
             'document_id' => $document->id,
-
-            'transaction_id' => $credit->id,
-
+            'transaction_id' => $creditTransaction->id,
             'document_number' => $documentNumber,
-
             'tracking_code' => $trackingCode,
-
             'issued_at' => $issuedAt->toDateString(),
-
-            'expires_at' => $expiresAt?->toDateString(),
-
+            'expires_at' => $expiresAt
+                ? $expiresAt->toDateString()
+                : null,
             'status' => 'active',
-
             'field_values' => $fieldValues,
         ]);
 
         /*
-|--------------------------------------------------------------------------
-| If this is a renewal, mark the old document as replaced.
-|--------------------------------------------------------------------------
-|
-| Payment::renewal_document_id points to the expired document
-| that this new document is replacing.
-|
-*/
-
-        if ($payment->renewal_document_id) {
-
-            $oldGeneratedDocument = GeneratedDocument::query()
-                ->where('id', $payment->renewal_document_id)
-                ->where('user_id', $user->id)
-                ->first();
-
-            if ($oldGeneratedDocument) {
-
-                $oldGeneratedDocument->update([
-                    'replaced_by_document_id' => $generatedDocument->id,
-                ]);
-
-                Log::info(
-                    'OLD DOCUMENT MARKED AS REPLACED',
-                    [
-                        'old_generated_document_id' =>
-                        $oldGeneratedDocument->id,
-
-                        'new_generated_document_id' =>
-                        $generatedDocument->id,
-
-                        'user_id' =>
-                        $user->id,
-
-                        'payment_id' =>
-                        $payment->id,
-                    ]
-                );
-            }
-        }
-
-        /*
         |--------------------------------------------------------------------------
-        | 19. Log successful generation
+        | RENEWAL / REPLACEMENT
         |--------------------------------------------------------------------------
         */
 
-        Log::info(
-            'DOCUMENT GENERATED SUCCESSFULLY',
-            [
-                'generated_document_id' =>
-                $generatedDocument->id,
-
-                'document_id' =>
-                $document->id,
-
-                'document_code' =>
-                $document->code,
-
-                'document_number' =>
-                $generatedDocument->document_number,
-
-                'tracking_code' =>
-                $generatedDocument->tracking_code,
-
-                'user_id' =>
-                $user->id,
-
-                'payment_id' =>
-                $payment->id,
-
-                'credit_transaction_id' =>
-                $credit->id,
-
-                'debit_transaction_id' =>
-                $debit->id,
-            ]
+        $this->handleRenewalReplacement(
+            $generatedDocument,
+            $user->id,
+            $document->id
         );
 
         return $generatedDocument;
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | GENERATE MEMBERSHIP CERTIFICATE
+    |--------------------------------------------------------------------------
+    */
+
+    public function generateMembershipCertificate(
+        $userOrMembership,
+        ?Membership $membership = null
+    ): ?GeneratedDocument {
+        if (
+            $userOrMembership instanceof Membership &&
+            $membership === null
+        ) {
+            $membership = $userOrMembership;
+        }
+
+        if (!$membership) {
+            throw new RuntimeException(
+                'Membership is required for certificate generation.'
+            );
+        }
+
+        if (!$membership->user_id) {
+            throw new RuntimeException(
+                'Membership does not belong to a user.'
+            );
+        }
+
+        if ($membership->status !== 'active') {
+            throw new RuntimeException(
+                'Only active memberships can generate documents.'
+            );
+        }
+
+        if (!$membership->membership_number) {
+            throw new RuntimeException(
+                'Membership number has not been generated yet.'
+            );
+        }
+
+        $membership->loadMissing([
+            'user',
+            'membershipCategory',
+        ]);
+
+        $category = $membership->membershipCategory;
+
+        if (!$category) {
+            throw new RuntimeException(
+                'Membership category could not be found.'
+            );
+        }
+
+        $documents = $category->documents()
+            ->where(
+                'documents.is_active',
+                true
+            )
+            ->orderBy(
+                'membership_category_documents.sort_order'
+            )
+            ->get();
+
+        /*
+        |--------------------------------------------------------------------------
+        | FIND CERTIFICATE DOCUMENT
+        |--------------------------------------------------------------------------
+        */
+
+        $document = $documents->first(
+            function ($document) {
+                $code = strtoupper(
+                    trim(
+                        $document->code ?? ''
+                    )
+                );
+
+                $name = strtolower(
+                    trim(
+                        $document->name ?? ''
+                    )
+                );
+
+                return
+                    str_contains(
+                        $name,
+                        'certificate'
+                    )
+                    ||
+                    str_contains(
+                        $code,
+                        'CERT'
+                    );
+            }
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | LEGACY FALLBACK
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            !$document &&
+            $category->document
+        ) {
+            $legacyDocument = $category->document;
+
+            $name = strtolower(
+                trim(
+                    $legacyDocument->name ?? ''
+                )
+            );
+
+            $code = strtoupper(
+                trim(
+                    $legacyDocument->code ?? ''
+                )
+            );
+
+            if (
+                str_contains(
+                    $name,
+                    'certificate'
+                )
+                ||
+                str_contains(
+                    $code,
+                    'CERT'
+                )
+            ) {
+                $document = $legacyDocument;
+            }
+        }
+
+        if (!$document) {
+            throw new RuntimeException(
+                'No active membership certificate is configured for this membership category.'
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | PAYMENT + TRANSACTIONS
+        |--------------------------------------------------------------------------
+        */
+
+        [
+            $payment,
+            $debitTransaction,
+            $creditTransaction
+        ] = $this->findMembershipPaymentTransactions(
+            $membership
+        );
+
+        if (!$payment) {
+            throw new RuntimeException(
+                'Successful membership payment could not be found.'
+            );
+        }
+
+        if (!$creditTransaction) {
+            throw new RuntimeException(
+                'Successful membership credit transaction could not be found.'
+            );
+        }
+
+        return $this->generateMembershipDocument(
+            $membership,
+            $document,
+            $payment,
+            $debitTransaction,
+            $creditTransaction
+        );
+    }
 
     /*
     |--------------------------------------------------------------------------
-    | SYSTEM FIELD RESOLVER
+    | BUILD GENERIC FIELD VALUES
+    |--------------------------------------------------------------------------
+    */
+
+    protected function buildGenericFieldValues(
+        Document $document,
+        $user,
+        ?MemberProfile $profile,
+        ?Membership $membership,
+        Payment $payment,
+        Transaction $creditTransaction,
+        string $documentNumber,
+        string $trackingCode,
+        Carbon $issuedAt,
+        ?Carbon $expiresAt,
+        array $documentFieldValues = []
+    ): array {
+        $fields = $document->fields()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        $fieldValues = [];
+
+        foreach ($fields as $field) {
+            $key = strtolower(
+                trim(
+                    $field->field_key
+                )
+            );
+
+            if ($field->is_system) {
+                $value = $this->resolveSystemField(
+                    $key,
+                    $user,
+                    $profile,
+                    $membership,
+                    $payment,
+                    $creditTransaction,
+                    $document,
+                    $documentNumber,
+                    $trackingCode,
+                    $issuedAt,
+                    $expiresAt
+                );
+            } else {
+                $value =
+                    $documentFieldValues[$key]
+                    ?? $field->default_value
+                    ?? null;
+            }
+
+            $fieldValues[$key] = $value;
+        }
+
+        return $fieldValues;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | GENERIC SYSTEM FIELD RESOLVER
     |--------------------------------------------------------------------------
     */
 
     protected function resolveSystemField(
         string $fieldKey,
-        User $user,
+        $user,
+        ?MemberProfile $profile,
+        ?Membership $membership,
         Payment $payment,
-        $paymentItem,
-        $document,
-        Transaction $credit,
-        Transaction $debit,
+        Transaction $creditTransaction,
+        Document $document,
+        string $documentNumber,
         string $trackingCode,
-        string $documentNumber
+        Carbon $issuedAt,
+        ?Carbon $expiresAt
     ) {
+        $fieldKey = strtolower(
+            trim($fieldKey)
+        );
 
-        $profile = $user->profile;
+        $payment->loadMissing([
+            'paymentItem',
+            'membershipCategory',
+            'membershipCategoryFee',
+            'memberFee',
+        ]);
 
-        $membership = $user->membership;
+        $paymentItem = $payment->paymentItem;
 
         /*
         |--------------------------------------------------------------------------
-        | Payment date/time
+        | EXACT DEBIT TRANSACTION
         |--------------------------------------------------------------------------
         */
 
-        $paymentDateTime = $payment->paid_at
-            ? Carbon::parse($payment->paid_at)
-            : now();
-
-        return match ($fieldKey) {
-
-            /*
-            |--------------------------------------------------------------------------
-            | DOCUMENT #35 - AFFORESTATION RECEIPT
-            |--------------------------------------------------------------------------
-            */
-
-            'receipt_no' =>
-            $documentNumber,
-
-            'seller_member_name' =>
-            $this->getMemberFullName(
-                $profile,
-                $user
-            ),
-
-            'seller_membership_no' =>
-            $membership?->membership_number,
-
-            /*
-            |--------------------------------------------------------------------------
-            | No dealing_right_number column currently exists
-            | in member_profiles.
-            |
-            | This field is optional on Document #35.
-            |--------------------------------------------------------------------------
-            */
-
-            'seller_dealing_right_no' =>
-            null,
-
-            'seller_phone' =>
-            $profile?->phone
-                ?? $user->phone,
-
-            /*
-            |--------------------------------------------------------------------------
-            | USER
-            |--------------------------------------------------------------------------
-            */
-
-            'user_id' =>
-            $user->id,
-
-            'name' =>
-            $user->name,
-
-            'member_name' =>
-            $this->getMemberFullName(
-                $profile,
-                $user
-            ),
-
-            'email' =>
-            $user->email,
-
-            /*
-            |--------------------------------------------------------------------------
-            | MEMBER PROFILE
-            |--------------------------------------------------------------------------
-            */
-
-            'surname' =>
-            $profile?->surname,
-
-            'first_name' =>
-            $profile?->first_name,
-
-            'middle_name' =>
-            $profile?->middle_name,
-
-            'phone' =>
-            $profile?->phone
-                ?? $user->phone,
-
-            'photo' =>
-            $profile?->photo,
-
-            'date_of_birth' =>
-            $profile?->date_of_birth
-                ? Carbon::parse(
-                    $profile->date_of_birth
-                )->format('Y-m-d')
-                : null,
-
-            'gender' =>
-            $profile?->gender,
-
-            'nationality' =>
-            $profile?->nationality,
-
-            'address' =>
-            $profile?->address,
-
-            'city' =>
-            $profile?->city,
-
-            'state' =>
-            $profile?->state,
-
-            'lga' =>
-            $profile?->lga,
-
-            /*
-            |--------------------------------------------------------------------------
-            | BUSINESS
-            |--------------------------------------------------------------------------
-            */
-
-            'business_name' =>
-            $profile?->business_name,
-
-            'business_registration_number' =>
-            $profile?->business_registration_number,
-
-            'business_type' =>
-            $profile?->business_type,
-
-            'business_address' =>
-            $profile?->business_address,
-
-            /*
-            |--------------------------------------------------------------------------
-            | MEMBERSHIP
-            |--------------------------------------------------------------------------
-            */
-
-            'membership_number' =>
-            $membership?->membership_number,
-
-            'membership_no' =>
-            $membership?->membership_number,
-
-            'membership_status' =>
-            $membership?->status,
-
-            'membership_issued_at' =>
-            $membership?->issued_at
-                ? Carbon::parse(
-                    $membership->issued_at
-                )->format('Y-m-d')
-                : null,
-
-            'membership_expires_at' =>
-            $membership?->expires_at
-                ? Carbon::parse(
-                    $membership->expires_at
-                )->format('Y-m-d')
-                : null,
-
-            /*
-            |--------------------------------------------------------------------------
-            | PAYMENT
-            |--------------------------------------------------------------------------
-            */
-
-            'payment_id' =>
-            $payment->id,
-
-            'payment_item_id' =>
-            $paymentItem->id,
-
-            'payment_item_code' =>
-            $paymentItem->code,
-
-            'payment_item_name' =>
-            $paymentItem->name,
-
-            'amount' =>
-            $payment->amount,
-
-            'amount_paid' =>
-            $payment->amount,
-
-            /*
-            |--------------------------------------------------------------------------
-            | Amount in words
-            |--------------------------------------------------------------------------
-            */
-
-            'amount_in_figure' =>
-            $this->numberToWords(
-                (float) $payment->amount
-            ),
-
-            /*
-            |--------------------------------------------------------------------------
-            | Payment reference
-            |--------------------------------------------------------------------------
-            */
-
-            'payment_reference' =>
-            $payment->payment_reference
-                ?? $payment->reference,
-
-            'paystack_reference' =>
+        $paystackReference =
             $payment->paystack_reference
-                ?? $payment->reference,
+            ?? $payment->payment_reference
+            ?? $payment->reference;
 
-            /*
-            |--------------------------------------------------------------------------
-            | Payment date
-            |--------------------------------------------------------------------------
-            */
+        $debitTransaction = null;
 
-            'payment_date' =>
-            $paymentDateTime->format('Y-m-d'),
+        if ($paystackReference) {
+            $debitTransaction = Transaction::where(
+                'user_id',
+                $user->id
+            )
+                ->where(
+                    'type',
+                    'debit'
+                )
+                ->where(
+                    'status',
+                    'paid'
+                )
+                ->whereJsonContains(
+                    'gateway->paystack',
+                    $paystackReference
+                )
+                ->latest('id')
+                ->first();
+        }
 
-            /*
-            |--------------------------------------------------------------------------
-            | Payment time
-            |--------------------------------------------------------------------------
-            */
+        if (
+            !$debitTransaction &&
+            $creditTransaction->debit_transaction_id
+        ) {
+            $linkedDebit = Transaction::where(
+                'id',
+                $creditTransaction->debit_transaction_id
+            )
+                ->where(
+                    'user_id',
+                    $user->id
+                )
+                ->where(
+                    'type',
+                    'debit'
+                )
+                ->where(
+                    'status',
+                    'paid'
+                )
+                ->first();
 
-            'payment_time' =>
-            $paymentDateTime->format('g:ia'),
+            if ($linkedDebit) {
+                $debitTransaction = $linkedDebit;
+            }
+        }
 
-            /*
-            |--------------------------------------------------------------------------
-            | DOCUMENT
-            |--------------------------------------------------------------------------
-            */
+        /*
+        |--------------------------------------------------------------------------
+        | DOCUMENT
+        |--------------------------------------------------------------------------
+        */
 
-            'document_id' =>
-            $document->id,
+        switch ($fieldKey) {
+            case 'receipt_no':
+            case 'receipt_number':
+            case 'certificate_number':
+            case 'document_number':
+            case 'ref_no':
+                return $documentNumber;
 
-            'document_code' =>
-            $document->code,
+            case 'tracking_code':
+            case 'authentication_code':
+            case 'verification_code':
+                return $trackingCode;
 
-            'document_name' =>
-            $document->name,
+            case 'verification_url':
+                return $this->generateVerificationUrl(
+                    $trackingCode
+                );
 
-            /*
-            |--------------------------------------------------------------------------
-            | SECURITY / VERIFICATION
-            |--------------------------------------------------------------------------
-            */
+            case 'document_id':
+                return $document->id;
 
-            'tracking_code' =>
-            $trackingCode,
+            case 'document_code':
+                return $document->code;
 
-            /*
-            |--------------------------------------------------------------------------
-            | TRANSACTIONS
-            |--------------------------------------------------------------------------
-            */
+            case 'document_name':
+                return $document->name;
+        }
 
-            'transaction_id' =>
-            $credit->id,
+        /*
+        |--------------------------------------------------------------------------
+        | USER
+        |--------------------------------------------------------------------------
+        */
 
-            'credit_transaction_id' =>
-            $credit->id,
+        switch ($fieldKey) {
+            case 'user_id':
+                return $user->id;
 
-            'debit_transaction_id' =>
-            $debit->id,
+            case 'username':
+                return $user->username ?? null;
 
-            /*
-            |--------------------------------------------------------------------------
-            | UNKNOWN SYSTEM FIELD
-            |--------------------------------------------------------------------------
-            */
+            case 'name':
+            case 'member_name':
+            case 'member_full_name':
+            case 'full_name':
+                return $this->getMemberFullName(
+                    $profile,
+                    $user
+                );
 
-            default =>
-            null,
-        };
+            case 'surname':
+            case 'last_name':
+                return $profile?->surname;
+
+            case 'first_name':
+                return $profile?->first_name;
+
+            case 'middle_name':
+                return $profile?->middle_name;
+
+            case 'email':
+            case 'member_email':
+                return $user->email ?? null;
+
+            case 'phone':
+            case 'phone_number':
+            case 'member_phone':
+                return $profile?->phone
+                    ?? $user->phone
+                    ?? null;
+
+            case 'representative_name':
+            case 'contact_name':
+                return $profile?->contact_name
+                    ?? $this->getMemberFullName(
+                        $profile,
+                        $user
+                    );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | PROFILE
+        |--------------------------------------------------------------------------
+        */
+
+        switch ($fieldKey) {
+            case 'photo':
+            case 'profile_photo':
+                return $profile?->photo;
+
+            case 'date_of_birth':
+            case 'dob':
+                return $profile?->date_of_birth;
+
+            case 'gender':
+                return $profile?->gender;
+
+            case 'nationality':
+                return $profile?->nationality;
+
+            case 'address':
+            case 'residential_address':
+                return $profile?->address;
+
+            case 'city':
+                return $profile?->city;
+
+            case 'state':
+                return $profile?->state;
+
+            case 'lga':
+                return $profile?->lga;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | BUSINESS
+        |--------------------------------------------------------------------------
+        */
+
+        switch ($fieldKey) {
+            case 'business_name':
+            case 'company_name':
+                return $profile?->business_name;
+
+            case 'business_registration_number':
+            case 'registration_number':
+            case 'cac_number':
+                return $profile?->business_registration_number;
+
+            case 'business_type':
+                return $profile?->business_type;
+
+            case 'business_address':
+                return $profile?->business_address
+                    ?? $profile?->address;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | MEMBERSHIP
+        |--------------------------------------------------------------------------
+        */
+
+        switch ($fieldKey) {
+            case 'membership_number':
+            case 'membership_no':
+                return $membership?->membership_number;
+
+            case 'membership_status':
+                return $membership?->status;
+
+            case 'membership_issued_at':
+            case 'membership_issued_date':
+            case 'issued_at':
+            case 'issued_date':
+                return $membership?->issued_at
+                    ?? $issuedAt;
+
+            case 'membership_expires_at':
+            case 'membership_expiry_date':
+            case 'expiry_date':
+            case 'expires_at':
+                return $membership?->expires_at
+                    ?? $expiresAt;
+
+            case 'membership_category':
+            case 'membership_category_name':
+                return $membership?->membershipCategory?->name
+                    ?? $payment->membershipCategory?->name;
+
+            case 'membership_category_code':
+                return $membership?->membershipCategory?->code
+                    ?? $payment->membershipCategory?->code;
+
+            case 'category':
+                return $membership?->membershipCategory?->name
+                    ?? $payment->membershipCategory?->name;
+
+            case 'member_type':
+                return $user->member_type;
+
+            case 'membership_year':
+                return $issuedAt->format('Y');
+
+            case 'membership_year_range':
+            case 'membership_period':
+                $year = $issuedAt->format('Y');
+
+                return "01 January {$year} - 31 December {$year}";
+
+            case 'date_joined':
+                return $membership?->issued_at
+                    ? Carbon::parse(
+                        $membership->issued_at
+                    )->format('Y-m-d')
+                    : $issuedAt->format('Y-m-d');
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | PAYMENT
+        |--------------------------------------------------------------------------
+        */
+
+        switch ($fieldKey) {
+            case 'payment_id':
+                return $payment->id;
+
+            case 'payment_item_id':
+                return $payment->payment_item_id;
+
+            case 'payment_item_code':
+                return $paymentItem?->code;
+
+            case 'payment_item_name':
+                return $paymentItem?->name;
+
+            case 'payment_for':
+                if ($paymentItem?->name) {
+                    return $paymentItem->name;
+                }
+
+                if (
+                    $payment->payment_type ===
+                    'membership_renewal'
+                ) {
+                    return 'Annual Membership Renewal';
+                }
+
+                if (
+                    $payment->payment_type ===
+                    'membership'
+                ) {
+                    return 'Annual Membership Subscription';
+                }
+
+                return $payment->payment_type;
+
+            case 'amount':
+            case 'amount_paid':
+            case 'payment_amount':
+                return $payment->amount;
+
+            case 'amount_in_figure':
+                return number_format(
+                    (float) $payment->amount,
+                    2
+                );
+
+            case 'amount_in_words':
+            case 'amount_words':
+            case 'payment_amount_in_words':
+                return $this->numberToWords(
+                    $payment->amount
+                );
+
+            case 'payment_status':
+                return $payment->status;
+
+            case 'payment_reference':
+            case 'paystack_reference':
+            case 'transaction_reference':
+                return $payment->paystack_reference
+                    ?? $payment->payment_reference
+                    ?? $payment->reference;
+
+            case 'payment_date':
+            case 'paid_at':
+                return $payment->paid_at;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | TRANSACTIONS
+        |--------------------------------------------------------------------------
+        */
+
+        switch ($fieldKey) {
+            case 'transaction_id':
+            case 'credit_transaction_id':
+                return $creditTransaction->id;
+
+            case 'debit_transaction_id':
+                return $debitTransaction?->id;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | ORGANIZATION
+        |--------------------------------------------------------------------------
+        */
+
+        switch ($fieldKey) {
+            case 'organization_name':
+            case 'association_name':
+                return config(
+                    'nacpdean.organization_name'
+                );
+
+            case 'organization_short_name':
+                return config(
+                    'nacpdean.organization_short_name'
+                );
+
+            case 'organization_cac_number':
+            case 'association_cac_number':
+                return config(
+                    'nacpdean.cac_number'
+                );
+
+            case 'organization_address':
+            case 'association_address':
+                return config(
+                    'nacpdean.address'
+                );
+
+            case 'organization_phone':
+            case 'association_phone':
+                return config(
+                    'nacpdean.phone'
+                );
+
+            case 'organization_email':
+            case 'association_email':
+                return config(
+                    'nacpdean.email'
+                );
+
+            case 'organization_website':
+            case 'association_website':
+                return config(
+                    'nacpdean.website'
+                );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | SIGNATORIES
+        |--------------------------------------------------------------------------
+        */
+
+        switch ($fieldKey) {
+            case 'national_president_name':
+            case 'president_name':
+                return config(
+                    'nacpdean.national_president_name'
+                );
+
+            case 'national_president_title':
+            case 'president_title':
+                return config(
+                    'nacpdean.national_president_title'
+                );
+
+            case 'secretary_general_name':
+            case 'secretary_name':
+                return config(
+                    'nacpdean.secretary_general_name'
+                );
+
+            case 'secretary_general_title':
+            case 'secretary_title':
+                return config(
+                    'nacpdean.secretary_general_title'
+                );
+        }
+
+        return null;
     }
-
 
     /*
     |--------------------------------------------------------------------------
-    | NUMBER TO WORDS
+    | BUILD MEMBERSHIP FIELD VALUES
     |--------------------------------------------------------------------------
-    |
-    | Pure PHP implementation.
-    |
-    | This does NOT require PHP intl / NumberFormatter.
-    |
     */
 
-    protected function numberToWords(float $amount): string
-    {
-        $amount = round($amount, 2);
+    protected function buildMembershipFieldValues(
+        Document $document,
+        $user,
+        ?MemberProfile $profile,
+        Membership $membership,
+        MembershipCategory $category,
+        Payment $payment,
+        ?Transaction $debitTransaction,
+        ?Transaction $creditTransaction,
+        string $documentNumber,
+        string $trackingCode,
+        Carbon $issuedAt,
+        ?Carbon $expiresAt
+    ): array {
+        $fields = $document->fields()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
 
-        $naira = (int) floor($amount);
+        $fieldValues = [];
 
-        $kobo = (int) round(
-            ($amount - $naira) * 100
+        foreach ($fields as $field) {
+            $key = strtolower(
+                trim(
+                    $field->field_key
+                )
+            );
+
+            if ($field->is_system) {
+                $value = $this->resolveMembershipSystemField(
+                    $key,
+                    $user,
+                    $profile,
+                    $membership,
+                    $category,
+                    $payment,
+                    $debitTransaction,
+                    $creditTransaction,
+                    $document,
+                    $documentNumber,
+                    $trackingCode,
+                    $issuedAt,
+                    $expiresAt
+                );
+            } else {
+                /*
+                |--------------------------------------------------------------------------
+                | PROFILE FIELD FALLBACK
+                |--------------------------------------------------------------------------
+                */
+
+                $value = null;
+
+                if (
+                    $profile &&
+                    isset($profile->{$key}) &&
+                    $profile->{$key} !== null
+                ) {
+                    $value = $profile->{$key};
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | DEFAULT VALUE
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    $value === null &&
+                    $field->default_value !== null
+                ) {
+                    $value = $field->default_value;
+                }
+            }
+
+            $fieldValues[$key] = $value;
+        }
+
+        return $fieldValues;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | MEMBERSHIP SYSTEM FIELD RESOLVER
+    |--------------------------------------------------------------------------
+    */
+
+    protected function resolveMembershipSystemField(
+        string $fieldKey,
+        $user,
+        ?MemberProfile $profile,
+        Membership $membership,
+        MembershipCategory $category,
+        Payment $payment,
+        ?Transaction $debitTransaction,
+        ?Transaction $creditTransaction,
+        Document $document,
+        string $documentNumber,
+        string $trackingCode,
+        Carbon $issuedAt,
+        ?Carbon $expiresAt
+    ) {
+        $fieldKey = strtolower(
+            trim($fieldKey)
         );
 
         /*
         |--------------------------------------------------------------------------
-        | Handle rounding such as 99.999 -> 100.00
+        | PAYMENT RELATIONSHIPS
         |--------------------------------------------------------------------------
         */
 
-        if ($kobo >= 100) {
-            $naira++;
-            $kobo = 0;
+        $payment->loadMissing([
+            'paymentItem',
+            'membershipCategory',
+            'membershipCategoryFee',
+            'memberFee',
+        ]);
+
+        $paymentItem = $payment->paymentItem;
+
+        /*
+        |--------------------------------------------------------------------------
+        | ANNUAL MEMBERSHIP RECEIPT
+        |--------------------------------------------------------------------------
+        */
+
+        $isAnnualMembershipReceipt =
+            $this->isAnnualMembershipReceipt(
+                $document
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | MEMBERSHIP YEAR
+        |--------------------------------------------------------------------------
+        */
+
+        $membershipYear = $this->resolveMembershipYear(
+            $membership,
+            $payment,
+            $paymentItem,
+            $issuedAt
+        );
+
+        $membershipYearRange =
+            "01 January {$membershipYear} - 31 December {$membershipYear}";
+
+        /*
+        |--------------------------------------------------------------------------
+        | ACTUAL PAYMENT DATE
+        |--------------------------------------------------------------------------
+        */
+
+        $paymentDate = $payment->paid_at
+            ? Carbon::parse($payment->paid_at)
+            : null;
+
+        /*
+        |--------------------------------------------------------------------------
+        | USER
+        |--------------------------------------------------------------------------
+        */
+
+        switch ($fieldKey) {
+            case 'user_id':
+                return $user->id;
+
+            case 'username':
+                return $user->username ?? null;
+
+            case 'member_name':
+            case 'member_full_name':
+            case 'full_name':
+            case 'name':
+                return $this->getMemberFullName(
+                    $profile,
+                    $user
+                );
+
+            case 'surname':
+            case 'last_name':
+                return $profile?->surname;
+
+            case 'first_name':
+                return $profile?->first_name;
+
+            case 'middle_name':
+                return $profile?->middle_name;
+
+            case 'phone':
+            case 'phone_number':
+            case 'member_phone':
+                return $profile?->phone
+                    ?? $user->phone
+                    ?? null;
+
+            case 'email':
+            case 'member_email':
+                return $user->email ?? null;
+
+            case 'representative_name':
+            case 'contact_name':
+                return $profile?->contact_name
+                    ?? $this->getMemberFullName(
+                        $profile,
+                        $user
+                    );
         }
 
-        $words = $this->convertNumberToWords($naira);
+        /*
+        |--------------------------------------------------------------------------
+        | PROFILE
+        |--------------------------------------------------------------------------
+        */
 
-        $result = $words . ' NAIRA';
+        switch ($fieldKey) {
+            case 'photo':
+            case 'profile_photo':
+                return $profile?->photo;
 
-        if ($kobo > 0) {
-            $result .=
-                ' AND ' .
-                $this->convertNumberToWords($kobo) .
-                ' KOBO';
+            case 'date_of_birth':
+            case 'dob':
+                return $profile?->date_of_birth;
+
+            case 'gender':
+                return $profile?->gender;
+
+            case 'nationality':
+                return $profile?->nationality;
+
+            case 'address':
+            case 'residential_address':
+                return $profile?->address;
+
+            case 'city':
+                return $profile?->city;
+
+            case 'state':
+                return $profile?->state;
+
+            case 'lga':
+                return $profile?->lga;
         }
 
-        return $result . ' ONLY';
+        /*
+        |--------------------------------------------------------------------------
+        | BUSINESS
+        |--------------------------------------------------------------------------
+        */
+
+        switch ($fieldKey) {
+            case 'business_name':
+            case 'company_name':
+                return $profile?->business_name;
+
+            case 'business_registration_number':
+            case 'registration_number':
+            case 'cac_number':
+                return $profile?->business_registration_number;
+
+            case 'business_type':
+                return $profile?->business_type;
+
+            case 'business_address':
+                return $profile?->business_address
+                    ?? $profile?->address;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | MEMBERSHIP
+        |--------------------------------------------------------------------------
+        */
+
+        switch ($fieldKey) {
+            case 'membership_number':
+            case 'membership_no':
+                /*
+                |--------------------------------------------------------------------------
+                | IMPORTANT:
+                |
+                | This is the actual membership number.
+                | It is NOT the receipt number.
+                |
+                | Example:
+                | NACP-EDO-0002
+                |--------------------------------------------------------------------------
+                */
+
+                return $membership->membership_number;
+
+            case 'membership_category':
+            case 'membership_category_name':
+                return $category->name;
+
+            case 'membership_category_code':
+                return $category->code;
+
+            case 'category':
+                return $category->name;
+
+            case 'member_type':
+                return $user->member_type;
+
+            case 'membership_status':
+                return $membership->status;
+
+            case 'membership_issued_at':
+            case 'membership_issued_date':
+            case 'issued_at':
+            case 'issued_date':
+                return $issuedAt;
+
+            case 'membership_expires_at':
+            case 'membership_expiry_date':
+            case 'expiry_date':
+            case 'expires_at':
+                return $expiresAt;
+
+            case 'date_joined':
+                return $membership->issued_at
+                    ? Carbon::parse(
+                        $membership->issued_at
+                    )->format('Y-m-d')
+                    : $issuedAt->format('Y-m-d');
+
+            /*
+            |--------------------------------------------------------------------------
+            | MEMBERSHIP YEAR
+            |--------------------------------------------------------------------------
+            */
+
+            case 'membership_year':
+
+                if ($isAnnualMembershipReceipt) {
+                    return $membershipYearRange;
+                }
+
+                return (string) $membershipYear;
+
+            case 'membership_year_number':
+
+                return (string) $membershipYear;
+
+            case 'membership_year_range':
+            case 'membership_period':
+
+                return $membershipYearRange;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | DOCUMENT
+        |--------------------------------------------------------------------------
+        */
+
+        switch ($fieldKey) {
+            case 'document_number':
+            case 'certificate_number':
+            case 'receipt_number':
+            case 'receipt_no':
+            case 'ref_no':
+                return $documentNumber;
+
+            case 'tracking_code':
+            case 'authentication_code':
+            case 'verification_code':
+                return $trackingCode;
+
+            case 'verification_url':
+                return $this->generateVerificationUrl(
+                    $trackingCode
+                );
+
+            case 'document_id':
+                return $document->id;
+
+            case 'document_code':
+                return $document->code;
+
+            case 'document_name':
+                return $document->name;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | PAYMENT
+        |--------------------------------------------------------------------------
+        */
+
+        switch ($fieldKey) {
+            case 'payment_id':
+                return $payment->id;
+
+            case 'payment_item_id':
+                return $payment->payment_item_id;
+
+            case 'payment_item_code':
+                return $paymentItem?->code;
+
+            case 'payment_item_name':
+                return $paymentItem?->name;
+
+            /*
+            |--------------------------------------------------------------------------
+            | PAYMENT FOR
+            |--------------------------------------------------------------------------
+            */
+
+            case 'payment_for':
+
+                if ($isAnnualMembershipReceipt) {
+                    return
+                        'Annual membership subscription ' .
+                        $membershipYear;
+                }
+
+                if ($paymentItem?->name) {
+                    return $paymentItem->name;
+                }
+
+                if (
+                    $payment->payment_type ===
+                    'membership_renewal'
+                ) {
+                    return 'Annual Membership Renewal';
+                }
+
+                if (
+                    $payment->payment_type ===
+                    'membership'
+                ) {
+                    return 'Annual Membership Subscription';
+                }
+
+                return $payment->payment_type;
+
+            case 'amount':
+            case 'amount_paid':
+            case 'payment_amount':
+                return $payment->amount;
+
+            case 'amount_in_figure':
+                return number_format(
+                    (float) $payment->amount,
+                    2
+                );
+
+            case 'amount_in_words':
+            case 'amount_words':
+            case 'payment_amount_in_words':
+                return $this->numberToWords(
+                    $payment->amount
+                );
+
+            case 'payment_status':
+                return $payment->status;
+
+            case 'payment_reference':
+            case 'paystack_reference':
+            case 'transaction_reference':
+                return $payment->paystack_reference
+                    ?? $payment->payment_reference
+                    ?? $payment->reference;
+
+            /*
+            |--------------------------------------------------------------------------
+            | ACTUAL DATE PAYMENT WAS MADE
+            |--------------------------------------------------------------------------
+            */
+
+            case 'payment_date':
+            case 'paid_at':
+                return $paymentDate;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | TRANSACTIONS
+        |--------------------------------------------------------------------------
+        */
+
+        switch ($fieldKey) {
+            case 'transaction_id':
+            case 'credit_transaction_id':
+                return $creditTransaction?->id;
+
+            case 'debit_transaction_id':
+                return $debitTransaction?->id;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | ORGANIZATION
+        |--------------------------------------------------------------------------
+        */
+
+        switch ($fieldKey) {
+            case 'organization_name':
+            case 'association_name':
+                return config(
+                    'nacpdean.organization_name'
+                );
+
+            case 'organization_short_name':
+                return config(
+                    'nacpdean.organization_short_name'
+                );
+
+            case 'organization_cac_number':
+            case 'association_cac_number':
+                return config(
+                    'nacpdean.cac_number'
+                );
+
+            case 'organization_address':
+            case 'association_address':
+                return config(
+                    'nacpdean.address'
+                );
+
+            case 'organization_phone':
+            case 'association_phone':
+                return config(
+                    'nacpdean.phone'
+                );
+
+            case 'organization_email':
+            case 'association_email':
+                return config(
+                    'nacpdean.email'
+                );
+
+            case 'organization_website':
+            case 'association_website':
+                return config(
+                    'nacpdean.website'
+                );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | SIGNATORIES
+        |--------------------------------------------------------------------------
+        */
+
+        switch ($fieldKey) {
+            case 'national_president_name':
+            case 'president_name':
+                return config(
+                    'nacpdean.national_president_name'
+                );
+
+            case 'national_president_title':
+            case 'president_title':
+                return config(
+                    'nacpdean.national_president_title'
+                );
+
+            case 'secretary_general_name':
+            case 'secretary_name':
+                return config(
+                    'nacpdean.secretary_general_name'
+                );
+
+            case 'secretary_general_title':
+            case 'secretary_title':
+                return config(
+                    'nacpdean.secretary_general_title'
+                );
+        }
+
+        return null;
     }
-
 
     /*
     |--------------------------------------------------------------------------
-    | CONVERT INTEGER TO WORDS
+    | DETERMINE ANNUAL MEMBERSHIP RECEIPT
     |--------------------------------------------------------------------------
     */
 
-    protected function convertNumberToWords(int $number): string
-    {
-        if ($number === 0) {
-            return 'ZERO';
-        }
+    protected function isAnnualMembershipReceipt(
+        Document $document
+    ): bool {
+        $code = strtoupper(
+            trim(
+                (string) ($document->code ?? '')
+            )
+        );
 
-        if ($number < 0) {
-            return 'MINUS ' .
-                $this->convertNumberToWords(
-                    abs($number)
-                );
-        }
+        $name = strtolower(
+            trim(
+                (string) ($document->name ?? '')
+            )
+        );
 
-        $ones = [
-            '',
-            'ONE',
-            'TWO',
-            'THREE',
-            'FOUR',
-            'FIVE',
-            'SIX',
-            'SEVEN',
-            'EIGHT',
-            'NINE',
-            'TEN',
-            'ELEVEN',
-            'TWELVE',
-            'THIRTEEN',
-            'FOURTEEN',
-            'FIFTEEN',
-            'SIXTEEN',
-            'SEVENTEEN',
-            'EIGHTEEN',
-            'NINETEEN',
-        ];
-
-        $tens = [
-            '',
-            '',
-            'TWENTY',
-            'THIRTY',
-            'FORTY',
-            'FIFTY',
-            'SIXTY',
-            'SEVENTY',
-            'EIGHTY',
-            'NINETY',
-        ];
-
-        /*
-        |--------------------------------------------------------------------------
-        | 1 - 19
-        |--------------------------------------------------------------------------
-        */
-
-        if ($number < 20) {
-            return $ones[$number];
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | 20 - 99
-        |--------------------------------------------------------------------------
-        */
-
-        if ($number < 100) {
-
-            return $tens[intdiv($number, 10)] .
-                (
-                    $number % 10
-                    ? '-' . $ones[$number % 10]
-                    : ''
-                );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | 100 - 999
-        |--------------------------------------------------------------------------
-        */
-
-        if ($number < 1000) {
-
-            return $ones[intdiv($number, 100)] .
-                ' HUNDRED' .
-                (
-                    $number % 100
-                    ? ' AND ' .
-                    $this->convertNumberToWords(
-                        $number % 100
-                    )
-                    : ''
-                );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | 1,000 - 999,999
-        |--------------------------------------------------------------------------
-        */
-
-        if ($number < 1_000_000) {
-
-            return $this->convertNumberToWords(
-                intdiv($number, 1000)
-            ) .
-                ' THOUSAND' .
-                (
-                    $number % 1000
-                    ? ' ' .
-                    $this->convertNumberToWords(
-                        $number % 1000
-                    )
-                    : ''
-                );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | 1,000,000 - 999,999,999
-        |--------------------------------------------------------------------------
-        */
-
-        if ($number < 1_000_000_000) {
-
-            return $this->convertNumberToWords(
-                intdiv($number, 1_000_000)
-            ) .
-                ' MILLION' .
-                (
-                    $number % 1_000_000
-                    ? ' ' .
-                    $this->convertNumberToWords(
-                        $number % 1_000_000
-                    )
-                    : ''
-                );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | 1,000,000,000 - 999,999,999,999
-        |--------------------------------------------------------------------------
-        */
-
-        if ($number < 1_000_000_000_000) {
-
-            return $this->convertNumberToWords(
-                intdiv($number, 1_000_000_000)
-            ) .
-                ' BILLION' .
-                (
-                    $number % 1_000_000_000
-                    ? ' ' .
-                    $this->convertNumberToWords(
-                        $number % 1_000_000_000
-                    )
-                    : ''
-                );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | 1,000,000,000,000+
-        |--------------------------------------------------------------------------
-        */
-
-        return $this->convertNumberToWords(
-            intdiv($number, 1_000_000_000_000)
-        ) .
-            ' TRILLION' .
+        return
+            $code === 'NACPDEAN-ANNUAL-MEMBERSHIP-RECEIPT'
+            ||
             (
-                $number % 1_000_000_000_000
-                ? ' ' .
-                $this->convertNumberToWords(
-                    $number % 1_000_000_000_000
+                str_contains(
+                    $name,
+                    'annual membership'
                 )
-                : ''
+                &&
+                str_contains(
+                    $name,
+                    'receipt'
+                )
             );
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | RESOLVE MEMBERSHIP YEAR
+    |--------------------------------------------------------------------------
+    |
+    | Priority:
+    |
+    | 1. Payment Item name
+    | 2. Payment Item code
+    | 3. Membership expiry year
+    | 4. Actual payment year
+    | 5. Membership issue year
+    | 6. Issued-at year
+    |
+    */
+
+    protected function resolveMembershipYear(
+        Membership $membership,
+        Payment $payment,
+        $paymentItem,
+        Carbon $issuedAt
+    ): int {
+        /*
+        |--------------------------------------------------------------------------
+        | PAYMENT ITEM YEAR
+        |--------------------------------------------------------------------------
+        |
+        | Example:
+        | Annual Membership Subscription 2027
+        |
+        */
+
+        $sources = [
+            $paymentItem?->name,
+            $paymentItem?->code,
+        ];
+
+        foreach ($sources as $source) {
+            if (
+                $source &&
+                preg_match(
+                    '/\b(20\d{2})\b/',
+                    (string) $source,
+                    $matches
+                )
+            ) {
+                return (int) $matches[1];
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | MEMBERSHIP EXPIRY YEAR
+        |--------------------------------------------------------------------------
+        */
+
+        if ($membership->expires_at) {
+            return Carbon::parse(
+                $membership->expires_at
+            )->year;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | ACTUAL PAYMENT YEAR
+        |--------------------------------------------------------------------------
+        */
+
+        if ($payment->paid_at) {
+            return Carbon::parse(
+                $payment->paid_at
+            )->year;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | MEMBERSHIP ISSUE YEAR
+        |--------------------------------------------------------------------------
+        */
+
+        if ($membership->issued_at) {
+            return Carbon::parse(
+                $membership->issued_at
+            )->year;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | FALLBACK
+        |--------------------------------------------------------------------------
+        */
+
+        return $issuedAt->year;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | FIND MEMBERSHIP PAYMENT + TRANSACTIONS
+    |--------------------------------------------------------------------------
+    */
+
+    protected function findMembershipPaymentTransactions(
+        Membership $membership
+    ): array {
+        /*
+        |--------------------------------------------------------------------------
+        | MEMBERSHIP PAYMENT
+        |--------------------------------------------------------------------------
+        */
+
+        $payment = Payment::where(
+            'user_id',
+            $membership->user_id
+        )
+            ->where(
+                'status',
+                'paid'
+            )
+            ->where(
+                'payment_type',
+                'membership'
+            )
+            ->where(
+                'membership_category_id',
+                $membership->membership_category_id
+            )
+            ->latest('id')
+            ->first();
+
+        /*
+        |--------------------------------------------------------------------------
+        | RENEWAL FALLBACK
+        |--------------------------------------------------------------------------
+        */
+
+        if (!$payment) {
+            $payment = Payment::where(
+                'user_id',
+                $membership->user_id
+            )
+                ->where(
+                    'status',
+                    'paid'
+                )
+                ->where(
+                    'payment_type',
+                    'membership_renewal'
+                )
+                ->where(
+                    'membership_category_id',
+                    $membership->membership_category_id
+                )
+                ->latest('id')
+                ->first();
+        }
+
+        if (!$payment) {
+            return [
+                null,
+                null,
+                null,
+            ];
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | FIND DEBIT
+        |--------------------------------------------------------------------------
+        */
+
+        $paystackReference =
+            $payment->paystack_reference
+            ?? $payment->payment_reference
+            ?? $payment->reference;
+
+        $debitTransaction = null;
+
+        if ($paystackReference) {
+            $debitTransaction = Transaction::where(
+                'user_id',
+                $membership->user_id
+            )
+                ->where(
+                    'type',
+                    'debit'
+                )
+                ->where(
+                    'status',
+                    'paid'
+                )
+                ->whereJsonContains(
+                    'gateway->paystack',
+                    $paystackReference
+                )
+                ->latest('id')
+                ->first();
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | FALLBACK DEBIT BY PAYMENT ITEM
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            !$debitTransaction &&
+            $payment->payment_item_id
+        ) {
+            $debitTransaction = Transaction::where(
+                'user_id',
+                $membership->user_id
+            )
+                ->where(
+                    'type',
+                    'debit'
+                )
+                ->where(
+                    'status',
+                    'paid'
+                )
+                ->where(
+                    'payment_item_id',
+                    $payment->payment_item_id
+                )
+                ->latest('id')
+                ->first();
+        }
+
+        if (!$debitTransaction) {
+            return [
+                $payment,
+                null,
+                null,
+            ];
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | FIND CREDIT
+        |--------------------------------------------------------------------------
+        */
+
+        $creditTransaction = Transaction::where(
+            'user_id',
+            $membership->user_id
+        )
+            ->where(
+                'type',
+                'credit'
+            )
+            ->where(
+                'status',
+                'paid'
+            )
+            ->where(
+                'debit_transaction_id',
+                $debitTransaction->id
+            )
+            ->latest('id')
+            ->first();
+
+        return [
+            $payment,
+            $debitTransaction,
+            $creditTransaction,
+        ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | GENERATE DOCUMENT NUMBER
+    |--------------------------------------------------------------------------
+    */
+
+    protected function generateDocumentNumber(
+        Document $document,
+        ?Payment $payment = null
+    ): string {
+        $code = $document->code ?? 'DOC';
+
+        $code = strtoupper(
+            preg_replace(
+                '/[^A-Za-z0-9\-]/',
+                '',
+                $code
+            )
+        );
+
+        return
+            $code .
+            '-' .
+            now()->format('Y') .
+            '-' .
+            strtoupper(
+                Str::random(8)
+            );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | GENERATE TRACKING CODE
+    |--------------------------------------------------------------------------
+    */
+
+    protected function generateTrackingCode(): string
+    {
+        return
+            'NACP-' .
+            strtoupper(
+                Str::random(20)
+            );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | VERIFICATION URL
+    |--------------------------------------------------------------------------
+    */
+
+    protected function generateVerificationUrl(
+        string $trackingCode
+    ): string {
+        return route(
+            'documents.verify',
+            $trackingCode
+        );
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -1001,1006 +2402,162 @@ class DocumentGenerationService
     */
 
     protected function getMemberFullName(
-        $profile,
-        User $user
-    ): ?string {
-
-        if (!$profile) {
-            return $user->name;
-        }
-
-        $parts = array_filter([
-            $profile->surname,
-            $profile->first_name,
-            $profile->middle_name,
-        ]);
-
-        if (empty($parts)) {
-            return $user->name;
-        }
-
-        return implode(' ', $parts);
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | DOCUMENT NUMBER
-    |--------------------------------------------------------------------------
-    */
-
-    protected function generateDocumentNumber($document): string
-    {
-        do {
-            $number =
-                strtoupper($document->code)
-                . '-'
-                . now()->year
-                . '-'
-                . strtoupper(
-                    Str::random(8)
-                );
-        } while (
-            GeneratedDocument::query()
-            ->where(
-                'document_number',
-                $number
-            )
-            ->exists()
-        );
-
-        return $number;
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | TRACKING CODE
-    |--------------------------------------------------------------------------
-    */
-
-    protected function generateTrackingCode(): string
-    {
-        do {
-            $trackingCode =
-                'NACP-'
-                . strtoupper(
-                    Str::random(20)
-                );
-        } while (
-            GeneratedDocument::query()
-            ->where(
-                'tracking_code',
-                $trackingCode
-            )
-            ->exists()
-        );
-
-        return $trackingCode;
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | EXPIRY DATE
-    |--------------------------------------------------------------------------
-    */
-
-    protected function calculateExpiryDate(
-        $document,
-        Carbon $issuedAt
-    ): ?Carbon {
-
-        $validityType =
-            strtolower(
-                trim(
-                    (string) $document->validity_type
-                )
-            );
-
-        if (
-            !$validityType ||
-            $validityType === 'none'
-        ) {
-            return null;
-        }
-
-        switch ($validityType) {
-
-            /*
-            |--------------------------------------------------------------------------
-            | DAYS
-            |--------------------------------------------------------------------------
-            */
-
-            case 'days':
-
-                if (!$document->validity_value) {
-                    return null;
-                }
-
-                return $issuedAt->copy()
-                    ->addDays(
-                        (int) $document->validity_value
-                    );
-
-                /*
-            |--------------------------------------------------------------------------
-            | MONTHS
-            |--------------------------------------------------------------------------
-            */
-
-            case 'months':
-
-                if (!$document->validity_value) {
-                    return null;
-                }
-
-                return $issuedAt->copy()
-                    ->addMonths(
-                        (int) $document->validity_value
-                    );
-
-                /*
-            |--------------------------------------------------------------------------
-            | YEARS
-            |--------------------------------------------------------------------------
-            */
-
-            case 'years':
-
-                if (!$document->validity_value) {
-                    return null;
-                }
-
-                return $issuedAt->copy()
-                    ->addYears(
-                        (int) $document->validity_value
-                    );
-
-                /*
-            |--------------------------------------------------------------------------
-            | SPECIFIC DATE
-            |--------------------------------------------------------------------------
-            */
-
-            case 'fixed_date':
-
-                if (!$document->validity_date) {
-                    return null;
-                }
-
-                return Carbon::parse(
-                    $document->validity_date
-                );
-
-                /*
-            |--------------------------------------------------------------------------
-            | END OF CURRENT YEAR
-            |--------------------------------------------------------------------------
-            */
-
-            case 'year_end':
-
-                return $issuedAt->copy()->endOfYear();
-
-                /*
-            |--------------------------------------------------------------------------
-            | UNKNOWN TYPE
-            |--------------------------------------------------------------------------
-            */
-
-            default:
-
-                throw new RuntimeException(
-                    "Unsupported document validity type [{$validityType}]."
-                );
-        }
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | MEMBERSHIP CERTIFICATE GENERATION
-    |--------------------------------------------------------------------------
-    |
-    | Membership certificates are different from additional-payment
-    | documents.
-    |
-    | Membership payments do NOT depend on payment_items.
-    |
-    | Paid Membership Payment
-    |          ↓
-    | Admin Approval
-    |          ↓
-    | Membership Created
-    |          ↓
-    | Membership Certificate Generated
-    |
-    | The certificate document is dynamically selected through:
-    |
-    | membership_categories.document_id
-    |--------------------------------------------------------------------------
-    */
-
-    /**
-     * Generate membership certificate for an active membership.
-     *
-     * Membership certificates are generated automatically after:
-     * - Initial membership payment
-     * - Successful membership renewal payment
-     *
-     * Membership renewal does NOT use a PaymentItem.
-     * Its price comes from membership_category_fees.
-     */
-public function generateMembershipCertificate(
-    User $user,
-    Membership $membership
-): ?GeneratedDocument {
-    /*
-    |--------------------------------------------------------------------------
-    | 1. Verify membership ownership
-    |--------------------------------------------------------------------------
-    */
-    if ((int) $membership->user_id !== (int) $user->id) {
-        throw new RuntimeException(
-            'You are not authorized to generate this membership certificate.'
-        );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | 2. Membership must be active
-    |--------------------------------------------------------------------------
-    */
-    if ($membership->status !== 'active') {
-        throw new RuntimeException(
-            'Membership must be active before a certificate can be generated.'
-        );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | 3. Membership number is required
-    |--------------------------------------------------------------------------
-    */
-    if (empty($membership->membership_number)) {
-        throw new RuntimeException(
-            'Membership number is missing. The certificate cannot be generated.'
-        );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | 4. Load required relationships
-    |--------------------------------------------------------------------------
-    */
-    $user->loadMissing([
-        'profile',
-    ]);
-
-    $membership->loadMissing([
-        'profile',
-        'category.document.fields',
-    ]);
-
-    $profile = $membership->profile ?? $user->profile;
-
-    $category = $membership->category;
-
-    if (!$category) {
-        throw new RuntimeException(
-            'Membership category could not be found.'
-        );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | 5. Get membership certificate document
-    |--------------------------------------------------------------------------
-    |
-    | A membership certificate is OPTIONAL.
-    |
-    | If the membership category does not have a document_id configured,
-    | membership approval should continue without generating a certificate.
-    |
-    */
-    $document = $category->document;
-
-    if (!$document) {
-        Log::info(
-            'MEMBERSHIP CERTIFICATE GENERATION SKIPPED - NO DOCUMENT ATTACHED',
-            [
-                'user_id' => $user->id,
-                'membership_id' => $membership->id,
-                'membership_category_id' =>
-                    $membership->membership_category_id,
-                'membership_category' => $category->name,
-            ]
-        );
-
-        return null;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | 6. Document must be active
-    |--------------------------------------------------------------------------
-    */
-    if (!$document->is_active) {
-        throw new RuntimeException(
-            "The membership certificate document [{$document->code}] is not active."
-        );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | 7. Find the successful membership payment
-    |--------------------------------------------------------------------------
-    |
-    | Covers:
-    |
-    | - Initial membership payment
-    | - Membership renewal payment
-    |
-    | Membership renewal does NOT use a PaymentItem.
-    |--------------------------------------------------------------------------
-    */
-    $payment = Payment::query()
-        ->where('user_id', $user->id)
-        ->where(
-            'membership_category_id',
-            $membership->membership_category_id
-        )
-        ->whereIn('payment_type', [
-            'membership',
-            'membership_renewal',
-        ])
-        ->where('status', 'paid')
-        ->whereNotNull('paid_at')
-        ->latest('id')
-        ->first();
-
-    if (!$payment) {
-        throw new RuntimeException(
-            'No successful membership payment was found for this membership.'
-        );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | 8. Get Paystack reference
-    |--------------------------------------------------------------------------
-    */
-    $paystackReference =
-        $payment->paystack_reference
-        ?? $payment->payment_reference
-        ?? $payment->reference;
-
-    if (empty($paystackReference)) {
-        throw new RuntimeException(
-            'The membership payment does not have a valid payment reference.'
-        );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | 9. Find exact paid membership DEBIT transaction
-    |--------------------------------------------------------------------------
-    |
-    | Both:
-    |
-    |     membership
-    |
-    | and:
-    |
-    |     membership_renewal
-    |
-    | have:
-    |
-    |     payment_item_id = NULL
-    |
-    | Membership renewal is NOT connected to a PaymentItem.
-    |
-    | The Paystack reference is therefore the primary identifier.
-    |--------------------------------------------------------------------------
-    */
-    $debit = Transaction::query()
-        ->where('user_id', $user->id)
-        ->where('type', 'debit')
-        ->where('status', 'paid')
-        ->whereNull('payment_item_id')
-        ->whereJsonContains(
-            'gateway->paystack',
-            $paystackReference
-        )
-        ->where('amount', $payment->amount)
-        ->latest('id')
-        ->first();
-
-    /*
-    |--------------------------------------------------------------------------
-    | 10. Fallback debit lookup
-    |--------------------------------------------------------------------------
-    |
-    | This protects against older transactions where the Paystack
-    | reference may not have been stored correctly in the gateway JSON.
-    |--------------------------------------------------------------------------
-    */
-    if (!$debit) {
-        $debit = Transaction::query()
-            ->where('user_id', $user->id)
-            ->where('type', 'debit')
-            ->where('status', 'paid')
-            ->whereNull('payment_item_id')
-            ->where('amount', $payment->amount)
-            ->where(function ($query) {
-                $query
-                    ->where('narration', 'like', '%membership%')
-                    ->orWhere('narration', 'like', '%renewal%');
-            })
-            ->latest('id')
-            ->first();
-    }
-
-    if (!$debit) {
-        throw new RuntimeException(
-            'The paid membership debit transaction could not be found.'
-        );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | 11. Verify debit ownership
-    |--------------------------------------------------------------------------
-    */
-    if ((int) $debit->user_id !== (int) $user->id) {
-        throw new RuntimeException(
-            'The membership payment transaction does not belong to this member.'
-        );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | 12. Verify debit amount
-    |--------------------------------------------------------------------------
-    */
-    if ((float) $debit->amount !== (float) $payment->amount) {
-        throw new RuntimeException(
-            'The membership debit transaction amount does not match the payment amount.'
-        );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | 13. Find corresponding CREDIT transaction
-    |--------------------------------------------------------------------------
-    |
-    | The credit created after successful payment is linked to the
-    | debit using debit_transaction_id.
-    |
-    | transaction_id is also supported for older records.
-    |--------------------------------------------------------------------------
-    */
-    $credit = Transaction::query()
-        ->where('user_id', $user->id)
-        ->where('type', 'credit')
-        ->where('status', 'paid')
-        ->where('amount', $payment->amount)
-        ->where(function ($query) use ($debit, $paystackReference) {
-            $query
-                ->where('debit_transaction_id', $debit->id)
-                ->orWhere('transaction_id', $debit->id)
-                ->orWhereJsonContains(
-                    'gateway->paystack',
-                    $paystackReference
-                );
-        })
-        ->latest('id')
-        ->first();
-
-    if (!$credit) {
-        throw new RuntimeException(
-            'The corresponding membership credit transaction could not be found.'
-        );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | 14. Verify credit ownership
-    |--------------------------------------------------------------------------
-    */
-    if ((int) $credit->user_id !== (int) $user->id) {
-        throw new RuntimeException(
-            'The membership credit transaction does not belong to this member.'
-        );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | 15. Verify credit amount
-    |--------------------------------------------------------------------------
-    */
-    if ((float) $credit->amount !== (float) $payment->amount) {
-        throw new RuntimeException(
-            'The membership credit transaction amount does not match the payment amount.'
-        );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | 16. Prevent duplicate certificate for this payment
-    |--------------------------------------------------------------------------
-    |
-    | Every successful renewal has a different credit transaction.
-    |
-    | Therefore:
-    |
-    | Initial payment  -> Certificate A
-    | Renewal payment  -> Certificate B
-    |
-    | The old certificate is not overwritten.
-    |--------------------------------------------------------------------------
-    */
-    $existingCertificate = GeneratedDocument::query()
-        ->where('user_id', $user->id)
-        ->where('document_id', $document->id)
-        ->where('transaction_id', $credit->id)
-        ->first();
-
-    if ($existingCertificate) {
-        return $existingCertificate;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | 17. Generate document number
-    |--------------------------------------------------------------------------
-    */
-    $documentNumber = $this->generateDocumentNumber(
-        $document
-    );
-
-    /*
-    |--------------------------------------------------------------------------
-    | 18. Generate tracking code
-    |--------------------------------------------------------------------------
-    */
-    $trackingCode = $this->generateTrackingCode();
-
-    /*
-    |--------------------------------------------------------------------------
-    | 19. Build document field values
-    |--------------------------------------------------------------------------
-    |
-    | System fields are resolved by the system.
-    |
-    | Manual fields are taken from the member profile where possible,
-    | otherwise the configured document-field default is used.
-    |
-    | Browser input is NOT used here for system fields.
-    |--------------------------------------------------------------------------
-    */
-    $fieldValues = [];
-
-    foreach ($document->fields as $field) {
-
-        /*
-        |--------------------------------------------------------------------------
-        | SYSTEM FIELD
-        |--------------------------------------------------------------------------
-        */
-        if ($field->is_system) {
-            $fieldValues[$field->field_key] =
-                $this->resolveMembershipSystemField(
-                    $field->field_key,
-                    $user,
-                    $membership,
-                    $payment,
-                    $debit,
-                    $credit,
-                    $document,
-                    $documentNumber,
-                    $trackingCode
-                );
-
-            continue;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | MANUAL FIELD
-        |--------------------------------------------------------------------------
-        */
-        $value = null;
-
+        ?MemberProfile $profile,
+        $user
+    ): string {
         if ($profile) {
+            $parts = array_filter([
+                $profile->first_name,
+                $profile->middle_name,
+                $profile->surname,
+            ]);
 
-            /*
-            |--------------------------------------------------------------------------
-            | First try exact field key from member profile
-            |--------------------------------------------------------------------------
-            */
-            if (
-                isset($profile->{$field->field_key}) &&
-                $profile->{$field->field_key} !== null
-            ) {
-                $value = $profile->{$field->field_key};
+            if (!empty($parts)) {
+                return trim(
+                    implode(
+                        ' ',
+                        $parts
+                    )
+                );
             }
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Fall back to configured default value
-        |--------------------------------------------------------------------------
-        */
-        if (
-            ($value === null || $value === '') &&
-            $field->default_value !== null
-        ) {
-            $value = $field->default_value;
-        }
-
-        $fieldValues[$field->field_key] = $value;
+        return trim(
+            $user->name
+                ?? $user->username
+                ?? ''
+        );
     }
 
     /*
     |--------------------------------------------------------------------------
-    | 20. Determine issued date
+    | NUMBER TO WORDS
     |--------------------------------------------------------------------------
     */
-    $issuedAt = $membership->issued_at
-        ?? $payment->paid_at
-        ?? now();
+
+    public function numberToWords(
+        float|int|string $number
+    ): string {
+        $number = (float) $number;
+
+        if ($number === 0.0) {
+            return 'Zero Naira Only';
+        }
+
+        $formatter = new \NumberFormatter(
+            'en',
+            \NumberFormatter::SPELLOUT
+        );
+
+        $naira = floor($number);
+
+        $kobo = round(
+            ($number - $naira) * 100
+        );
+
+        $result =
+            ucfirst(
+                $formatter->format($naira)
+            ) .
+            ' Naira';
+
+        if ($kobo > 0) {
+            $result .=
+                ' and ' .
+                ucfirst(
+                    $formatter->format($kobo)
+                ) .
+                ' Kobo';
+        }
+
+        return $result . ' Only';
+    }
 
     /*
     |--------------------------------------------------------------------------
-    | 21. Determine expiry date
-    |--------------------------------------------------------------------------
-    |
-    | For renewal, membershipRenewalCallback() updates the membership's
-    | issued_at and expires_at before calling this method.
+    | CALCULATE DOCUMENT EXPIRY
     |--------------------------------------------------------------------------
     */
-    $expiresAt = $membership->expires_at;
 
-    /*
-    |--------------------------------------------------------------------------
-    | 22. Create generated certificate
-    |--------------------------------------------------------------------------
-    */
-    $generatedDocument = GeneratedDocument::create([
-        'user_id' => $user->id,
-
-        'document_id' => $document->id,
-
-        /*
-        |--------------------------------------------------------------------------
-        | Link certificate to CREDIT transaction
-        |--------------------------------------------------------------------------
-        */
-        'transaction_id' => $credit->id,
-
-        'document_number' => $documentNumber,
-
-        'tracking_code' => $trackingCode,
-
-        'issued_at' => $issuedAt,
-
-        'expires_at' => $expiresAt,
-
-        'status' => 'active',
-
-        'field_values' => $fieldValues,
-    ]);
-
-    /*
-    |--------------------------------------------------------------------------
-    | 23. Log successful generation
-    |--------------------------------------------------------------------------
-    */
-    Log::info(
-        'Membership certificate generated successfully.',
-        [
-            'generated_document_id' => $generatedDocument->id,
-
-            'user_id' => $user->id,
-
-            'membership_id' => $membership->id,
-
-            'membership_number' =>
-                $membership->membership_number,
-
-            'membership_category_id' =>
-                $membership->membership_category_id,
-
-            'document_id' => $document->id,
-
-            'document_number' =>
-                $documentNumber,
-
-            'tracking_code' =>
-                $trackingCode,
-
-            'payment_id' =>
-                $payment->id,
-
-            'payment_type' =>
-                $payment->payment_type,
-
-            'credit_transaction_id' =>
-                $credit->id,
-
-            'debit_transaction_id' =>
-                $debit->id,
-        ]
-    );
-
-    /*
-    |--------------------------------------------------------------------------
-    | 24. Return generated certificate
-    |--------------------------------------------------------------------------
-    */
-    return $generatedDocument;
-}
-
-
-    /**
-     * Resolve system fields for a membership certificate.
-     *
-     * System fields are generated by the backend and must never be
-     * trusted from browser-submitted data.
-     */
-    protected function resolveMembershipSystemField(
-        string $fieldKey,
-        User $user,
-        Membership $membership,
-        Payment $payment,
-        Transaction $debit,
-        Transaction $credit,
+    protected function calculateDocumentExpiry(
         Document $document,
-        string $documentNumber,
-        string $trackingCode
-    ) {
-        /*
+        Carbon $issuedAt
+    ): ?Carbon {
+        $type = strtolower(
+            trim(
+                (string) (
+                    $document->validity_type
+                    ?? ''
+                )
+            )
+        );
+
+        $value = (int) (
+            $document->validity_value
+            ?? 0
+        );
+
+        switch ($type) {
+            case 'days':
+                return $value > 0
+                    ? $issuedAt->copy()->addDays($value)
+                    : null;
+
+            case 'months':
+                return $value > 0
+                    ? $issuedAt->copy()->addMonths($value)
+                    : null;
+
+            case 'years':
+                return $value > 0
+                    ? $issuedAt->copy()->addYears($value)
+                    : null;
+
+            case 'fixed_date':
+                return $document->validity_date
+                    ? Carbon::parse(
+                        $document->validity_date
+                    )
+                    : null;
+
+            case 'year_end':
+                return $issuedAt->copy()->endOfYear();
+
+            default:
+                return null;
+        }
+    }
+
+    /*
     |--------------------------------------------------------------------------
-    | Load required relationships
+    | RENEWAL / REPLACEMENT
     |--------------------------------------------------------------------------
     */
-        $user->loadMissing([
-            'profile',
-        ]);
 
-        $membership->loadMissing([
-            'profile',
-            'category',
-        ]);
-
-        $profile = $membership->profile ?? $user->profile;
-
-        $category = $membership->category;
-
-        /*
-    |--------------------------------------------------------------------------
-    | Resolve system field
-    |--------------------------------------------------------------------------
-    */
-        return match ($fieldKey) {
-
-            /*
-        |--------------------------------------------------------------------------
-        | USER
-        |--------------------------------------------------------------------------
-        */
-
-            'user_id' =>
-            $user->id,
-
-            'name' =>
-            $user->name,
-
-            'member_name' =>
-            $this->getMemberFullName(
-                $profile,
-                $user
-            ),
-
-            'email' =>
-            $user->email,
-
-            /*
-        |--------------------------------------------------------------------------
-        | MEMBER PROFILE
-        |--------------------------------------------------------------------------
-        */
-
-            'surname' =>
-            $profile?->surname,
-
-            'first_name' =>
-            $profile?->first_name,
-
-            'middle_name' =>
-            $profile?->middle_name,
-
-            'phone' =>
-            $profile?->phone
-                ?? $user->phone,
-
-            'photo' =>
-            $profile?->photo,
-
-            'date_of_birth' =>
-            $profile?->date_of_birth
-                ? Carbon::parse(
-                    $profile->date_of_birth
-                )->format('Y-m-d')
-                : null,
-
-            'gender' =>
-            $profile?->gender,
-
-            'nationality' =>
-            $profile?->nationality,
-
-            'address' =>
-            $profile?->address,
-
-            'city' =>
-            $profile?->city,
-
-            'state' =>
-            $profile?->state,
-
-            'lga' =>
-            $profile?->lga,
-
-            /*
-        |--------------------------------------------------------------------------
-        | BUSINESS INFORMATION
-        |--------------------------------------------------------------------------
-        */
-
-            'business_name' =>
-            $profile?->business_name,
-
-            'business_registration_number' =>
-            $profile?->business_registration_number,
-
-            'business_type' =>
-            $profile?->business_type,
-
-            'business_address' =>
-            $profile?->business_address,
-
-            /*
-        |--------------------------------------------------------------------------
-        | MEMBERSHIP
-        |--------------------------------------------------------------------------
-        */
-
-            'membership_number',
-            'membership_no' =>
-            $membership->membership_number,
-
-            'membership_status' =>
-            $membership->status,
-
-            'membership_issued_at' =>
-            $membership->issued_at
-                ? Carbon::parse(
-                    $membership->issued_at
-                )->format('Y-m-d')
-                : null,
-
-            'membership_expires_at' =>
-            $membership->expires_at
-                ? Carbon::parse(
-                    $membership->expires_at
-                )->format('Y-m-d')
-                : null,
-
-            'membership_category_id' =>
-            $membership->membership_category_id,
-
-            'membership_category' =>
-            $category?->name
-                ?? $category?->code,
-
-            'membership_category_name' =>
-            $category?->name,
-
-            'membership_category_code' =>
-            $category?->code,
-
-            /*
-        |--------------------------------------------------------------------------
-        | PAYMENT
-        |--------------------------------------------------------------------------
-        */
-
-            'payment_id' =>
-            $payment->id,
-
-            'payment_type' =>
-            $payment->payment_type,
-
-            'amount' =>
-            $payment->amount,
-
-            'amount_paid' =>
-            $payment->amount,
-
-            'payment_reference' =>
-            $payment->payment_reference
-                ?? $payment->reference,
-
-            'paystack_reference' =>
-            $payment->paystack_reference
-                ?? $payment->payment_reference
-                ?? $payment->reference,
-
-            'payment_date' =>
-            $payment->paid_at
-                ? Carbon::parse(
-                    $payment->paid_at
-                )->format('Y-m-d')
-                : null,
-
-            /*
-        |--------------------------------------------------------------------------
-        | DOCUMENT
-        |--------------------------------------------------------------------------
-        */
-
-            'document_id' =>
-            $document->id,
-
-            'document_code' =>
-            $document->code,
-
-            'document_name' =>
-            $document->name,
-
-            'document_number' =>
-            $documentNumber,
-
-            /*
-        |--------------------------------------------------------------------------
-        | VERIFICATION
-        |--------------------------------------------------------------------------
-        */
-
-            'tracking_code' =>
-            $trackingCode,
-
-            /*
-        |--------------------------------------------------------------------------
-        | TRANSACTIONS
-        |--------------------------------------------------------------------------
-        */
-
-            'transaction_id' =>
-            $credit->id,
-
-            'credit_transaction_id' =>
-            $credit->id,
-
-            'debit_transaction_id' =>
-            $debit->id,
-
-            /*
-        |--------------------------------------------------------------------------
-        | UNKNOWN SYSTEM FIELD
-        |--------------------------------------------------------------------------
-        |
-        | If an administrator creates a system field that this resolver
-        | does not yet understand, return null rather than accepting
-        | untrusted browser data.
-        |--------------------------------------------------------------------------
-        */
-            default =>
-            null,
-        };
+    protected function handleRenewalReplacement(
+        GeneratedDocument $generatedDocument,
+        int $userId,
+        int $documentId
+    ): void {
+        GeneratedDocument::where(
+            'user_id',
+            $userId
+        )
+            ->where(
+                'document_id',
+                $documentId
+            )
+            ->where(
+                'id',
+                '!=',
+                $generatedDocument->id
+            )
+            ->where(
+                'status',
+                'active'
+            )
+            ->update([
+                'status' => 'replaced',
+            ]);
     }
 }

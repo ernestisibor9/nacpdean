@@ -3,86 +3,178 @@
 namespace App\Http\Controllers;
 
 use App\Models\GeneratedDocument;
+use App\Models\Membership;
 use App\Services\QrCodeService;
-use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Request;
 
 class GeneratedDocumentController extends Controller
 {
-    /**
-     * Display the member's current documents.
-     *
-     * Active documents are displayed.
-     *
-     * Expired documents are displayed only when they have
-     * NOT already been replaced by a successful renewal.
-     *
-     * Old replaced documents remain in the database for
-     * historical and audit purposes.
-     */
-    public function index(Request $request)
-    {
-        $user = $request->user();
+/**
+ * Display the authenticated member's current documents.
+ *
+ * IMPORTANT:
+ * A member must have an active, non-expired membership
+ * before they can access their generated documents.
+ *
+ * Active documents are displayed.
+ *
+ * Expired documents are displayed only when they have
+ * NOT already been replaced by a successful renewal.
+ *
+ * Old replaced documents remain in the database for
+ * historical and audit purposes.
+ */
+public function index(Request $request)
+{
+    $user = $request->user();
 
-        $documents = GeneratedDocument::query()
-            ->where('user_id', $user->id)
+    if (!$user) {
+        abort(403);
+    }
 
-            ->where(function ($query) {
+    /*
+    |--------------------------------------------------------------------------
+    | Membership Access Check
+    |--------------------------------------------------------------------------
+    |
+    | This is the centralized membership-expiry rule used by:
+    |
+    | - index()
+    | - show()
+    | - print()
+    | - download()
+    |
+    | If the membership has expired, the member cannot access
+    | the document listing.
+    |
+    */
 
-                /*
+    $membership = $this->getActiveMembership($user->id);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Get Member Generated Documents
+    |--------------------------------------------------------------------------
+    |
+    | IMPORTANT:
+    | The Blade view expects the variable:
+    |
+    |     $generatedDocuments
+    |
+    | Therefore, we use that exact variable name here.
+    |
+    */
+
+    $generatedDocuments = GeneratedDocument::query()
+        ->where('user_id', $user->id)
+
+        /*
+        |--------------------------------------------------------------------------
+        | Only show:
+        |
+        | 1. Active documents
+        |
+        | OR
+        |
+        | 2. Expired documents that have not been replaced
+        |
+        |--------------------------------------------------------------------------
+        */
+
+        ->where(function ($query) {
+
+            /*
             |--------------------------------------------------------------------------
             | Active documents
             |--------------------------------------------------------------------------
             */
 
-                $query->where('status', 'active')
+            $query->where('status', 'active')
 
-                    /*
+                /*
                 |--------------------------------------------------------------------------
-                | Expired documents that have NOT been renewed
+                | Expired documents that have NOT been renewed/replaced
                 |--------------------------------------------------------------------------
                 */
 
-                    ->orWhere(function ($query) {
-                        $query
-                            ->where('status', 'expired')
-                            ->whereNull('replaced_by_document_id');
-                    });
-            })
+                ->orWhere(function ($query) {
 
-            ->with([
-                'document',
-                'user.profile',
-                'transaction.paymentItem.renewalPaymentItem',
-                'replacedBy',
-            ])
+                    $query
+                        ->where('status', 'expired')
+                        ->whereNull('replaced_by_document_id');
 
-            ->latest('id')
+                });
+        })
 
-            ->get();
+        /*
+        |--------------------------------------------------------------------------
+        | Load Required Relationships
+        |--------------------------------------------------------------------------
+        */
 
-        return view(
-            'member.documents.index',
-            compact('documents')
-        );
-    }
+        ->with([
+            'document',
+            'user.profile',
+            'transaction.paymentItem.renewalPaymentItem',
+            'replacedBy',
+        ])
+
+        /*
+        |--------------------------------------------------------------------------
+        | Newest Documents First
+        |--------------------------------------------------------------------------
+        */
+
+        ->latest('id')
+        ->get();
+
+    /*
+    |--------------------------------------------------------------------------
+    | Return Member Documents View
+    |--------------------------------------------------------------------------
+    */
+
+    return view(
+        'member.documents.index',
+        compact(
+            'generatedDocuments',
+            'membership'
+        )
+    );
+}
 
     /**
      * Display a generated document.
+     *
+     * IMPORTANT:
+     * The document is explicitly scoped to the authenticated member.
+     *
+     * Membership expiry is checked before the document is displayed.
      */
     public function show(
         Request $request,
         GeneratedDocument $generatedDocument,
         QrCodeService $qrCodeService
     ) {
-        $this->authorizeDocument(
+        $generatedDocument = $this->getMemberDocument(
             $request,
             $generatedDocument
         );
 
-        $this->checkDocumentStatus(
-            $generatedDocument
-        );
+        /*
+        |--------------------------------------------------------------------------
+        | Check Generated Document Status
+        |--------------------------------------------------------------------------
+        */
+
+        $this->checkDocumentStatus($generatedDocument);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Load Required Relationships
+        |--------------------------------------------------------------------------
+        */
 
         $generatedDocument->load([
             'document',
@@ -98,9 +190,19 @@ class GeneratedDocumentController extends Controller
             );
         }
 
-        $template = $this->resolveTemplate(
-            $document
-        );
+        /*
+        |--------------------------------------------------------------------------
+        | Resolve Configured Template
+        |--------------------------------------------------------------------------
+        */
+
+        $template = $this->resolveTemplate($document);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Generate QR Code
+        |--------------------------------------------------------------------------
+        */
 
         $qrCode = $qrCodeService->generate(
             $generatedDocument->tracking_code
@@ -116,24 +218,34 @@ class GeneratedDocumentController extends Controller
         ]);
     }
 
-
-
     /**
      * Display the generated document in print mode.
+     *
+     * Membership expiry is checked through getMemberDocument().
      */
     public function print(
         Request $request,
         GeneratedDocument $generatedDocument,
         QrCodeService $qrCodeService
     ) {
-        $this->authorizeDocument(
+        $generatedDocument = $this->getMemberDocument(
             $request,
             $generatedDocument
         );
 
-        $this->checkDocumentStatus(
-            $generatedDocument
-        );
+        /*
+        |--------------------------------------------------------------------------
+        | Check Generated Document Status
+        |--------------------------------------------------------------------------
+        */
+
+        $this->checkDocumentStatus($generatedDocument);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Load Required Relationships
+        |--------------------------------------------------------------------------
+        */
 
         $generatedDocument->load([
             'document',
@@ -150,15 +262,19 @@ class GeneratedDocumentController extends Controller
         }
 
         /*
-         * Resolve the configured document template.
-         */
-        $template = $this->resolveTemplate(
-            $document
-        );
+        |--------------------------------------------------------------------------
+        | Resolve Configured Document Template
+        |--------------------------------------------------------------------------
+        */
+
+        $template = $this->resolveTemplate($document);
 
         /*
-         * Generate QR code using the document tracking code.
-         */
+        |--------------------------------------------------------------------------
+        | Generate QR Code
+        |--------------------------------------------------------------------------
+        */
+
         $qrCode = $qrCodeService->generate(
             $generatedDocument->tracking_code
         );
@@ -166,7 +282,7 @@ class GeneratedDocumentController extends Controller
         return view($template, [
             'generatedDocument' => $generatedDocument,
             'document'         => $document,
-            'qrCode'           => $qrCode,
+            'qrCode'            => $qrCode,
             'printMode'        => true,
             'downloadMode'     => false,
         ]);
@@ -174,20 +290,32 @@ class GeneratedDocumentController extends Controller
 
     /**
      * Download the generated document as a PDF.
+     *
+     * Membership expiry is checked through getMemberDocument().
      */
     public function download(
         Request $request,
         GeneratedDocument $generatedDocument,
         QrCodeService $qrCodeService
     ) {
-        $this->authorizeDocument(
+        $generatedDocument = $this->getMemberDocument(
             $request,
             $generatedDocument
         );
 
-        $this->checkDocumentStatus(
-            $generatedDocument
-        );
+        /*
+        |--------------------------------------------------------------------------
+        | Check Generated Document Status
+        |--------------------------------------------------------------------------
+        */
+
+        $this->checkDocumentStatus($generatedDocument);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Load Required Relationships
+        |--------------------------------------------------------------------------
+        */
 
         $generatedDocument->load([
             'document',
@@ -204,22 +332,29 @@ class GeneratedDocumentController extends Controller
         }
 
         /*
-         * Resolve the configured document template.
-         */
-        $template = $this->resolveTemplate(
-            $document
-        );
+        |--------------------------------------------------------------------------
+        | Resolve Configured Document Template
+        |--------------------------------------------------------------------------
+        */
+
+        $template = $this->resolveTemplate($document);
 
         /*
-         * Generate QR code using the document tracking code.
-         */
+        |--------------------------------------------------------------------------
+        | Generate QR Code
+        |--------------------------------------------------------------------------
+        */
+
         $qrCode = $qrCodeService->generate(
             $generatedDocument->tracking_code
         );
 
         /*
-         * Render the Blade template into HTML.
-         */
+        |--------------------------------------------------------------------------
+        | Render Blade Template
+        |--------------------------------------------------------------------------
+        */
+
         $html = view($template, [
             'generatedDocument' => $generatedDocument,
             'document'         => $document,
@@ -229,37 +364,45 @@ class GeneratedDocumentController extends Controller
         ])->render();
 
         /*
-         * Determine PDF orientation from the document template.
-         *
-         * Afforestation Payment Receipt is portrait.
-         * Membership certificates are landscape.
-         */
+        |--------------------------------------------------------------------------
+        | Resolve PDF Orientation
+        |--------------------------------------------------------------------------
+        */
+
         $orientation = $this->resolvePdfOrientation(
             $document
         );
 
         /*
-         * Generate the actual PDF.
-         */
+        |--------------------------------------------------------------------------
+        | Generate PDF
+        |--------------------------------------------------------------------------
+        */
+
         $pdf = Pdf::loadHTML($html)
             ->setPaper('a4', $orientation);
 
         /*
-         * Use the generated document number
-         * as the PDF filename.
-         */
+        |--------------------------------------------------------------------------
+        | PDF Filename
+        |--------------------------------------------------------------------------
+        */
+
         $filename =
             $generatedDocument->document_number . '.pdf';
 
-        return $pdf->download(
-            $filename
-        );
+        return $pdf->download($filename);
     }
 
     /**
      * Public document verification.
      *
-     * This route does not require authentication.
+     * IMPORTANT:
+     * This method MUST NOT require authentication.
+     *
+     * QR codes on documents must be scannable by anyone.
+     *
+     * Membership expiry does NOT block public verification.
      */
     public function verify(string $trackingCode)
     {
@@ -275,8 +418,11 @@ class GeneratedDocumentController extends Controller
             ->first();
 
         /*
-         * Tracking code does not exist.
-         */
+        |--------------------------------------------------------------------------
+        | Tracking Code Does Not Exist
+        |--------------------------------------------------------------------------
+        */
+
         if (!$generatedDocument) {
             return view('documents.verify', [
                 'valid'             => false,
@@ -285,8 +431,11 @@ class GeneratedDocumentController extends Controller
         }
 
         /*
-         * Revoked documents are never valid.
-         */
+        |--------------------------------------------------------------------------
+        | Revoked Documents Are Never Valid
+        |--------------------------------------------------------------------------
+        */
+
         if ($generatedDocument->status === 'revoked') {
             return view('documents.verify', [
                 'valid'             => false,
@@ -295,9 +444,11 @@ class GeneratedDocumentController extends Controller
         }
 
         /*
-         * Automatically expire documents whose
-         * expiry date has passed.
-         */
+        |--------------------------------------------------------------------------
+        | Automatically Expire Documents Whose Expiry Date Has Passed
+        |--------------------------------------------------------------------------
+        */
+
         if (
             $generatedDocument->expires_at &&
             $generatedDocument->expires_at->isPast()
@@ -306,6 +457,14 @@ class GeneratedDocumentController extends Controller
                 $generatedDocument->update([
                     'status' => 'expired',
                 ]);
+
+                /*
+                |--------------------------------------------------------------------------
+                | Refresh Model Status
+                |--------------------------------------------------------------------------
+                */
+
+                $generatedDocument->status = 'expired';
             }
 
             return view('documents.verify', [
@@ -315,8 +474,11 @@ class GeneratedDocumentController extends Controller
         }
 
         /*
-         * Only active documents are valid.
-         */
+        |--------------------------------------------------------------------------
+        | Only Active Documents Are Valid
+        |--------------------------------------------------------------------------
+        */
+
         $valid =
             $generatedDocument->status === 'active';
 
@@ -327,33 +489,167 @@ class GeneratedDocumentController extends Controller
     }
 
     /**
-     * Make sure the authenticated member owns
-     * the generated document.
+     * Retrieve a generated document belonging to
+     * the authenticated member.
+     *
+     * This is the main ownership/security boundary
+     * for member-facing generated documents.
+     *
+     * A member cannot access another member's document
+     * even if they manually change the document ID in
+     * the URL.
+     *
+     * IMPORTANT:
+     * This method also enforces the member's active
+     * membership requirement.
+     *
+     * The only exception is renewal, because an expired
+     * member must still be able to initiate renewal.
      */
-    protected function authorizeDocument(
+    protected function getMemberDocument(
         Request $request,
-        GeneratedDocument $generatedDocument
-    ): void {
+        GeneratedDocument $generatedDocument,
+        bool $requireActiveMembership = true
+    ): GeneratedDocument {
         $user = $request->user();
 
-        abort_unless(
-            $user &&
-                (int) $generatedDocument->user_id ===
-                (int) $user->id,
-            403,
-            'You are not authorized to access this document.'
-        );
+        if (!$user) {
+            abort(403);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Membership Access Check
+        |--------------------------------------------------------------------------
+        |
+        | show(), print(), and download() use the default:
+        |
+        |     $requireActiveMembership = true
+        |
+        | renew() passes false because an expired member
+        | must still be able to renew.
+        |
+        */
+
+        if ($requireActiveMembership) {
+            $this->getActiveMembership($user->id);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Verify Document Ownership
+        |--------------------------------------------------------------------------
+        */
+
+        return GeneratedDocument::query()
+            ->whereKey($generatedDocument->id)
+            ->where('user_id', $user->id)
+            ->firstOrFail();
     }
 
     /**
-     * Check whether the document can still be accessed.
+     * Get the authenticated member's active and
+     * non-expired membership.
+     *
+     * THIS IS THE CENTRAL MEMBERSHIP EXPIRY RULE.
+     *
+     * All member-facing document access must use this
+     * method rather than implementing its own expiry logic.
+     */
+    protected function getActiveMembership(
+        int $userId
+    ): Membership {
+        $membership = Membership::query()
+            ->with([
+                'profile',
+                'membershipCategory',
+            ])
+            ->where('user_id', $userId)
+            ->latest('id')
+            ->first();
+
+        /*
+        |--------------------------------------------------------------------------
+        | No Membership
+        |--------------------------------------------------------------------------
+        */
+
+        if (!$membership) {
+            abort(
+                403,
+                'You do not have a membership.'
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Membership Status
+        |--------------------------------------------------------------------------
+        */
+
+        if ($membership->status !== 'active') {
+            abort(
+                403,
+                'Your membership is no longer active.'
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Membership Expiry
+        |--------------------------------------------------------------------------
+        |
+        | The Membership model casts expires_at as a date.
+        |
+        | Using endOfDay() means:
+        |
+        | expires_at = 31 December 2026
+        |
+        | remains valid throughout 31 December 2026.
+        |
+        | Access is blocked from 1 January 2027.
+        |
+        */
+
+        if (
+            $membership->expires_at &&
+            now()->greaterThan(
+                $membership->expires_at
+                    ->copy()
+                    ->endOfDay()
+            )
+        ) {
+            abort(
+                403,
+                'Your membership has expired. Please renew your membership to access your documents.'
+            );
+        }
+
+        return $membership;
+    }
+
+    /**
+     * Check whether the generated document can still
+     * be accessed by the member.
+     *
+     * NOTE:
+     * Membership expiry is NOT checked here.
+     *
+     * Membership expiry is centralized inside
+     * getActiveMembership().
+     *
+     * This method deals only with the document's own
+     * status and expiry.
      */
     protected function checkDocumentStatus(
         GeneratedDocument $generatedDocument
     ): void {
         /*
-         * Revoked documents can never be accessed.
-         */
+        |--------------------------------------------------------------------------
+        | Revoked Documents Can Never Be Accessed
+        |--------------------------------------------------------------------------
+        */
+
         if ($generatedDocument->status === 'revoked') {
             abort(
                 403,
@@ -362,8 +658,11 @@ class GeneratedDocumentController extends Controller
         }
 
         /*
-         * Automatically mark expired documents.
-         */
+        |--------------------------------------------------------------------------
+        | Automatically Mark Expired Documents
+        |--------------------------------------------------------------------------
+        */
+
         if (
             $generatedDocument->expires_at &&
             $generatedDocument->expires_at->isPast()
@@ -381,8 +680,11 @@ class GeneratedDocumentController extends Controller
         }
 
         /*
-         * Only active documents are accessible.
-         */
+        |--------------------------------------------------------------------------
+        | Only Active Documents Are Accessible
+        |--------------------------------------------------------------------------
+        */
+
         if ($generatedDocument->status !== 'active') {
             abort(
                 403,
@@ -405,9 +707,8 @@ class GeneratedDocumentController extends Controller
      * If only the template name is stored, the default
      * documents/ directory is automatically added.
      */
-    protected function resolveTemplate(
-        $document
-    ): string {
+    protected function resolveTemplate($document): string
+    {
         $template = trim(
             (string) $document->template
         );
@@ -420,30 +721,35 @@ class GeneratedDocumentController extends Controller
         }
 
         /*
-         * If the administrator already stored a complete
-         * Laravel view name, use it as-is.
-         *
-         * Example:
-         *
-         * documents.afforestation_payment_receipt
-         */
+        |--------------------------------------------------------------------------
+        | Complete Laravel View Name
+        |--------------------------------------------------------------------------
+        |
+        | Example:
+        |
+        | documents.afforestation_payment_receipt
+        |
+        */
+
         if (str_contains($template, '.')) {
             return $template;
         }
 
         /*
-         * Otherwise assume the template is stored inside:
-         *
-         * resources/views/documents/
-         *
-         * Example:
-         *
-         * afforestation_payment_receipt
-         *
-         * becomes:
-         *
-         * documents.afforestation_payment_receipt
-         */
+        |--------------------------------------------------------------------------
+        | Template Stored As A Simple Filename
+        |--------------------------------------------------------------------------
+        |
+        | Example:
+        |
+        | afforestation_payment_receipt
+        |
+        | becomes:
+        |
+        | documents.afforestation_payment_receipt
+        |
+        */
+
         return 'documents.' . $template;
     }
 
@@ -452,23 +758,19 @@ class GeneratedDocumentController extends Controller
      *
      * Default:
      * A4 portrait.
-     *
-     * Documents that require landscape can be added
-     * to the list below.
      */
-    protected function resolvePdfOrientation(
-        $document
-    ): string {
+    protected function resolvePdfOrientation($document): string
+    {
         $template = strtolower(
             trim((string) $document->template)
         );
 
         /*
-         * Landscape documents.
-         *
-         * Membership certificates currently use
-         * landscape orientation.
-         */
+        |--------------------------------------------------------------------------
+        | Landscape Documents
+        |--------------------------------------------------------------------------
+        */
+
         $landscapeTemplates = [
             'membership_certificate',
             'membership_certificate_regular_exporter',
@@ -489,26 +791,52 @@ class GeneratedDocumentController extends Controller
         }
 
         /*
-         * All other documents default to portrait.
-         */
+        |--------------------------------------------------------------------------
+        | Default: Portrait
+        |--------------------------------------------------------------------------
+        */
+
         return 'portrait';
     }
 
-
+    /**
+     * Prepare an expired generated document for renewal.
+     *
+     * IMPORTANT:
+     * Renewal is intentionally allowed even when the
+     * membership has expired.
+     *
+     * This is necessary so the member has a route to
+     * renew the document/membership.
+     *
+     * The document remains member-owned and therefore
+     * cannot operate on another member's document.
+     */
     public function renew(
         Request $request,
         GeneratedDocument $generatedDocument
     ) {
-        $this->authorizeDocument(
+        /*
+        |--------------------------------------------------------------------------
+        | Ownership Check Only
+        |--------------------------------------------------------------------------
+        |
+        | We deliberately pass false here so that an expired
+        | membership can still initiate renewal.
+        |
+        */
+
+        $generatedDocument = $this->getMemberDocument(
             $request,
-            $generatedDocument
+            $generatedDocument,
+            false
         );
 
         /*
-    |--------------------------------------------------------------------------
-    | Document must be expired
-    |--------------------------------------------------------------------------
-    */
+        |--------------------------------------------------------------------------
+        | Document Must Be Expired
+        |--------------------------------------------------------------------------
+        */
 
         if (
             !$generatedDocument->expires_at ||
@@ -526,10 +854,10 @@ class GeneratedDocumentController extends Controller
         }
 
         /*
-    |--------------------------------------------------------------------------
-    | Revoked documents cannot be renewed
-    |--------------------------------------------------------------------------
-    */
+        |--------------------------------------------------------------------------
+        | Revoked Documents Cannot Be Renewed
+        |--------------------------------------------------------------------------
+        */
 
         if ($generatedDocument->status === 'revoked') {
             return redirect()
@@ -541,10 +869,10 @@ class GeneratedDocumentController extends Controller
         }
 
         /*
-    |--------------------------------------------------------------------------
-    | Find the original payment item
-    |--------------------------------------------------------------------------
-    */
+        |--------------------------------------------------------------------------
+        | Find Original Transaction
+        |--------------------------------------------------------------------------
+        */
 
         $transaction = $generatedDocument
             ->transaction()
@@ -568,10 +896,10 @@ class GeneratedDocumentController extends Controller
         $originalPaymentItem = $transaction->paymentItem;
 
         /*
-    |--------------------------------------------------------------------------
-    | Check whether the original payment item is renewable
-    |--------------------------------------------------------------------------
-    */
+        |--------------------------------------------------------------------------
+        | Check Whether Original Payment Item Is Renewable
+        |--------------------------------------------------------------------------
+        */
 
         if (!$originalPaymentItem->is_renewable) {
             return redirect()
@@ -583,13 +911,13 @@ class GeneratedDocumentController extends Controller
         }
 
         /*
-    |--------------------------------------------------------------------------
-    | Find configured renewal payment item
-    |--------------------------------------------------------------------------
-    */
+        |--------------------------------------------------------------------------
+        | Find Configured Renewal Payment Item
+        |--------------------------------------------------------------------------
+        */
 
-        $renewalPaymentItem = $originalPaymentItem
-            ->renewalPaymentItem;
+        $renewalPaymentItem =
+            $originalPaymentItem->renewalPaymentItem;
 
         if (!$renewalPaymentItem) {
             return redirect()
@@ -610,14 +938,14 @@ class GeneratedDocumentController extends Controller
         }
 
         /*
-    |--------------------------------------------------------------------------
-    | Load renewal document and its manual fields
-    |--------------------------------------------------------------------------
-    |
-    | We deliberately load the document attached to the RENEWAL payment
-    | item. This keeps the renewal system completely dynamic.
-    |
-    */
+        |--------------------------------------------------------------------------
+        | Load Renewal Document and Manual Fields
+        |--------------------------------------------------------------------------
+        |
+        | The renewal document comes from the RENEWAL payment item.
+        | This keeps the renewal system dynamic.
+        |
+        */
 
         $renewalPaymentItem->load([
             'document' => function ($query) {
@@ -635,10 +963,10 @@ class GeneratedDocumentController extends Controller
         ]);
 
         /*
-    |--------------------------------------------------------------------------
-    | Make sure renewal payment item has a valid document
-    |--------------------------------------------------------------------------
-    */
+        |--------------------------------------------------------------------------
+        | Renewal Payment Item Must Have an Active Document
+        |--------------------------------------------------------------------------
+        */
 
         if (!$renewalPaymentItem->document) {
             return redirect()
@@ -650,33 +978,23 @@ class GeneratedDocumentController extends Controller
         }
 
         /*
-    |--------------------------------------------------------------------------
-    | Dynamic manual fields
-    |--------------------------------------------------------------------------
-    */
+        |--------------------------------------------------------------------------
+        | Dynamic Manual Fields
+        |--------------------------------------------------------------------------
+        */
 
         $fields = $renewalPaymentItem
             ->document
             ->fields;
 
         /*
-    |--------------------------------------------------------------------------
-    | Previous values
-    |--------------------------------------------------------------------------
-    |
-    | These values came from the OLD generated document.
-    |
-    | Example:
-    |
-    | [
-    |     'loading_point' => 'Lagos Port',
-    |     'buyer_member_name' => 'ABC Exporters',
-    |     'vehicle_number' => 'ABC-123-XY',
-    | ]
-    |
-    | The Blade uses these values to pre-fill the renewal form.
-    |
-    */
+        |--------------------------------------------------------------------------
+        | Previous Values
+        |--------------------------------------------------------------------------
+        |
+        | These values came from the old generated document.
+        |
+        */
 
         $previousValues = collect(
             is_array($generatedDocument->field_values)
@@ -685,21 +1003,18 @@ class GeneratedDocumentController extends Controller
         );
 
         /*
-    |--------------------------------------------------------------------------
-    | Return renewal page
-    |--------------------------------------------------------------------------
-    */
+        |--------------------------------------------------------------------------
+        | Return Renewal Page
+        |--------------------------------------------------------------------------
+        */
 
         return view(
             'member.documents.renew',
             [
                 'generatedDocument' => $generatedDocument,
-
-                'paymentItem' => $renewalPaymentItem,
-
-                'fields' => $fields,
-
-                'previousValues' => $previousValues,
+                'paymentItem'       => $renewalPaymentItem,
+                'fields'            => $fields,
+                'previousValues'    => $previousValues,
             ]
         );
     }

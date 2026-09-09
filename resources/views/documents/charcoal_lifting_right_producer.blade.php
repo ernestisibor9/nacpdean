@@ -1,44 +1,26 @@
 @php
-    /*
-    |--------------------------------------------------------------------------
-    | RESOLVE FIELD VALUES
-    |--------------------------------------------------------------------------
-    |
-    | NACPDEAN Charcoal Producing Right - Producer.
-    |
-    | These were already resolved (system + manual) by
-    | DocumentGenerationService::generate() and stored on
-    | $generatedDocument->field_values. We just read them back
-    | out here — nothing is recalculated in the view.
-    |--------------------------------------------------------------------------
-    */
-
     $fields = collect($generatedDocument->field_values ?? []);
 
-    $memberName = $fields->get('member_name')
-        ?: optional($generatedDocument->user)->name;
+    $memberName = $fields->get('member_name', '');
 
-    $membershipNumber = $fields->get(
-        'membership_number',
-        $fields->get('membership_no')
+    $membershipNumber = $fields->get('membership_number', '');
+
+    $refNo = $fields->get(
+        'ref_no',
+        $generatedDocument->document_number
     );
 
-    // Sequential reference number (distinct from the internal
-    // document_number). Falls back to document_number if no
-    // dedicated ref_no field has been configured.
-    $refNo = $fields->get('ref_no', $generatedDocument->document_number);
-
-    $issuedAt = $generatedDocument->issued_at
-        ? \Carbon\Carbon::parse($generatedDocument->issued_at)->format('d F Y')
+    $issuedAt = $fields->get('issued_at')
+        ? \Carbon\Carbon::parse($fields->get('issued_at'))->format('d F Y')
         : '';
 
-    $validTill = $generatedDocument->expires_at
-        ? \Carbon\Carbon::parse($generatedDocument->expires_at)->format('jS F, Y')
+    $validTill = $fields->get('expires_at')
+        ? \Carbon\Carbon::parse($fields->get('expires_at'))->format('jS F, Y')
         : '';
 
-    $verificationUrl = route(
-        'documents.verify',
-        $generatedDocument->tracking_code
+    $verificationUrl = $fields->get(
+        'verification_url',
+        route('documents.verify', $generatedDocument->tracking_code)
     );
 @endphp
 
