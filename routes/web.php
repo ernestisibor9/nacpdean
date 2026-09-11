@@ -21,6 +21,7 @@ use App\Http\Controllers\Admin\PaymentItemController;
 use App\Http\Controllers\GeneratedDocumentController;
 use App\Http\Controllers\PublicMemberController;
 use App\Http\Controllers\Admin\DocumentFieldController;
+use App\Http\Controllers\Admin\MembershipOfficerController;
 
 /*
 |--------------------------------------------------------------------------
@@ -41,6 +42,10 @@ Route::get('/association', [HomeController::class, 'Association'])->name('associ
 Route::get('/partnership', [HomeController::class, 'Partnership'])->name('partnership');
 Route::get('/national-executive', [HomeController::class, 'NationalExecutive'])->name('national-executive');
 Route::get('/state-executive', [HomeController::class, 'StateExecutive'])->name('state-executive');
+Route::get('/blacklisted-members', [HomeController::class, 'BlackListed'])->name('blacklisted-members');
+Route::get('/compliance', [HomeController::class, 'Compliance'])->name('compliance');
+Route::get('/gallery', [HomeController::class, 'Gallery'])->name('gallery');
+Route::get('/contact', [HomeController::class, 'Contact'])->name('contact');
 
 
 /*
@@ -144,6 +149,18 @@ Route::middleware(['auth', 'user.role:admin'])
                 Route::post('/{field}/move-up', [DocumentFieldController::class, 'moveUp'])->name('move-up');
                 Route::post('/{field}/move-down', [DocumentFieldController::class, 'moveDown'])->name('move-down');
             });
+
+
+        Route::get('/membership-officers/create',[MembershipOfficerController::class, 'create'])->name('membership-officers.create');
+
+        Route::post('/membership-officers',[MembershipOfficerController::class, 'store'])->name('membership-officers.store');
+
+        Route::get('/membership-officers/{id}',[MembershipOfficerController::class, 'show'])->name('membership-officers.show');
+
+        Route::post('/membership-officers/{id}/approve',[MembershipOfficerController::class, 'approve'])->name('membership-officers.approve');
+
+        Route::post('/membership-officers/{id}/reject',[MembershipOfficerController::class, 'reject'])->name('membership-officers.reject');
+
     });
 
 

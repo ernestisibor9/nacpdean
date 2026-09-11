@@ -5,6 +5,22 @@
      ONLY EXISTING LARAVEL ROUTES ARE USED.
 ========================================================= --}}
 
+@php
+    use App\Models\BlacklistedMember;
+
+    /*
+    |--------------------------------------------------------------------------
+    | Check if there are any blacklisted members
+    |--------------------------------------------------------------------------
+    |
+    | The blacklist news/marquee will only be displayed when at least
+    | one blacklisted member exists in the database.
+    |
+    */
+    $hasBlacklistedMembers = BlacklistedMember::exists();
+@endphp
+
+
 <header id="header" class="header sticky-top">
 
     {{-- =====================================================
@@ -18,32 +34,61 @@
             <div class="d-flex align-items-center social-icons">
 
                 {{-- Facebook --}}
-                <a href="https://www.facebook.com/profile.php?id=61591564350891" target="_blank" rel="noopener noreferrer"
-                    class="me-3" aria-label="Facebook">
+                <a href="https://www.facebook.com/profile.php?id=61591564350891"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="me-3"
+                    aria-label="Facebook">
+
                     <i class="bi bi-facebook"></i>
+
                 </a>
+
 
                 {{-- Instagram --}}
-                <a href="https://www.instagram.com/nacpdean" target="_blank" rel="noopener noreferrer" class="me-3"
+                <a href="https://www.instagram.com/nacpdean"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="me-3"
                     aria-label="Instagram">
+
                     <i class="bi bi-instagram"></i>
+
                 </a>
+
 
                 {{-- X --}}
-                <a href="https://x.com/nacpdean" target="_blank" rel="noopener noreferrer" class="me-3"
+                <a href="https://x.com/nacpdean"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="me-3"
                     aria-label="Twitter">
+
                     <i class="bi bi-twitter-x"></i>
+
                 </a>
+
 
                 {{-- LinkedIn --}}
-                <a href="https://www.linkedin.com/in/nacpdean-nacpdean-17187041b/" target="_blank"
-                    rel="noopener noreferrer" class="me-3" aria-label="LinkedIn">
+                <a href="https://www.linkedin.com/in/nacpdean-nacpdean-17187041b/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="me-3"
+                    aria-label="LinkedIn">
+
                     <i class="bi bi-linkedin"></i>
+
                 </a>
 
+
                 {{-- WhatsApp --}}
-                <a href="https://wa.me/2348145672358" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
+                <a href="https://wa.me/2348145672358"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="WhatsApp">
+
                     <i class="bi bi-whatsapp"></i>
+
                 </a>
 
             </div>
@@ -51,14 +96,18 @@
 
             {{-- PHONE --}}
             <div class="d-none d-md-flex align-items-center">
+
                 <i class="bi bi-phone me-1"></i>
+
                 Call us now +234 81 456 723 58
+
             </div>
 
         </div>
 
     </div>
     {{-- End Top Bar --}}
+
 
 
     {{-- =====================================================
@@ -72,11 +121,14 @@
             {{-- =================================================
                  LOGO
             ================================================== --}}
-            <a href="{{ route('index') }}" class="logo d-flex align-items-center me-auto">
+            <a href="{{ route('index') }}"
+                class="logo d-flex align-items-center me-auto">
 
-                <img src="{{ asset('frontend/assets/img/logo.png') }}" alt="NACPDEAN Logo">
+                <img src="{{ asset('frontend/assets/img/logo.png') }}"
+                    alt="NACPDEAN Logo">
 
             </a>
+
 
 
             {{-- =================================================
@@ -92,13 +144,15 @@
                     ================================================== --}}
                     <li>
 
-                        <a href="{{ route('index') }}" class="{{ request()->routeIs('index') ? 'active' : '' }}">
+                        <a href="{{ route('index') }}"
+                            class="{{ request()->routeIs('index') ? 'active' : '' }}">
 
                             Home
 
                         </a>
 
                     </li>
+
 
 
                     {{-- =================================================
@@ -119,49 +173,80 @@
                         <ul>
 
                             <li>
+
                                 <a href="{{ route('about') }}"
                                     class="{{ request()->routeIs('about') ? 'active' : '' }}">
+
                                     About Us
+
                                 </a>
+
                             </li>
 
+
                             <li>
-                                <a href="{{ route('bot') }}" class="{{ request()->routeIs('bot') ? 'active' : '' }}">
+
+                                <a href="{{ route('bot') }}"
+                                    class="{{ request()->routeIs('bot') ? 'active' : '' }}">
+
                                     Board of Trustees
+
                                 </a>
+
                             </li>
 
+
                             <li>
+
                                 <a href="{{ route('history') }}"
                                     class="{{ request()->routeIs('history') ? 'active' : '' }}">
+
                                     History
+
                                 </a>
+
                             </li>
 
+
                             <li>
+
                                 <a href="{{ route('association') }}"
                                     class="{{ request()->routeIs('association') ? 'active' : '' }}">
+
                                     Association
+
                                 </a>
+
                             </li>
 
+
                             <li>
+
                                 <a href="{{ route('partnership') }}"
                                     class="{{ request()->routeIs('partnership') ? 'active' : '' }}">
+
                                     Partnership with SSN and GGLV
+
                                 </a>
+
                             </li>
 
+
                             <li>
+
                                 <a href="#"
                                     class="{{ request()->routeIs('partnership') ? 'active' : '' }}">
+
                                     Stakeholders Data
+
                                 </a>
+
                             </li>
 
                         </ul>
 
                     </li>
+
 
 
                     {{-- =================================================
@@ -182,17 +267,26 @@
                         <ul>
 
                             <li>
+
                                 <a href="{{ route('national-executive') }}"
                                     class="{{ request()->routeIs('national-executive') ? 'active' : '' }}">
+
                                     National Executive
+
                                 </a>
+
                             </li>
 
+
                             <li>
+
                                 <a href="{{ route('state-executive') }}"
                                     class="{{ request()->routeIs('state-executive') ? 'active' : '' }}">
+
                                     State Executive
+
                                 </a>
+
                             </li>
 
                         </ul>
@@ -200,11 +294,9 @@
                     </li>
 
 
+
                     {{-- =================================================
                          MEMBERSHIP
-
-                         No Laravel routes have been created for these
-                         yet, so the existing URLs are preserved.
                     ================================================== --}}
                     <li class="dropdown">
 
@@ -220,27 +312,46 @@
                         <ul>
 
                             <li>
-                                <a href="{{route('exporters')}}">
+
+                                <a href="{{ route('exporters') }}">
+
                                     Exporter
+
                                 </a>
+
                             </li>
 
+
                             <li>
-                                <a href="{{route('suppliers')}}">
+
+                                <a href="{{ route('suppliers') }}">
+
                                     Suppliers
+
                                 </a>
+
                             </li>
 
+
                             <li>
-                                <a href="{{route('dealers')}}">
+
+                                <a href="{{ route('dealers') }}">
+
                                     Dealers
+
                                 </a>
+
                             </li>
 
+
                             <li>
+
                                 <a href="{{ route('producers') }}">
+
                                     Producers
+
                                 </a>
+
                             </li>
 
                         </ul>
@@ -248,18 +359,20 @@
                     </li>
 
 
+
                     {{-- =================================================
                          GALLERY
-
-                         No Laravel route created yet.
                     ================================================== --}}
                     <li>
 
-                        <a href="gallery.php">
+                        <a href="#">
+
                             Gallery
+
                         </a>
 
                     </li>
+
 
 
                     {{-- =================================================
@@ -267,11 +380,14 @@
                     ================================================== --}}
                     <li>
 
-                        <a href="contact.php">
+                        <a href="{{ route('contact') }}">
+
                             Contact
+
                         </a>
 
                     </li>
+
 
 
                     {{-- =================================================
@@ -279,11 +395,14 @@
                     ================================================== --}}
                     <li>
 
-                        <a href="compliance.php">
+                        <a href="{{route('compliance')}}">
+
                             Compliance
+
                         </a>
 
                     </li>
+
 
 
                     {{-- =================================================
@@ -291,13 +410,17 @@
                     ================================================== --}}
                     <li>
 
-                        <a href="blacklisted-members.php">
+                        <a href="{{ route('blacklisted-members') }}"
+                            class="{{ request()->routeIs('blacklisted-members') ? 'active' : '' }}">
+
                             Blacklisted
+
                         </a>
 
                     </li>
 
                 </ul>
+
 
 
                 {{-- MOBILE NAVIGATION --}}
@@ -306,25 +429,39 @@
             </nav>
 
 
+
             {{-- =================================================
                  JOIN NOW
-
-                 EXISTING ROUTE: register
             ================================================== --}}
             @auth
 
                 @if (auth()->user()->role === 'admin')
-                    <a class="cta-btn" href="{{ route('admin.admin_dashboard') }}">
+
+                    <a class="cta-btn"
+                        href="{{ route('admin.admin_dashboard') }}">
+
                         Dashboard
+
                     </a>
+
                 @elseif(auth()->user()->role === 'member')
-                    <a class="cta-btn" href="{{ route('member.member_dashboard') }}">
+
+                    <a class="cta-btn"
+                        href="{{ route('member.member_dashboard') }}">
+
                         Dashboard
+
                     </a>
+
                 @endif
+
             @else
-                <a class="cta-btn" href="{{ route('register') }}">
+
+                <a class="cta-btn"
+                    href="{{ route('register') }}">
+
                     Join Now
+
                 </a>
 
             @endauth
@@ -336,33 +473,52 @@
 </header>
 
 
+
 {{-- =========================================================
      BLACKLIST NEWS
+
+     ONLY DISPLAY WHEN THERE IS AT LEAST ONE
+     BLACKLISTED MEMBER IN THE DATABASE.
 ========================================================= --}}
-<div class="blacklist-news">
 
-    <span class="title">
+@if($hasBlacklistedMembers)
 
-        <i class="fas fa-exclamation-triangle"></i>
+    <div class="blacklist-news">
 
-        BLACKLISTED STAKEHOLDERS
+        <span class="title">
 
-    </span>
+            <i class="fas fa-exclamation-triangle"></i>
+
+            BLACKLISTED STAKEHOLDERS
+
+        </span>
 
 
-    <marquee behavior="scroll" direction="left" scrollamount="7">
+        <marquee
+            behavior="scroll"
+            direction="left"
+            scrollamount="7">
 
-        John Doe (Lagos) |
+            BLACKLISTED STAKEHOLDERS ARE LISTED IN THE
+            NACPDEAN DIRECTORY.
 
-        XYZ Charcoal Export Ltd |
+            &nbsp;&nbsp; | &nbsp;&nbsp;
 
-        ABC Agro Company |
+            Members are advised to exercise caution when
+            dealing with listed stakeholders.
 
-        Jane Smith |
+            &nbsp;&nbsp; | &nbsp;&nbsp;
 
-        Click here to view the complete
-        Blacklisted Stakeholders Directory.
+            <a href="{{ route('blacklisted-members') }}"
+                style="color: inherit; text-decoration: underline; font-weight: 700;">
 
-    </marquee>
+                Click here to view the complete
+                Blacklisted Stakeholders Directory.
 
-</div>
+            </a>
+
+        </marquee>
+
+    </div>
+
+@endif

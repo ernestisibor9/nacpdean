@@ -4,7 +4,7 @@
 
 <style>
     /* =========================================================
-       NACPDEAN REGISTERED suppliers
+       NACPDEAN REGISTERED SUPPLIERS
        Lightweight • Responsive • Professional
     ========================================================= */
 
@@ -159,10 +159,12 @@
         width: 40px;
         height: 40px;
 
-        display: none;
-
+        display: flex;
         align-items: center;
         justify-content: center;
+
+        border: 0;
+        background: transparent;
 
         color: #98a2b3;
 
@@ -177,10 +179,6 @@
 
     .search-clear:hover {
         color: #dc3545;
-    }
-
-    .search-clear.visible {
-        display: flex;
     }
 
 
@@ -234,19 +232,6 @@
 
     .suppliers-results strong {
         color: #344054;
-    }
-
-
-    /* ---------------------------------------------------------
-       MEMBER GRID
-    --------------------------------------------------------- */
-
-    .supplier-card-column {
-        transition: opacity 0.2s ease;
-    }
-
-    .supplier-card-column.hidden {
-        display: none;
     }
 
 
@@ -544,12 +529,10 @@
 
 
     /* ---------------------------------------------------------
-       LIVE SEARCH EMPTY STATE
+       SEARCH EMPTY STATE
     --------------------------------------------------------- */
 
-    .live-search-empty {
-        display: none;
-
+    .search-empty {
         background: #ffffff;
 
         border: 1px solid #e9eef4;
@@ -561,15 +544,9 @@
         text-align: center;
 
         box-shadow: 0 8px 30px rgba(31, 45, 61, 0.05);
-
-        margin-top: 10px;
     }
 
-    .live-search-empty.visible {
-        display: block;
-    }
-
-    .live-search-empty-icon {
+    .search-empty-icon {
         width: 65px;
         height: 65px;
 
@@ -588,7 +565,7 @@
         font-size: 25px;
     }
 
-    .live-search-empty h4 {
+    .search-empty h4 {
         color: #172b4d;
 
         font-weight: 700;
@@ -596,17 +573,43 @@
         margin-bottom: 8px;
     }
 
-    .live-search-empty p {
+    .search-empty p {
         color: #7a8798;
 
-        margin: 0;
+        margin: 0 0 20px;
+    }
+
+    .search-empty a {
+        display: inline-flex;
+
+        align-items: center;
+        gap: 7px;
+
+        padding: 10px 18px;
+
+        background: #198754;
+
+        color: #ffffff;
+
+        border-radius: 8px;
+
+        text-decoration: none;
+
+        font-size: 13px;
+        font-weight: 700;
+
+        transition: background 0.2s ease;
+    }
+
+    .search-empty a:hover {
+        background: #157347;
+
+        color: #ffffff;
     }
 
 
     /* ---------------------------------------------------------
        PAGINATION
-       Hidden during live search because all cards are already
-       loaded on the page.
     --------------------------------------------------------- */
 
     .suppliers-pagination {
@@ -693,10 +696,6 @@
         box-shadow: none;
     }
 
-    .suppliers-pagination.hidden {
-        display: none;
-    }
-
 
     /* ---------------------------------------------------------
        RESPONSIVE
@@ -769,303 +768,359 @@
     }
 </style>
 
+
 <section class="suppliers-page">
 
-```
-<div class="container">
+    <div class="container">
 
 
-    {{-- =====================================================
-         PAGE HEADER
-    ====================================================== --}}
+        {{-- =====================================================
+             PAGE HEADER
+        ====================================================== --}}
 
-    <div class="suppliers-header">
+        <div class="suppliers-header">
 
-        <div class="suppliers-eyebrow">
-            NACPDEAN Directory
-        </div>
-
-        <h1 class="suppliers-title">
-            Registered <span>suppliers</span>
-        </h1>
-
-        <p class="suppliers-description">
-            Explore approved suppliers registered with NACPDEAN.
-            All members displayed in this directory have been
-            approved by the association.
-        </p>
-
-    </div>
-
-
-    {{-- =====================================================
-         LIVE SEARCH
-    ====================================================== --}}
-
-    <div class="suppliers-search">
-
-        <form
-            id="suppliersearchForm"
-            onsubmit="return false;"
-        >
-
-            <div class="search-wrapper">
-
-                <div class="search-icon">
-                    <i class="bi bi-search"></i>
-                </div>
-
-                <input
-                    type="search"
-                    class="search-input"
-                    id="suppliersearchInput"
-                    placeholder="Search by name, membership number or business..."
-                    autocomplete="off"
-                    aria-label="Search registered suppliers"
-                >
-
-                <button
-                    type="button"
-                    class="search-clear"
-                    id="suppliersearchClear"
-                    aria-label="Clear search"
-                    title="Clear search"
-                >
-                    <i class="bi bi-x-circle-fill"></i>
-                </button>
-
+            <div class="suppliers-eyebrow">
+                NACPDEAN Directory
             </div>
 
-        </form>
+            <h1 class="suppliers-title">
+                Registered <span>Suppliers</span>
+            </h1>
 
-    </div>
-
-
-    {{-- =====================================================
-         RESULT SUMMARY
-    ====================================================== --}}
-
-    <div class="suppliers-summary">
-
-        <div class="suppliers-count">
-
-            <strong id="supplierCount">
-                {{ $suppliers->count() }}
-            </strong>
-
-            <span id="supplierCountLabel">
-                {{ $suppliers->count() === 1
-                    ? 'Registered supplier'
-                    : 'Registered suppliers'
-                }}
-            </span>
+            <p class="suppliers-description">
+                Explore approved suppliers registered with NACPDEAN.
+                All members displayed in this directory have been
+                approved by the association.
+            </p>
 
         </div>
 
-    </div>
 
+        {{-- =====================================================
+             SERVER-SIDE SEARCH
+        ====================================================== --}}
 
-    {{-- =====================================================
-         CURRENT RESULTS
-    ====================================================== --}}
+        <div class="suppliers-search">
 
-    <div
-        class="suppliers-results"
-        id="suppliersResults"
-    >
-
-        Showing
-
-        <strong id="visiblesupplierCount">
-            {{ $suppliers->count() }}
-        </strong>
-
-        of
-
-        <strong>
-            {{ $suppliers->count() }}
-        </strong>
-
-        suppliers
-
-    </div>
-
-
-    {{-- =====================================================
-         supplier GRID
-    ====================================================== --}}
-
-    <div
-        class="row g-4"
-        id="suppliersGrid"
-    >
-
-        @forelse ($suppliers as $supplier)
-
-            @php
-
-                $fullName = collect([
-                    $supplier->first_name,
-                    $supplier->middle_name,
-                    $supplier->surname
-                ])->filter()->implode(' ');
-
-            @endphp
-
-            <div
-                class="col-xl-4 col-lg-4 col-md-6 supplier-card-column"
-                data-search="{{ strtolower(
-                    $fullName . ' ' .
-                    ($supplier->membership_number ?? '') . ' ' .
-                    ($supplier->business_name ?? '')
-                ) }}"
+            <form
+                action="{{ route('suppliers') }}"
+                method="GET"
+                id="supplierSearchForm"
             >
 
-                <article class="member-card">
+                <div class="search-wrapper">
 
-
-                    {{-- =================================================
-                         MEMBER PHOTO
-                    ================================================== --}}
-
-                    <div class="member-photo-wrapper">
-
-                        @if ($supplier->photo)
-
-                            <img
-                                class="member-photo"
-                                src="{{ asset('uploads/member_profiles/' . $supplier->photo) }}"
-                                alt="{{ $fullName }}"
-                                loading="lazy"
-                                decoding="async"
-                            >
-
-                        @else
-
-                            <img
-                                class="member-photo"
-                                src="{{ asset('assets/img/default-member.jpg') }}"
-                                alt="NACPDEAN member"
-                                loading="lazy"
-                                decoding="async"
-                            >
-
-                        @endif
-
-
-                        {{-- VERIFIED BADGE --}}
-
-                        <div class="member-status">
-
-                            <i class="bi bi-patch-check-fill"></i>
-
-                            Verified
-
-                        </div>
-
+                    <div class="search-icon">
+                        <i class="bi bi-search"></i>
                     </div>
 
+                    <input
+                        type="search"
+                        name="search"
+                        class="search-input"
+                        value="{{ request('search') }}"
+                        placeholder="Search by name, membership number or business..."
+                        autocomplete="off"
+                        aria-label="Search registered suppliers"
+                    >
 
-                    {{-- =================================================
-                         MEMBER INFORMATION
-                    ================================================== --}}
+                    @if(request('search'))
+                        <a
+                            href="{{ route('suppliers') }}"
+                            class="search-clear"
+                            aria-label="Clear search"
+                            title="Clear search"
+                        >
+                            <i class="bi bi-x-circle-fill"></i>
+                        </a>
+                    @endif
 
-                    <div class="member-body">
+                </div>
 
+            </form>
 
-                        {{-- CATEGORY --}}
-
-                        <span class="member-badge">
-
-                            {{ $supplier->membershipCategory?->name ?? 'supplier' }}
-
-                        </span>
-
-
-                        {{-- NAME --}}
-
-                        <h2 class="member-name">
-
-                            {{ $fullName }}
-
-                        </h2>
-
-
-                        {{-- POSITION --}}
-
-                        <p class="member-position">
-
-                            Registered supplier
-
-                        </p>
+        </div>
 
 
-                        <div class="member-info">
+        {{-- =====================================================
+             RESULT SUMMARY
+        ====================================================== --}}
 
+        @if($suppliers->total() > 0)
 
-                            {{-- MEMBERSHIP NUMBER --}}
+            <div class="suppliers-summary">
 
-                            <div class="member-info-row">
+                <div class="suppliers-count">
 
-                                <div class="member-info-icon">
-                                    <i class="bi bi-person-vcard"></i>
-                                </div>
+                    <strong>
+                        {{ $suppliers->total() }}
+                    </strong>
 
-                                <div class="member-info-content">
+                    <span>
+                        {{ $suppliers->total() === 1
+                            ? 'Registered supplier'
+                            : 'Registered suppliers'
+                        }}
+                    </span>
 
-                                    <span class="member-info-label">
-                                        Membership Number
-                                    </span>
-
-                                    <span class="member-info-value">
-
-                                        {{ $supplier->membership_number ?: 'Not assigned' }}
-
-                                    </span>
-
-                                </div>
-
-                            </div>
-
-
-                            {{-- BUSINESS --}}
-
-                            <div class="member-info-row">
-
-                                <div class="member-info-icon">
-                                    <i class="bi bi-building"></i>
-                                </div>
-
-                                <div class="member-info-content">
-
-                                    <span class="member-info-label">
-                                        Business
-                                    </span>
-
-                                    <span class="member-info-value">
-
-                                        {{ $supplier->business_name ?: 'Not provided' }}
-
-                                    </span>
-
-                                </div>
-
-                            </div>
-
-
-                        </div>
-
-                    </div>
-
-                </article>
+                </div>
 
             </div>
-
-        @empty
 
 
             {{-- =================================================
-                 NO suppliers IN DATABASE
+                 CURRENT RESULTS
+            ================================================== --}}
+
+            <div class="suppliers-results">
+
+                @if(request('search'))
+
+                    Showing
+
+                    <strong>
+                        {{ $suppliers->firstItem() }}
+                    </strong>
+
+                    to
+
+                    <strong>
+                        {{ $suppliers->lastItem() }}
+                    </strong>
+
+                    of
+
+                    <strong>
+                        {{ $suppliers->total() }}
+                    </strong>
+
+                    suppliers matching
+
+                    <strong>
+                        "{{ request('search') }}"
+                    </strong>
+
+                @else
+
+                    Showing
+
+                    <strong>
+                        {{ $suppliers->firstItem() }}
+                    </strong>
+
+                    to
+
+                    <strong>
+                        {{ $suppliers->lastItem() }}
+                    </strong>
+
+                    of
+
+                    <strong>
+                        {{ $suppliers->total() }}
+                    </strong>
+
+                    registered suppliers
+
+                @endif
+
+            </div>
+
+
+            {{-- =================================================
+                 SUPPLIER GRID
+            ================================================== --}}
+
+            <div class="row g-4">
+
+                @foreach ($suppliers as $supplier)
+
+                    @php
+
+                        $fullName = collect([
+                            $supplier->first_name,
+                            $supplier->middle_name,
+                            $supplier->surname
+                        ])->filter()->implode(' ');
+
+                    @endphp
+
+
+                    <div class="col-xl-4 col-lg-4 col-md-6">
+
+                        <article class="member-card">
+
+
+                            {{-- =============================================
+                                 MEMBER PHOTO
+                            ============================================== --}}
+
+                            <div class="member-photo-wrapper">
+
+                                @if ($supplier->photo)
+
+                                    <img
+                                        class="member-photo"
+                                        src="{{ asset('uploads/member_profiles/' . $supplier->photo) }}"
+                                        alt="{{ $fullName }}"
+                                        loading="lazy"
+                                        decoding="async"
+                                    >
+
+                                @else
+
+                                    <img
+                                        class="member-photo"
+                                        src="{{ asset('assets/img/default-member.jpg') }}"
+                                        alt="NACPDEAN member"
+                                        loading="lazy"
+                                        decoding="async"
+                                    >
+
+                                @endif
+
+
+                                {{-- VERIFIED BADGE --}}
+
+                                <div class="member-status">
+
+                                    <i class="bi bi-patch-check-fill"></i>
+
+                                    Verified
+
+                                </div>
+
+                            </div>
+
+
+                            {{-- =============================================
+                                 MEMBER INFORMATION
+                            ============================================== --}}
+
+                            <div class="member-body">
+
+
+                                {{-- CATEGORY --}}
+
+                                <span class="member-badge">
+
+                                    {{ $supplier->membershipCategory?->name ?? 'Supplier' }}
+
+                                </span>
+
+
+                                {{-- NAME --}}
+
+                                <h2 class="member-name">
+
+                                    {{ $fullName }}
+
+                                </h2>
+
+
+                                {{-- POSITION --}}
+
+                                <p class="member-position">
+
+                                    Registered Supplier
+
+                                </p>
+
+
+                                <div class="member-info">
+
+
+                                    {{-- MEMBERSHIP NUMBER --}}
+
+                                    <div class="member-info-row">
+
+                                        <div class="member-info-icon">
+
+                                            <i class="bi bi-person-vcard"></i>
+
+                                        </div>
+
+                                        <div class="member-info-content">
+
+                                            <span class="member-info-label">
+                                                Membership Number
+                                            </span>
+
+                                            <span class="member-info-value">
+
+                                                {{ $supplier->membership_number ?: 'Not assigned' }}
+
+                                            </span>
+
+                                        </div>
+
+                                    </div>
+
+
+                                    {{-- BUSINESS --}}
+
+                                    <div class="member-info-row">
+
+                                        <div class="member-info-icon">
+
+                                            <i class="bi bi-building"></i>
+
+                                        </div>
+
+                                        <div class="member-info-content">
+
+                                            <span class="member-info-label">
+                                                Business
+                                            </span>
+
+                                            <span class="member-info-value">
+
+                                                {{ $supplier->business_name ?: 'Not provided' }}
+
+                                            </span>
+
+                                        </div>
+
+                                    </div>
+
+
+                                </div>
+
+                            </div>
+
+                        </article>
+
+                    </div>
+
+                @endforeach
+
+            </div>
+
+
+            {{-- =================================================
+                 PAGINATION
+            ================================================== --}}
+
+            @if($suppliers->hasPages())
+
+                <div class="suppliers-pagination">
+
+                    {{ $suppliers
+                        ->onEachSide(1)
+                        ->links('pagination::bootstrap-5')
+                    }}
+
+                </div>
+
+            @endif
+
+
+        @else
+
+
+            {{-- =================================================
+                 NO RESULTS
             ================================================== --}}
 
             <div class="col-12">
@@ -1078,314 +1133,50 @@
 
                     </div>
 
-                    <h4>
-                        No Registered suppliers
-                    </h4>
 
-                    <p>
-                        There are currently no approved suppliers
-                        available in the directory.
-                    </p>
+                    @if(request('search'))
+
+                        <h4>
+                            No Supplier Found
+                        </h4>
+
+                        <p>
+                            No registered supplier matches
+                            "{{ request('search') }}".
+                            Try another name, membership number
+                            or business name.
+                        </p>
+
+                        <a href="{{ route('suppliers') }}">
+
+                            <i class="bi bi-arrow-left"></i>
+
+                            View All Suppliers
+
+                        </a>
+
+                    @else
+
+                        <h4>
+                            No Registered Suppliers
+                        </h4>
+
+                        <p>
+                            There are currently no approved suppliers
+                            available in the NACPDEAN directory.
+                        </p>
+
+                    @endif
 
                 </div>
 
             </div>
 
-        @endforelse
+        @endif
+
 
     </div>
-
-
-    {{-- =====================================================
-         LIVE SEARCH EMPTY STATE
-    ====================================================== --}}
-
-    <div
-        class="live-search-empty"
-        id="liveSearchEmpty"
-    >
-
-        <div class="live-search-empty-icon">
-
-            <i class="bi bi-search"></i>
-
-        </div>
-
-        <h4>
-            No supplier Found
-        </h4>
-
-        <p>
-            No registered supplier matches your search.
-            Try another name, membership number or business name.
-        </p>
-
-    </div>
-
-
-    {{-- =====================================================
-         PAGINATION
-    ====================================================== --}}
-
-    @if($suppliers->hasPages())
-
-        <div
-            class="suppliers-pagination"
-            id="suppliersPagination"
-        >
-
-            {{ $suppliers
-                ->onEachSide(1)
-                ->links('pagination::bootstrap-5')
-            }}
-
-        </div>
-
-    @endif
-
-
-</div>
-```
 
 </section>
-
-{{-- =============================================================
-LIVE SEARCH
-
-```
- This search happens entirely in the browser.
-
- No:
- - Page reload
- - URL change
- - AJAX
- - Fetch
- - API
- - JSON request
-
- The cards are already loaded, so JavaScript simply
- hides cards that do not match the search.
-```
-
-============================================================= --}}
-
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-
-        const searchInput = document.getElementById(
-            'suppliersearchInput'
-        );
-
-        const searchClear = document.getElementById(
-            'suppliersearchClear'
-        );
-
-        const supplierCards = document.querySelectorAll(
-            '.supplier-card-column'
-        );
-
-        const supplierCount = document.getElementById(
-            'supplierCount'
-        );
-
-        const supplierCountLabel = document.getElementById(
-            'supplierCountLabel'
-        );
-
-        const visiblesupplierCount = document.getElementById(
-            'visiblesupplierCount'
-        );
-
-        const liveSearchEmpty = document.getElementById(
-            'liveSearchEmpty'
-        );
-
-        const suppliersResults = document.getElementById(
-            'suppliersResults'
-        );
-
-        const suppliersPagination = document.getElementById(
-            'suppliersPagination'
-        );
-
-
-        /*
-         * Total number of suppliers loaded
-         * from the database.
-         */
-        const totalsuppliers = supplierCards.length;
-
-
-        /*
-         * Perform live search.
-         */
-        function performSearch() {
-
-            const searchTerm = searchInput.value
-                .toLowerCase()
-                .trim();
-
-            let visibleCount = 0;
-
-
-            supplierCards.forEach(function (card) {
-
-                const searchableText =
-                    card.dataset.search || '';
-
-                const matches =
-                    searchTerm === '' ||
-                    searchableText.includes(searchTerm);
-
-
-                if (matches) {
-
-                    card.classList.remove('hidden');
-
-                    visibleCount++;
-
-                } else {
-
-                    card.classList.add('hidden');
-
-                }
-
-            });
-
-
-            /*
-             * Update count.
-             */
-            supplierCount.textContent = visibleCount;
-
-            visiblesupplierCount.textContent = visibleCount;
-
-
-            /*
-             * Update singular/plural text.
-             */
-            supplierCountLabel.textContent =
-                visibleCount === 1
-                    ? 'Registered supplier'
-                    : 'Registered suppliers';
-
-
-            /*
-             * Show/hide clear button.
-             */
-            if (searchTerm !== '') {
-
-                searchClear.classList.add('visible');
-
-            } else {
-
-                searchClear.classList.remove('visible');
-
-            }
-
-
-            /*
-             * Show empty state when no supplier
-             * matches the search.
-             */
-            if (
-                searchTerm !== '' &&
-                visibleCount === 0
-            ) {
-
-                liveSearchEmpty.classList.add('visible');
-
-                suppliersResults.style.display = 'none';
-
-            } else {
-
-                liveSearchEmpty.classList.remove('visible');
-
-                suppliersResults.style.display = 'block';
-
-            }
-
-
-            /*
-             * Update result text.
-             */
-            if (searchTerm !== '') {
-
-                suppliersResults.innerHTML =
-                    'Showing <strong>' +
-                    visibleCount +
-                    '</strong> matching ' +
-                    (
-                        visibleCount === 1
-                            ? 'supplier'
-                            : 'suppliers'
-                    );
-
-            } else {
-
-                suppliersResults.innerHTML =
-                    'Showing <strong>' +
-                    totalsuppliers +
-                    '</strong> of <strong>' +
-                    totalsuppliers +
-                    '</strong> suppliers';
-
-            }
-
-
-            /*
-             * Hide Laravel pagination while
-             * performing live browser search.
-             */
-            if (suppliersPagination) {
-
-                if (searchTerm !== '') {
-
-                    suppliersPagination.classList.add(
-                        'hidden'
-                    );
-
-                } else {
-
-                    suppliersPagination.classList.remove(
-                        'hidden'
-                    );
-
-                }
-
-            }
-
-        }
-
-
-        /*
-         * Search immediately whenever the
-         * user types.
-         */
-        searchInput.addEventListener(
-            'input',
-            performSearch
-        );
-
-
-        /*
-         * Clear search.
-         */
-        searchClear.addEventListener(
-            'click',
-            function () {
-
-                searchInput.value = '';
-
-                searchInput.focus();
-
-                performSearch();
-
-            }
-        );
-
-
-    });
-</script>
 
 @endsection

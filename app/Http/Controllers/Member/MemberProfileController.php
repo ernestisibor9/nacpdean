@@ -284,8 +284,10 @@ class MemberProfileController extends Controller
 
                 $photo = $request->file('photo');
 
-                $uploadPath =
-                    public_path('uploads/member_profiles');
+$uploadPath = env(
+    'MEMBER_PROFILE_UPLOAD_PATH',
+    public_path('uploads/member_profiles')
+);
 
 
                 /*
@@ -609,10 +611,10 @@ class MemberProfileController extends Controller
             |--------------------------------------------------------------------------
             */
 
-            $basePath =
-                public_path(
-                    'document/member_profiles'
-                );
+$basePath = env(
+    'MEMBER_DOCUMENT_UPLOAD_PATH',
+    public_path('document/member_profiles')
+);
 
 
             /*
@@ -669,11 +671,10 @@ class MemberProfileController extends Controller
 
                 if ($profile->cac_certificate) {
 
-                    $oldFile =
-                        public_path(
-                            'document/' .
-                            $profile->cac_certificate
-                        );
+                $oldFile =
+                    $basePath .
+                    DIRECTORY_SEPARATOR .
+                    $profile->cac_particulars_of_directors;
 
                     if (File::exists($oldFile)) {
 
@@ -770,11 +771,10 @@ class MemberProfileController extends Controller
                     $profile->cac_particulars_of_directors
                 ) {
 
-                    $oldFile =
-                        public_path(
-                            'document/' .
-                            $profile->cac_particulars_of_directors
-                        );
+                $oldFile =
+                    $basePath .
+                    DIRECTORY_SEPARATOR .
+                    $profile->cac_particulars_of_directors;
 
                     if (File::exists($oldFile)) {
 
@@ -873,11 +873,10 @@ class MemberProfileController extends Controller
                     $profile->nepc_export_license
                 ) {
 
-                    $oldFile =
-                        public_path(
-                            'document/' .
-                            $profile->nepc_export_license
-                        );
+                $oldFile =
+                    $basePath .
+                    DIRECTORY_SEPARATOR .
+                    $profile->nepc_export_license;
 
                     if (File::exists($oldFile)) {
 

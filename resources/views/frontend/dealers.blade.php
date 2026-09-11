@@ -4,7 +4,7 @@
 
 <style>
     /* =========================================================
-       NACPDEAN REGISTERED dealers
+       NACPDEAN REGISTERED DEALERS
        Lightweight • Responsive • Professional
     ========================================================= */
 
@@ -159,8 +159,7 @@
         width: 40px;
         height: 40px;
 
-        display: none;
-
+        display: flex;
         align-items: center;
         justify-content: center;
 
@@ -177,10 +176,6 @@
 
     .search-clear:hover {
         color: #dc3545;
-    }
-
-    .search-clear.visible {
-        display: flex;
     }
 
 
@@ -234,19 +229,6 @@
 
     .dealers-results strong {
         color: #344054;
-    }
-
-
-    /* ---------------------------------------------------------
-       MEMBER GRID
-    --------------------------------------------------------- */
-
-    .dealer-card-column {
-        transition: opacity 0.2s ease;
-    }
-
-    .dealer-card-column.hidden {
-        display: none;
     }
 
 
@@ -544,69 +526,7 @@
 
 
     /* ---------------------------------------------------------
-       LIVE SEARCH EMPTY STATE
-    --------------------------------------------------------- */
-
-    .live-search-empty {
-        display: none;
-
-        background: #ffffff;
-
-        border: 1px solid #e9eef4;
-
-        border-radius: 18px;
-
-        padding: 55px 25px;
-
-        text-align: center;
-
-        box-shadow: 0 8px 30px rgba(31, 45, 61, 0.05);
-
-        margin-top: 10px;
-    }
-
-    .live-search-empty.visible {
-        display: block;
-    }
-
-    .live-search-empty-icon {
-        width: 65px;
-        height: 65px;
-
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        margin: 0 auto 18px;
-
-        background: #f2f8f5;
-
-        color: #198754;
-
-        border-radius: 50%;
-
-        font-size: 25px;
-    }
-
-    .live-search-empty h4 {
-        color: #172b4d;
-
-        font-weight: 700;
-
-        margin-bottom: 8px;
-    }
-
-    .live-search-empty p {
-        color: #7a8798;
-
-        margin: 0;
-    }
-
-
-    /* ---------------------------------------------------------
        PAGINATION
-       Hidden during live search because all cards are already
-       loaded on the page.
     --------------------------------------------------------- */
 
     .dealers-pagination {
@@ -693,10 +613,6 @@
         box-shadow: none;
     }
 
-    .dealers-pagination.hidden {
-        display: none;
-    }
-
 
     /* ---------------------------------------------------------
        RESPONSIVE
@@ -771,9 +687,8 @@
 
 <section class="dealers-page">
 
-```
-<div class="container">
 
+<div class="container">
 
     {{-- =====================================================
          PAGE HEADER
@@ -799,14 +714,14 @@
 
 
     {{-- =====================================================
-         LIVE SEARCH
+         SERVER-SIDE SEARCH
     ====================================================== --}}
 
     <div class="dealers-search">
 
         <form
-            id="dealersearchForm"
-            onsubmit="return false;"
+            method="GET"
+            action="{{ route('dealers') }}"
         >
 
             <div class="search-wrapper">
@@ -817,22 +732,26 @@
 
                 <input
                     type="search"
+                    name="search"
                     class="search-input"
-                    id="dealersearchInput"
+                    value="{{ request('search') }}"
                     placeholder="Search by name, membership number or business..."
                     autocomplete="off"
                     aria-label="Search registered dealers"
                 >
 
-                <button
-                    type="button"
-                    class="search-clear"
-                    id="dealersearchClear"
-                    aria-label="Clear search"
-                    title="Clear search"
-                >
-                    <i class="bi bi-x-circle-fill"></i>
-                </button>
+                @if(request('search'))
+
+                    <a
+                        href="{{ route('dealers') }}"
+                        class="search-clear"
+                        aria-label="Clear search"
+                        title="Clear search"
+                    >
+                        <i class="bi bi-x-circle-fill"></i>
+                    </a>
+
+                @endif
 
             </div>
 
@@ -845,60 +764,68 @@
          RESULT SUMMARY
     ====================================================== --}}
 
-    <div class="dealers-summary">
+    @if($dealers->total() > 0)
 
-        <div class="dealers-count">
+        <div class="dealers-summary">
 
-            <strong id="dealerCount">
-                {{ $dealers->count() }}
-            </strong>
+            <div class="dealers-count">
 
-            <span id="dealerCountLabel">
-                {{ $dealers->count() === 1
-                    ? 'Registered dealer'
-                    : 'Registered dealers'
-                }}
-            </span>
+                <strong>
+                    {{ $dealers->total() }}
+                </strong>
+
+                <span>
+                    {{ $dealers->total() === 1
+                        ? 'Registered dealer'
+                        : 'Registered dealers'
+                    }}
+                </span>
+
+            </div>
 
         </div>
 
-    </div>
+    @endif
 
 
     {{-- =====================================================
          CURRENT RESULTS
     ====================================================== --}}
 
-    <div
-        class="dealers-results"
-        id="dealersResults"
-    >
+    @if($dealers->total() > 0)
 
-        Showing
+        <div class="dealers-results">
 
-        <strong id="visibledealerCount">
-            {{ $dealers->count() }}
-        </strong>
+            Showing
 
-        of
+            <strong>
+                {{ $dealers->firstItem() }}
+            </strong>
 
-        <strong>
-            {{ $dealers->count() }}
-        </strong>
+            to
 
-        dealers
+            <strong>
+                {{ $dealers->lastItem() }}
+            </strong>
 
-    </div>
+            of
+
+            <strong>
+                {{ $dealers->total() }}
+            </strong>
+
+            dealers
+
+        </div>
+
+    @endif
 
 
     {{-- =====================================================
-         dealer GRID
+         DEALER GRID
     ====================================================== --}}
 
-    <div
-        class="row g-4"
-        id="dealersGrid"
-    >
+    <div class="row g-4">
 
         @forelse ($dealers as $dealer)
 
@@ -912,14 +839,7 @@
 
             @endphp
 
-            <div
-                class="col-xl-4 col-lg-4 col-md-6 dealer-card-column"
-                data-search="{{ strtolower(
-                    $fullName . ' ' .
-                    ($dealer->membership_number ?? '') . ' ' .
-                    ($dealer->business_name ?? '')
-                ) }}"
-            >
+            <div class="col-xl-4 col-lg-4 col-md-6">
 
                 <article class="member-card">
 
@@ -977,7 +897,7 @@
 
                         <span class="member-badge">
 
-                            {{ $dealer->membershipCategory?->name ?? 'dealer' }}
+                            {{ $dealer->membershipCategory?->name ?? 'Dealer' }}
 
                         </span>
 
@@ -1065,7 +985,7 @@
 
 
             {{-- =================================================
-                 NO dealers IN DATABASE
+                 NO DEALERS / NO SEARCH RESULTS
             ================================================== --}}
 
             <div class="col-12">
@@ -1078,14 +998,31 @@
 
                     </div>
 
-                    <h4>
-                        No Registered dealers
-                    </h4>
+                    @if(request('search'))
 
-                    <p>
-                        There are currently no approved dealers
-                        available in the directory.
-                    </p>
+                        <h4>
+                            No Dealer Found
+                        </h4>
+
+                        <p>
+                            No approved dealer matches
+                            "<strong>{{ request('search') }}</strong>".
+                            Try another name, membership number
+                            or business name.
+                        </p>
+
+                    @else
+
+                        <h4>
+                            No Registered Dealers
+                        </h4>
+
+                        <p>
+                            There are currently no approved dealers
+                            available in the directory.
+                        </p>
+
+                    @endif
 
                 </div>
 
@@ -1097,42 +1034,12 @@
 
 
     {{-- =====================================================
-         LIVE SEARCH EMPTY STATE
-    ====================================================== --}}
-
-    <div
-        class="live-search-empty"
-        id="liveSearchEmpty"
-    >
-
-        <div class="live-search-empty-icon">
-
-            <i class="bi bi-search"></i>
-
-        </div>
-
-        <h4>
-            No dealer Found
-        </h4>
-
-        <p>
-            No registered dealer matches your search.
-            Try another name, membership number or business name.
-        </p>
-
-    </div>
-
-
-    {{-- =====================================================
          PAGINATION
     ====================================================== --}}
 
     @if($dealers->hasPages())
 
-        <div
-            class="dealers-pagination"
-            id="dealersPagination"
-        >
+        <div class="dealers-pagination">
 
             {{ $dealers
                 ->onEachSide(1)
@@ -1145,247 +1052,8 @@
 
 
 </div>
-```
+
 
 </section>
-
-{{-- =============================================================
-LIVE SEARCH
-
-```
- This search happens entirely in the browser.
-
- No:
- - Page reload
- - URL change
- - AJAX
- - Fetch
- - API
- - JSON request
-
- The cards are already loaded, so JavaScript simply
- hides cards that do not match the search.
-```
-
-============================================================= --}}
-
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-
-        const searchInput = document.getElementById(
-            'dealersearchInput'
-        );
-
-        const searchClear = document.getElementById(
-            'dealersearchClear'
-        );
-
-        const dealerCards = document.querySelectorAll(
-            '.dealer-card-column'
-        );
-
-        const dealerCount = document.getElementById(
-            'dealerCount'
-        );
-
-        const dealerCountLabel = document.getElementById(
-            'dealerCountLabel'
-        );
-
-        const visibledealerCount = document.getElementById(
-            'visibledealerCount'
-        );
-
-        const liveSearchEmpty = document.getElementById(
-            'liveSearchEmpty'
-        );
-
-        const dealersResults = document.getElementById(
-            'dealersResults'
-        );
-
-        const dealersPagination = document.getElementById(
-            'dealersPagination'
-        );
-
-
-        /*
-         * Total number of dealers loaded
-         * from the database.
-         */
-        const totaldealers = dealerCards.length;
-
-
-        /*
-         * Perform live search.
-         */
-        function performSearch() {
-
-            const searchTerm = searchInput.value
-                .toLowerCase()
-                .trim();
-
-            let visibleCount = 0;
-
-
-            dealerCards.forEach(function (card) {
-
-                const searchableText =
-                    card.dataset.search || '';
-
-                const matches =
-                    searchTerm === '' ||
-                    searchableText.includes(searchTerm);
-
-
-                if (matches) {
-
-                    card.classList.remove('hidden');
-
-                    visibleCount++;
-
-                } else {
-
-                    card.classList.add('hidden');
-
-                }
-
-            });
-
-
-            /*
-             * Update count.
-             */
-            dealerCount.textContent = visibleCount;
-
-            visibledealerCount.textContent = visibleCount;
-
-
-            /*
-             * Update singular/plural text.
-             */
-            dealerCountLabel.textContent =
-                visibleCount === 1
-                    ? 'Registered dealer'
-                    : 'Registered dealers';
-
-
-            /*
-             * Show/hide clear button.
-             */
-            if (searchTerm !== '') {
-
-                searchClear.classList.add('visible');
-
-            } else {
-
-                searchClear.classList.remove('visible');
-
-            }
-
-
-            /*
-             * Show empty state when no dealer
-             * matches the search.
-             */
-            if (
-                searchTerm !== '' &&
-                visibleCount === 0
-            ) {
-
-                liveSearchEmpty.classList.add('visible');
-
-                dealersResults.style.display = 'none';
-
-            } else {
-
-                liveSearchEmpty.classList.remove('visible');
-
-                dealersResults.style.display = 'block';
-
-            }
-
-
-            /*
-             * Update result text.
-             */
-            if (searchTerm !== '') {
-
-                dealersResults.innerHTML =
-                    'Showing <strong>' +
-                    visibleCount +
-                    '</strong> matching ' +
-                    (
-                        visibleCount === 1
-                            ? 'dealer'
-                            : 'dealers'
-                    );
-
-            } else {
-
-                dealersResults.innerHTML =
-                    'Showing <strong>' +
-                    totaldealers +
-                    '</strong> of <strong>' +
-                    totaldealers +
-                    '</strong> dealers';
-
-            }
-
-
-            /*
-             * Hide Laravel pagination while
-             * performing live browser search.
-             */
-            if (dealersPagination) {
-
-                if (searchTerm !== '') {
-
-                    dealersPagination.classList.add(
-                        'hidden'
-                    );
-
-                } else {
-
-                    dealersPagination.classList.remove(
-                        'hidden'
-                    );
-
-                }
-
-            }
-
-        }
-
-
-        /*
-         * Search immediately whenever the
-         * user types.
-         */
-        searchInput.addEventListener(
-            'input',
-            performSearch
-        );
-
-
-        /*
-         * Clear search.
-         */
-        searchClear.addEventListener(
-            'click',
-            function () {
-
-                searchInput.value = '';
-
-                searchInput.focus();
-
-                performSearch();
-
-            }
-        );
-
-
-    });
-</script>
 
 @endsection

@@ -34,4 +34,31 @@ class QrCodeService
                 $result->getString()
             );
     }
+
+    /**
+     * Generate a QR code for a membership card.
+     *
+     * The QR code contains the public membership-card
+     * verification URL using the card's unique QR token.
+     */
+    public function generateMembershipCard(string $qrToken): string
+    {
+        $verificationUrl = route(
+            'membership.verify',
+            ['qrToken' => $qrToken],
+            true
+        );
+
+        $result = Builder::create()
+            ->writer(new PngWriter())
+            ->data($verificationUrl)
+            ->size(300)
+            ->margin(10)
+            ->build();
+
+        return 'data:image/png;base64,' .
+            base64_encode(
+                $result->getString()
+            );
+    }
 }

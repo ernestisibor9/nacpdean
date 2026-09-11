@@ -4,6 +4,7 @@
 
 @section('member')
 
+
     <style>
         /* =========================================================
            NACPDEAN MEMBER DASHBOARD
@@ -858,6 +859,7 @@
 
         /* =========================================================
            UNPAID MEMBERSHIP ID CARD
+           EXISTING RED X / CANCEL OVERLAY
         ========================================================= */
 
         .id-card-unpaid {
@@ -913,6 +915,67 @@
             text-transform: uppercase;
             white-space: nowrap;
             box-shadow: 0 5px 15px rgba(0, 0, 0, .2);
+            pointer-events: none;
+        }
+
+        /* =========================================================
+           EXPIRED / INACTIVE MEMBERSHIP ID CARD
+           RED X / CANCEL OVERLAY
+        ========================================================= */
+
+        .id-card-expired {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .id-card-expired::after {
+            content: "";
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 88%;
+            height: 88%;
+            transform: translate(-50%, -50%) rotate(-12deg);
+            border: 14px solid #dc2626;
+            border-radius: 18px;
+            opacity: .95;
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        .id-card-expired::before {
+            content: "×";
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%) rotate(-12deg);
+            color: #dc2626;
+            font-size: 240px;
+            line-height: 1;
+            font-weight: 900;
+            opacity: .92;
+            pointer-events: none;
+            z-index: 21;
+            text-shadow:
+                0 2px 3px rgba(0, 0, 0, .18);
+        }
+
+        .id-card-expired-label {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%) rotate(-12deg);
+            z-index: 22;
+            background: #dc2626;
+            color: #fff;
+            padding: 9px 20px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 900;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            white-space: nowrap;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, .22);
             pointer-events: none;
         }
 
@@ -1208,6 +1271,29 @@
             .membership-document-item {
                 padding: 16px;
             }
+
+            /* =====================================================
+               MOBILE EXPIRED / UNPAID ID CARD OVERLAY
+            ====================================================== */
+
+            .id-card-unpaid::after,
+            .id-card-expired::after {
+                width: 88%;
+                height: 84%;
+                border-width: 10px;
+            }
+
+            .id-card-unpaid::before,
+            .id-card-expired::before {
+                font-size: 170px;
+            }
+
+            .id-card-unpaid-label,
+            .id-card-expired-label {
+                font-size: 11px;
+                padding: 7px 12px;
+                letter-spacing: .7px;
+            }
         }
     </style>
 
@@ -1217,8 +1303,8 @@
         <div class="container-fluid px-4">
 
             {{-- =====================================================
-                 HERO
-            ====================================================== --}}
+             HERO
+        ====================================================== --}}
 
             <div class="nacp-hero">
 
@@ -1243,30 +1329,26 @@
 
 
             {{-- =====================================================
-                 SUCCESS MESSAGE
-            ====================================================== --}}
+             SUCCESS MESSAGE
+        ====================================================== --}}
 
             @if (session('success'))
-
                 <div class="alert alert-success nacp-alert">
 
                     <i class="fas fa-check-circle me-2"></i>
 
                     {{ session('success') }}
 
-                    <button type="button"
-                        class="btn-close float-end"
-                        data-bs-dismiss="alert">
+                    <button type="button" class="btn-close float-end" data-bs-dismiss="alert">
                     </button>
 
                 </div>
-
             @endif
 
 
             {{-- =====================================================
-                 STAGE 1 — PAYMENT NOT YET MADE
-            ====================================================== --}}
+             STAGE 1 — PAYMENT NOT YET MADE
+        ====================================================== --}}
 
             @if (!$hasPaid)
 
@@ -1404,15 +1486,13 @@
                 </div>
 
 
-            {{-- =====================================================
-                 PAYMENT MADE — PROFILE STATUS CONTROLS DASHBOARD
-            ====================================================== --}}
-
+                {{-- =====================================================
+             PAYMENT MADE — PROFILE STATUS CONTROLS DASHBOARD
+        ====================================================== --}}
             @else
-
                 {{-- =================================================
-                     NO PROFILE / DRAFT
-                ================================================== --}}
+                 NO PROFILE / DRAFT
+            ================================================== --}}
 
                 @if (!$profile || $profile->status === 'draft')
 
@@ -1446,12 +1526,10 @@
                     </div>
 
 
-                {{-- =================================================
-                     APPLICATION SUBMITTED
-                ================================================== --}}
-
+                    {{-- =================================================
+                 APPLICATION SUBMITTED
+            ================================================== --}}
                 @elseif ($profile->status === 'submitted')
-
                     <div class="application-status-card">
 
                         <div class="application-status-icon pending">
@@ -1481,12 +1559,10 @@
                     </div>
 
 
-                {{-- =================================================
-                     APPLICATION REJECTED
-                ================================================== --}}
-
+                    {{-- =================================================
+                 APPLICATION REJECTED
+            ================================================== --}}
                 @elseif ($profile->status === 'rejected')
-
                     <div class="application-status-card">
 
                         <div class="application-status-icon rejected">
@@ -1507,7 +1583,6 @@
 
 
                         @if ($profile->rejection_reason)
-
                             <div class="rejection-box">
 
                                 <div class="rejection-box-title">
@@ -1525,12 +1600,10 @@
                                 </div>
 
                             </div>
-
                         @endif
 
 
                         @if ($profile->admin_comment)
-
                             <div class="rejection-box">
 
                                 <div class="rejection-box-title">
@@ -1548,7 +1621,6 @@
                                 </div>
 
                             </div>
-
                         @endif
 
 
@@ -1563,21 +1635,19 @@
                     </div>
 
 
-                {{-- =================================================
-                     APPLICATION APPROVED
-                ================================================== --}}
-
-                @elseif ($profile->status === 'approved')
-
                     {{-- =================================================
-                         MEMBER OVERVIEW
-                    ================================================== --}}
+                 APPLICATION APPROVED
+            ================================================== --}}
+                @elseif ($profile->status === 'approved')
+                    {{-- =================================================
+                     MEMBER OVERVIEW
+                ================================================== --}}
 
                     <div class="row g-4 mb-4">
 
                         {{-- =============================================
-                             MEMBER PROFILE
-                        ============================================== --}}
+                         MEMBER PROFILE
+                    ============================================== --}}
 
                         <div class="col-xl-6 col-lg-6">
 
@@ -1610,28 +1680,20 @@
 
                                     <div class="member-profile">
 
-                                        @if (
-                                            $profile &&
-                                            $profile->photo &&
-                                            file_exists(
-                                                public_path(
-                                                    'uploads/member_profiles/' . $profile->photo
-                                                )
-                                            )
-                                        )
-
+                                        @if ($profile && $profile->photo)
                                             <img src="{{ asset('uploads/member_profiles/' . $profile->photo) }}"
-                                                alt="Member Photo"
-                                                class="member-photo">
+                                                alt="Member Photo" class="member-photo"
+                                                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
 
+                                            <div class="member-photo-placeholder" style="display:none;">
+                                                <i class="fas fa-user"></i>
+                                            </div>
                                         @else
-
                                             <div class="member-photo-placeholder">
 
                                                 <i class="fas fa-user"></i>
 
                                             </div>
-
                                         @endif
 
 
@@ -1643,9 +1705,7 @@
 
                                             <div class="member-type">
 
-                                                {{ Auth::user()->member_type === 'affiliate'
-                                                    ? 'Affiliate Member'
-                                                    : 'Regular Member' }}
+                                                {{ Auth::user()->member_type === 'affiliate' ? 'Affiliate Member' : 'Regular Member' }}
 
                                             </div>
 
@@ -1678,13 +1738,9 @@
                                         <span class="nacp-detail-value">
 
                                             @if ($membershipCategory)
-
                                                 {{ $membershipCategory->name }}
-
                                             @else
-
                                                 Not assigned
-
                                             @endif
 
                                         </span>
@@ -1701,13 +1757,9 @@
                                         <span class="nacp-detail-value">
 
                                             @if ($membershipPaymentDate)
-
                                                 {{ Carbon\Carbon::parse($membershipPaymentDate)->format('d M Y') }}
-
                                             @else
-
                                                 Not available
-
                                             @endif
 
                                         </span>
@@ -1724,13 +1776,9 @@
                                         <span class="nacp-detail-value">
 
                                             @if ($membershipExpirationDate)
-
                                                 {{ $membershipExpirationDate->format('d M Y') }}
-
                                             @else
-
                                                 Not available
-
                                             @endif
 
                                         </span>
@@ -1749,7 +1797,6 @@
                                         <span class="nacp-detail-value">
 
                                             @if ($membershipIsActive)
-
                                                 <span class="nacp-status paid">
 
                                                     <i class="fas fa-check-circle"></i>
@@ -1757,9 +1804,7 @@
                                                     Active
 
                                                 </span>
-
                                             @else
-
                                                 <span class="nacp-status expired">
 
                                                     <i class="fas fa-exclamation-circle"></i>
@@ -1767,7 +1812,6 @@
                                                     Expired
 
                                                 </span>
-
                                             @endif
 
                                         </span>
@@ -1795,8 +1839,8 @@
 
 
                         {{-- =============================================
-                             MEMBER ID CARD
-                        ============================================== --}}
+                         MEMBER ID CARD
+                    ============================================== --}}
 
                         <div class="col-xl-6 col-lg-6">
 
@@ -1831,7 +1875,40 @@
 
                                         @if ($membershipCard)
 
-                                            <div class="nacp-generated-id-card {{ $membershipDebitNotPaid ? 'id-card-unpaid' : '' }}">
+                                            {{-- =================================================
+                                             ID CARD STATUS CLASS
+                                             UNPAID TAKES PRIORITY.
+                                             OTHERWISE, IF MEMBERSHIP IS NOT ACTIVE,
+                                             SHOW EXPIRED / INACTIVE OVERLAY.
+                                        ================================================== --}}
+
+                                            <div
+                                                class="nacp-generated-id-card
+                                            {{ $membershipDebitNotPaid ? 'id-card-unpaid' : (!$membershipIsActive ? 'id-card-expired' : '') }}">
+
+                                                {{-- =================================================
+                                                 EXPIRED / INACTIVE LABEL
+                                                 ONLY SHOWN WHEN PAYMENT IS NOT THE ISSUE
+                                            ================================================== --}}
+
+                                                @if (!$membershipDebitNotPaid && !$membershipIsActive)
+                                                    <div class="id-card-expired-label">
+                                                        MEMBERSHIP EXPIRED
+                                                    </div>
+                                                @endif
+
+
+                                                {{-- =================================================
+                                                 UNPAID LABEL
+                                                 EXISTING BEHAVIOUR
+                                            ================================================== --}}
+
+                                                @if ($membershipDebitNotPaid)
+                                                    <div class="id-card-unpaid-label">
+                                                        PAYMENT REQUIRED
+                                                    </div>
+                                                @endif
+
 
                                                 {{-- CARD HEADER --}}
 
@@ -1866,27 +1943,15 @@
 
                                                     <div class="nacp-id-photo">
 
-                                                        @if (
-                                                            $profile &&
-                                                            $profile->photo &&
-                                                            file_exists(
-                                                                public_path(
-                                                                    'uploads/member_profiles/' . $profile->photo
-                                                                )
-                                                            )
-                                                        )
-
+                                                        @if ($profile && $profile->photo)
                                                             <img src="{{ asset('uploads/member_profiles/' . $profile->photo) }}"
                                                                 alt="Member Photo">
-
                                                         @else
-
                                                             <div class="nacp-id-photo-placeholder">
 
                                                                 <i class="fas fa-user"></i>
 
                                                             </div>
-
                                                         @endif
 
                                                     </div>
@@ -1956,9 +2021,7 @@
 
                                                             <strong>
 
-                                                                {{ $membershipExpirationDate
-                                                                    ? $membershipExpirationDate->format('d M Y')
-                                                                    : 'Not available' }}
+                                                                {{ $membershipExpirationDate ? $membershipExpirationDate->format('d M Y') : 'Not available' }}
 
                                                             </strong>
 
@@ -1974,7 +2037,6 @@
                                                 <div class="nacp-id-footer">
 
                                                     @if ($membershipIsActive)
-
                                                         <span>
 
                                                             <i class="fas fa-check-circle"></i>
@@ -1982,9 +2044,7 @@
                                                             ACTIVE MEMBER
 
                                                         </span>
-
                                                     @else
-
                                                         <span style="color:#dc2626;">
 
                                                             <i class="fas fa-exclamation-circle"></i>
@@ -1992,7 +2052,6 @@
                                                             MEMBERSHIP EXPIRED
 
                                                         </span>
-
                                                     @endif
 
                                                     <span>
@@ -2002,13 +2061,10 @@
                                                 </div>
 
                                             </div>
-
                                         @else
-
                                             <div class="text-center py-5">
 
-                                                <i class="fas fa-id-card"
-                                                    style="font-size:50px;color:#9ca3af;">
+                                                <i class="fas fa-id-card" style="font-size:50px;color:#9ca3af;">
                                                 </i>
 
                                                 <h6 class="mt-3 mb-1">
@@ -2045,9 +2101,7 @@
                                         {{-- ACTIVE MEMBERSHIP --}}
 
                                         @if ($membershipCard && !$membershipDebitNotPaid && $membershipIsActive)
-
-                                            <a href="{{ route('membership.card') }}"
-                                                class="nacp-btn-outline">
+                                            <a href="{{ route('membership.card') }}" class="nacp-btn-outline">
 
                                                 <i class="fas fa-expand"></i>
 
@@ -2055,10 +2109,8 @@
 
                                             </a>
 
-                                        {{-- EXPIRED MEMBERSHIP --}}
-
+                                            {{-- EXPIRED MEMBERSHIP --}}
                                         @elseif ($membershipCard && !$membershipDebitNotPaid && !$membershipIsActive)
-
                                             <span class="nacp-status expired">
 
                                                 <i class="fas fa-exclamation-circle"></i>
@@ -2066,23 +2118,19 @@
                                                 Membership Expired
 
                                             </span>
-
                                         @endif
 
 
                                         {{-- UNPAID MEMBERSHIP --}}
 
                                         @if ($membershipCard && $membershipDebitNotPaid)
-
-                                            <a href="{{ route('membership.renewal') }}"
-                                                class="nacp-btn-outline">
+                                            <a href="{{ route('membership.renewal') }}" class="nacp-btn-outline">
 
                                                 <i class="fas fa-sync-alt"></i>
 
                                                 Renew Membership
 
                                             </a>
-
                                         @endif
 
                                     </div>
@@ -2097,323 +2145,22 @@
 
 
                     {{-- =================================================
-                         MY MEMBERSHIP DOCUMENTS
-                         ONLY VISIBLE WHILE MEMBERSHIP IS ACTIVE
-                    ================================================== --}}
+                     MY MEMBERSHIP DOCUMENTS
+                     ONLY VISIBLE WHILE MEMBERSHIP IS ACTIVE
+                ================================================== --}}
 
-                    @if ($membershipIsActive)
 
-                        <div class="row g-4 mb-4">
-
-                            <div class="col-12">
-
-                                <div class="nacp-card">
-
-                                    <div class="nacp-card-header">
-
-                                        <div>
-
-                                            <h5 class="nacp-card-title">
-                                                My Membership Documents
-                                            </h5>
-
-                                            <p class="nacp-card-subtitle">
-
-                                                Official documents issued for your
-                                                {{ $membershipCategory->name ?? 'membership' }}.
-
-                                            </p>
-
-                                        </div>
-
-
-                                        <div class="d-flex align-items-center gap-2">
-
-                                            <a href="{{ route('member.documents.index') }}"
-                                                class="nacp-btn-outline">
-
-                                                <i class="fas fa-folder-open"></i>
-
-                                                View All
-
-                                            </a>
-
-                                            <div class="nacp-card-header-icon">
-
-                                                <i class="fas fa-file-alt"></i>
-
-                                            </div>
-
-                                        </div>
-
-                                    </div>
-
-
-                                    <div class="nacp-card-body">
-
-                                        @if ($generatedDocuments->isNotEmpty())
-
-                                            <div class="row g-3">
-
-                                                @foreach ($generatedDocuments as $generatedDocument)
-
-                                                    <div class="col-xl-4 col-lg-6 col-md-6">
-
-                                                        <div class="membership-document-item">
-
-                                                            {{-- DOCUMENT ICON --}}
-
-                                                            <div class="membership-document-icon">
-
-                                                                <i class="fas fa-file-alt"></i>
-
-                                                            </div>
-
-
-                                                            {{-- DOCUMENT NAME --}}
-
-                                                            <h6 class="membership-document-name">
-
-                                                                {{ $generatedDocument->document->name ?? 'Membership Document' }}
-
-                                                            </h6>
-
-
-                                                            {{-- DOCUMENT CODE --}}
-
-                                                            @if ($generatedDocument->document)
-
-                                                                <div class="membership-document-code">
-
-                                                                    {{ $generatedDocument->document->code }}
-
-                                                                </div>
-
-                                                            @endif
-
-
-                                                            {{-- DOCUMENT NUMBER --}}
-
-                                                            @if ($generatedDocument->document_number)
-
-                                                                <div class="nacp-detail">
-
-                                                                    <span class="nacp-detail-label">
-                                                                        Document No.
-                                                                    </span>
-
-                                                                    <span class="nacp-detail-value">
-
-                                                                        {{ $generatedDocument->document_number }}
-
-                                                                    </span>
-
-                                                                </div>
-
-                                                            @endif
-
-
-                                                            {{-- ISSUE DATE --}}
-
-                                                            @if ($generatedDocument->issued_at)
-
-                                                                <div class="nacp-detail">
-
-                                                                    <span class="nacp-detail-label">
-                                                                        Issued
-                                                                    </span>
-
-                                                                    <span class="nacp-detail-value">
-
-                                                                        {{ \Carbon\Carbon::parse($generatedDocument->issued_at)->format('d M Y') }}
-
-                                                                    </span>
-
-                                                                </div>
-
-                                                            @endif
-
-
-                                                            {{-- EXPIRATION --}}
-
-                                                            @if ($generatedDocument->expires_at)
-
-                                                                <div class="nacp-detail">
-
-                                                                    <span class="nacp-detail-label">
-                                                                        Expires
-                                                                    </span>
-
-                                                                    <span class="nacp-detail-value">
-
-                                                                        {{ \Carbon\Carbon::parse($generatedDocument->expires_at)->format('d M Y') }}
-
-                                                                    </span>
-
-                                                                </div>
-
-                                                            @endif
-
-
-                                                            {{-- STATUS --}}
-
-                                                            <div class="mt-3 mb-3">
-
-                                                                @if ($generatedDocument->status === 'active')
-
-                                                                    <span class="nacp-status active">
-
-                                                                        <i class="fas fa-check-circle"></i>
-
-                                                                        Active
-
-                                                                    </span>
-
-                                                                @elseif ($generatedDocument->status === 'expired')
-
-                                                                    <span class="nacp-status expired">
-
-                                                                        <i class="fas fa-clock"></i>
-
-                                                                        Expired
-
-                                                                    </span>
-
-                                                                @elseif ($generatedDocument->status === 'revoked')
-
-                                                                    <span class="nacp-status rejected">
-
-                                                                        <i class="fas fa-ban"></i>
-
-                                                                        Revoked
-
-                                                                    </span>
-
-                                                                @else
-
-                                                                    <span class="nacp-status pending">
-
-                                                                        <i class="fas fa-clock"></i>
-
-                                                                        {{ ucfirst($generatedDocument->status) }}
-
-                                                                    </span>
-
-                                                                @endif
-
-                                                            </div>
-
-
-                                                            {{-- ACTION --}}
-
-                                                            <div>
-
-                                                                @if ($generatedDocument->status === 'active')
-
-                                                                    <a href="{{ route('member.documents.show', $generatedDocument->id) }}"
-                                                                        class="nacp-btn-outline w-100">
-
-                                                                        <i class="fas fa-eye"></i>
-
-                                                                        View Document
-
-                                                                    </a>
-
-                                                                @elseif ($generatedDocument->status === 'expired')
-
-                                                                    <a href="{{ route('member.documents.show', $generatedDocument->id) }}"
-                                                                        class="nacp-btn-outline w-100">
-
-                                                                        <i class="fas fa-eye"></i>
-
-                                                                        View Details
-
-                                                                    </a>
-
-                                                                @else
-
-                                                                    <button type="button"
-                                                                        class="nacp-btn-outline w-100"
-                                                                        disabled>
-
-                                                                        <i class="fas fa-ban"></i>
-
-                                                                        Document Unavailable
-
-                                                                    </button>
-
-                                                                @endif
-
-                                                            </div>
-
-                                                        </div>
-
-                                                    </div>
-
-                                                @endforeach
-
-                                            </div>
-
-                                        @else
-
-                                            <div class="text-center py-5">
-
-                                                <div class="membership-document-empty-icon">
-
-                                                    <i class="fas fa-file-alt"></i>
-
-                                                </div>
-
-                                                <h6 style="
-                                                    color:#374151;
-                                                    font-size:16px;
-                                                    font-weight:800;
-                                                    margin-bottom:7px;
-                                                ">
-
-                                                    No Membership Documents Available
-
-                                                </h6>
-
-                                                <p style="
-                                                    max-width:550px;
-                                                    margin:0 auto;
-                                                    color:#6b7280;
-                                                    font-size:13px;
-                                                    line-height:1.7;
-                                                ">
-
-                                                    Your membership has been approved,
-                                                    but your membership documents have
-                                                    not yet been generated. Please
-                                                    check again shortly.
-
-                                                </p>
-
-                                            </div>
-
-                                        @endif
-
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                    @endif
 
 
                     {{-- =================================================
-                         SECOND ROW
-                    ================================================== --}}
+                     SECOND ROW
+                ================================================== --}}
 
                     <div class="row g-4">
 
                         {{-- =============================================
-                             MEMBERSHIP FEE
-                        ============================================== --}}
+                         MEMBERSHIP FEE
+                    ============================================== --}}
 
                         <div class="col-xl-5 col-lg-6">
 
@@ -2468,13 +2215,9 @@
                                         <span class="nacp-detail-value">
 
                                             @if ($membershipPaymentDate)
-
                                                 {{ Carbon\Carbon::parse($membershipPaymentDate)->format('d M Y') }}
-
                                             @else
-
                                                 Not paid
-
                                             @endif
 
                                         </span>
@@ -2491,13 +2234,9 @@
                                         <span class="nacp-detail-value">
 
                                             @if ($membershipExpirationDate)
-
                                                 {{ $membershipExpirationDate->format('d M Y') }}
-
                                             @else
-
                                                 Not available
-
                                             @endif
 
                                         </span>
@@ -2512,8 +2251,8 @@
 
 
                         {{-- =============================================
-                             PAYMENTS
-                        ============================================== --}}
+                         PAYMENTS
+                    ============================================== --}}
 
                         <div class="col-xl-4 col-lg-6">
 
@@ -2533,8 +2272,7 @@
 
                                     </div>
 
-                                    <div class="nacp-card-header-icon"
-                                        style="background:#eff6ff;color:#2563eb;">
+                                    <div class="nacp-card-header-icon" style="background:#eff6ff;color:#2563eb;">
 
                                         <i class="fas fa-credit-card"></i>
 
@@ -2570,8 +2308,7 @@
                                     </div>
 
 
-                                    <a href="{{ route('payment.additional') }}"
-                                        class="nacp-btn w-100">
+                                    <a href="{{ route('payment.additional') }}" class="nacp-btn w-100">
 
                                         <i class="fas fa-credit-card"></i>
 
@@ -2587,8 +2324,8 @@
 
 
                         {{-- =============================================
-                             QUICK ACTIONS
-                        ============================================== --}}
+                         QUICK ACTIONS
+                    ============================================== --}}
 
                         <div class="col-xl-3 col-lg-12">
 
@@ -2608,8 +2345,7 @@
 
                                     </div>
 
-                                    <div class="nacp-card-header-icon"
-                                        style="background:#f5f3ff;color:#7c3aed;">
+                                    <div class="nacp-card-header-icon" style="background:#f5f3ff;color:#7c3aed;">
 
                                         <i class="fas fa-bolt"></i>
 
@@ -2620,8 +2356,7 @@
 
                                 <div class="nacp-card-body">
 
-                                    <a href="{{ route('member.profile') }}"
-                                        class="quick-action">
+                                    <a href="{{ route('member.profile') }}" class="quick-action">
 
                                         <div class="quick-action-left">
 
@@ -2650,8 +2385,7 @@
                                     </a>
 
 
-                                    <a href="{{ route('payment.index') }}"
-                                        class="quick-action">
+                                    <a href="{{ route('payment.index') }}" class="quick-action">
 
                                         <div class="quick-action-left">
 
@@ -2681,14 +2415,12 @@
 
 
                                     {{-- =====================================
-                                         MY DOCUMENTS
-                                         ONLY VISIBLE WHILE MEMBERSHIP ACTIVE
-                                    ====================================== --}}
+                                     MY DOCUMENTS
+                                     ONLY VISIBLE WHILE MEMBERSHIP ACTIVE
+                                ====================================== --}}
 
                                     @if ($membershipIsActive)
-
-                                        <a href="{{ route('member.documents.index') }}"
-                                            class="quick-action">
+                                        <a href="{{ route('member.documents.index') }}" class="quick-action">
 
                                             <div class="quick-action-left">
 
@@ -2715,13 +2447,12 @@
                                             <i class="fas fa-chevron-right quick-action-arrow"></i>
 
                                         </a>
-
                                     @endif
 
 
                                     {{-- =====================================
-                                         MEMBERSHIP STATUS
-                                    ====================================== --}}
+                                     MEMBERSHIP STATUS
+                                ====================================== --}}
 
                                     <div class="quick-action">
 
@@ -2749,7 +2480,6 @@
 
 
                                         @if ($membershipIsActive)
-
                                             <span class="nacp-status paid">
 
                                                 <i class="fas fa-check-circle"></i>
@@ -2757,9 +2487,7 @@
                                                 Active
 
                                             </span>
-
                                         @else
-
                                             <span class="nacp-status expired">
 
                                                 <i class="fas fa-exclamation-circle"></i>
@@ -2767,7 +2495,6 @@
                                                 Expired
 
                                             </span>
-
                                         @endif
 
                                     </div>
@@ -2787,5 +2514,6 @@
         </div>
 
     </div>
+
 
 @endsection

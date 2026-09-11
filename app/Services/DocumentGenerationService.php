@@ -432,7 +432,7 @@ class DocumentGenerationService
         if ($documents->isEmpty()) {
             throw new RuntimeException(
                 'No active documents are configured for membership category: ' .
-                $category->name
+                    $category->name
             );
         }
 
@@ -601,10 +601,10 @@ class DocumentGenerationService
         if (!$belongsToCategory) {
             throw new RuntimeException(
                 'Document "' .
-                $document->name .
-                '" is not configured for membership category "' .
-                $category->name .
-                '".'
+                    $document->name .
+                    '" is not configured for membership category "' .
+                    $category->name .
+                    '".'
             );
         }
 
@@ -667,8 +667,8 @@ class DocumentGenerationService
             ? Carbon::parse($membership->issued_at)
             : (
                 $payment->paid_at
-                    ? Carbon::parse($payment->paid_at)
-                    : now()
+                ? Carbon::parse($payment->paid_at)
+                : now()
             );
 
         /*
@@ -1730,37 +1730,76 @@ class DocumentGenerationService
         */
 
         switch ($fieldKey) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | MEMBERSHIP NUMBER
+            |--------------------------------------------------------------------------
+            */
+
             case 'membership_number':
             case 'membership_no':
-                /*
-                |--------------------------------------------------------------------------
-                | IMPORTANT:
-                |
-                | This is the actual membership number.
-                | It is NOT the receipt number.
-                |
-                | Example:
-                | NACP-EDO-0002
-                |--------------------------------------------------------------------------
-                */
-
                 return $membership->membership_number;
 
-            case 'membership_category':
-            case 'membership_category_name':
-                return $category->name;
+            /*
+            |--------------------------------------------------------------------------
+            | MEMBERSHIP POSITION
+            |--------------------------------------------------------------------------
+            |
+            | This is populated by the independent officer appointment
+            | workflow.
+            |
+            */
 
-            case 'membership_category_code':
-                return $category->code;
+            case 'membership_position':
+            case 'position':
+            case 'officer_position':
+                return $membership->membership_position;
 
-            case 'category':
-                return $category->name;
+            /*
+            |--------------------------------------------------------------------------
+            | NATIONAL EXECUTIVE / NEM
+            |--------------------------------------------------------------------------
+            */
 
-            case 'member_type':
-                return $user->member_type;
+            case 'executive_id':
+            case 'national_executive_id':
+            case 'nem_code':
+            case 'nem_id':
+                return $membership->executive_id;
+
+            /*
+            |--------------------------------------------------------------------------
+            | TASK FORCE
+            |--------------------------------------------------------------------------
+            */
+
+            case 'taskforce_id':
+                return $membership->taskforce_id;
+
+            case 'taskforce_position':
+                return $membership->taskforce_position;
+
+            case 'taskforce_level':
+                return $membership->taskforce_level;
+
+            case 'taskforce_state':
+                return $membership->taskforce_state;
+
+            /*
+            |--------------------------------------------------------------------------
+            | MEMBERSHIP STATUS
+            |--------------------------------------------------------------------------
+            */
 
             case 'membership_status':
                 return $membership->status;
+
+            /*
+            |--------------------------------------------------------------------------
+            | MEMBERSHIP DATES
+            |--------------------------------------------------------------------------
+            */
 
             case 'membership_issued_at':
             case 'membership_issued_date':
@@ -1774,12 +1813,30 @@ class DocumentGenerationService
             case 'expires_at':
                 return $expiresAt;
 
-            case 'date_joined':
-                return $membership->issued_at
-                    ? Carbon::parse(
-                        $membership->issued_at
-                    )->format('Y-m-d')
-                    : $issuedAt->format('Y-m-d');
+            /*
+            |--------------------------------------------------------------------------
+            | MEMBERSHIP CATEGORY
+            |--------------------------------------------------------------------------
+            */
+
+            case 'membership_category':
+            case 'membership_category_name':
+                return $category->name;
+
+            case 'membership_category_code':
+                return $category->code;
+
+            case 'category':
+                return $category->name;
+
+            /*
+            |--------------------------------------------------------------------------
+            | MEMBER TYPE
+            |--------------------------------------------------------------------------
+            */
+
+            case 'member_type':
+                return $user->member_type;
 
             /*
             |--------------------------------------------------------------------------
@@ -1803,6 +1860,19 @@ class DocumentGenerationService
             case 'membership_period':
 
                 return $membershipYearRange;
+
+            /*
+            |--------------------------------------------------------------------------
+            | DATE JOINED
+            |--------------------------------------------------------------------------
+            */
+
+            case 'date_joined':
+                return $membership->issued_at
+                    ? Carbon::parse(
+                        $membership->issued_at
+                    )->format('Y-m-d')
+                    : $issuedAt->format('Y-m-d');
         }
 
         /*
@@ -2559,5 +2629,382 @@ class DocumentGenerationService
             ->update([
                 'status' => 'replaced',
             ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | REGENERATE MEMBERSHIP DOCUMENTS AFTER OFFICER APPOINTMENT
+    |--------------------------------------------------------------------------
+    |
+    | This method is ONLY for the independent officer appointment
+    | workflow.
+    |
+    | It does NOT:
+    |
+    | - create a new payment
+    | - create a new membership
+    | - modify the member approval workflow
+    |
+    | It creates new versions of the configured membership documents
+    | using the CURRENT membership information.
+    |
+    | Therefore, after an officer appointment:
+    |
+    | membership_number
+    | membership_position
+    | executive_id
+    | taskforce_id
+    | taskforce_position
+    | taskforce_level
+    | taskforce_state
+    |
+    | are captured into the new document field_values.
+    |
+    */
+
+    public function regenerateMembershipDocumentsForOfficerAppointment(
+        Membership $membership
+    ): array {
+        return DB::transaction(function () use ($membership) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | LOAD CURRENT MEMBERSHIP
+            |--------------------------------------------------------------------------
+            */
+
+            $membership->loadMissing([
+                'user',
+                'membershipCategory',
+            ]);
+
+            $user = $membership->user;
+
+            if (!$user) {
+                throw new RuntimeException(
+                    'Membership user could not be found.'
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | MEMBERSHIP MUST BE ACTIVE
+            |--------------------------------------------------------------------------
+            */
+
+            if ($membership->status !== 'active') {
+                throw new RuntimeException(
+                    'Only active memberships can regenerate documents.'
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | MEMBERSHIP NUMBER
+            |--------------------------------------------------------------------------
+            */
+
+            if (!$membership->membership_number) {
+                throw new RuntimeException(
+                    'Membership number has not been generated.'
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | MEMBERSHIP CATEGORY
+            |--------------------------------------------------------------------------
+            */
+
+            $category = $membership->membershipCategory;
+
+            if (!$category) {
+                throw new RuntimeException(
+                    'Membership category could not be determined.'
+                );
+            }
+
+            if (!$category->status) {
+                throw new RuntimeException(
+                    'The membership category is inactive.'
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | LOAD CATEGORY DOCUMENTS
+            |--------------------------------------------------------------------------
+            */
+
+            $documents = $category->documents()
+                ->where(
+                    'documents.is_active',
+                    true
+                )
+                ->orderBy(
+                    'membership_category_documents.sort_order'
+                )
+                ->orderBy(
+                    'documents.id'
+                )
+                ->get();
+
+            /*
+            |--------------------------------------------------------------------------
+            | LEGACY FALLBACK
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                $documents->isEmpty() &&
+                $category->document_id
+            ) {
+                $legacyDocument = Document::with('fields')
+                    ->where(
+                        'id',
+                        $category->document_id
+                    )
+                    ->where(
+                        'is_active',
+                        true
+                    )
+                    ->first();
+
+                if ($legacyDocument) {
+                    $documents = collect([
+                        $legacyDocument,
+                    ]);
+                }
+            }
+
+            if ($documents->isEmpty()) {
+                throw new RuntimeException(
+                    'No active documents are configured for membership category: ' .
+                        $category->name
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | FIND ORIGINAL SUCCESSFUL MEMBERSHIP PAYMENT
+            |--------------------------------------------------------------------------
+            |
+            | IMPORTANT:
+            |
+            | We do NOT create another payment.
+            |
+            | We only retrieve the successful membership payment and
+            | its transactions so that the regenerated document retains
+            | the original payment information.
+            |
+            */
+
+            [
+                $payment,
+                $debitTransaction,
+                $creditTransaction
+            ] = $this->findMembershipPaymentTransactions(
+                $membership
+            );
+
+            if (!$payment) {
+                throw new RuntimeException(
+                    'A successful membership payment could not be found for this membership.'
+                );
+            }
+
+            if (!$creditTransaction) {
+                throw new RuntimeException(
+                    'A successful membership credit transaction could not be found for this membership payment.'
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | PROFILE
+            |--------------------------------------------------------------------------
+            */
+
+            $profile = MemberProfile::where(
+                'user_id',
+                $membership->user_id
+            )->first();
+
+            /*
+            |--------------------------------------------------------------------------
+            | GENERATE NEW DOCUMENT VERSIONS
+            |--------------------------------------------------------------------------
+            */
+
+            $generatedDocuments = [];
+
+            foreach ($documents as $document) {
+
+                /*
+                |--------------------------------------------------------------------------
+                | ISSUED DATE
+                |--------------------------------------------------------------------------
+                */
+
+                $issuedAt = $membership->issued_at
+                    ? Carbon::parse(
+                        $membership->issued_at
+                    )
+                    : now();
+
+                /*
+                |--------------------------------------------------------------------------
+                | EXPIRY
+                |--------------------------------------------------------------------------
+                */
+
+                $expiresAt = $membership->expires_at
+                    ? Carbon::parse(
+                        $membership->expires_at
+                    )
+                    : $this->calculateDocumentExpiry(
+                        $document,
+                        $issuedAt
+                    );
+
+                /*
+                |--------------------------------------------------------------------------
+                | NEW DOCUMENT NUMBER
+                |--------------------------------------------------------------------------
+                */
+
+                $documentNumber =
+                    $this->generateDocumentNumber(
+                        $document,
+                        $payment
+                    );
+
+                /*
+                |--------------------------------------------------------------------------
+                | NEW TRACKING CODE
+                |--------------------------------------------------------------------------
+                */
+
+                $trackingCode =
+                    $this->generateTrackingCode();
+
+                /*
+                |--------------------------------------------------------------------------
+                | BUILD CURRENT FIELD VALUES
+                |--------------------------------------------------------------------------
+                |
+                | IMPORTANT:
+                |
+                | The membership object has already been updated by the
+                | officer appointment workflow before this method is called.
+                |
+                | Therefore these fields contain CURRENT values:
+                |
+                | membership_number
+                | membership_position
+                | executive_id
+                | taskforce_id
+                | taskforce_position
+                | taskforce_level
+                | taskforce_state
+                |
+                */
+
+                $fieldValues =
+                    $this->buildMembershipFieldValues(
+                        $document,
+                        $user,
+                        $profile,
+                        $membership,
+                        $category,
+                        $payment,
+                        $debitTransaction,
+                        $creditTransaction,
+                        $documentNumber,
+                        $trackingCode,
+                        $issuedAt,
+                        $expiresAt
+                    );
+
+                /*
+                |--------------------------------------------------------------------------
+                | CREATE NEW DOCUMENT VERSION
+                |--------------------------------------------------------------------------
+                */
+
+                $generatedDocument =
+                    GeneratedDocument::create([
+                        'user_id' =>
+                            $membership->user_id,
+
+                        'document_id' =>
+                            $document->id,
+
+                        'transaction_id' =>
+                            $creditTransaction->id,
+
+                        'document_number' =>
+                            $documentNumber,
+
+                        'tracking_code' =>
+                            $trackingCode,
+
+                        'issued_at' =>
+                            $issuedAt->toDateString(),
+
+                        'expires_at' =>
+                            $expiresAt
+                                ? $expiresAt->toDateString()
+                                : null,
+
+                        'status' =>
+                            'active',
+
+                        'field_values' =>
+                            $fieldValues,
+                    ]);
+
+                /*
+                |--------------------------------------------------------------------------
+                | REPLACE PREVIOUS ACTIVE VERSION
+                |--------------------------------------------------------------------------
+                |
+                | IMPORTANT:
+                |
+                | The new document is created FIRST.
+                |
+                | Only after successful creation do we mark previous
+                | active documents as replaced.
+                |
+                */
+
+                GeneratedDocument::where(
+                    'user_id',
+                    $membership->user_id
+                )
+                    ->where(
+                        'document_id',
+                        $document->id
+                    )
+                    ->where(
+                        'id',
+                        '!=',
+                        $generatedDocument->id
+                    )
+                    ->where(
+                        'status',
+                        'active'
+                    )
+                    ->update([
+                        'status' =>
+                            'replaced',
+                    ]);
+
+                $generatedDocuments[] =
+                    $generatedDocument;
+            }
+
+            return $generatedDocuments;
+        });
     }
 }

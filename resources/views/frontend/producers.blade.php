@@ -4,7 +4,7 @@
 
 <style>
     /* =========================================================
-       NACPDEAN REGISTERED producers
+       NACPDEAN REGISTERED PRODUCERS
        Lightweight • Responsive • Professional
     ========================================================= */
 
@@ -159,10 +159,12 @@
         width: 40px;
         height: 40px;
 
-        display: none;
-
+        display: flex;
         align-items: center;
         justify-content: center;
+
+        border: 0;
+        background: transparent;
 
         color: #98a2b3;
 
@@ -177,10 +179,6 @@
 
     .search-clear:hover {
         color: #dc3545;
-    }
-
-    .search-clear.visible {
-        display: flex;
     }
 
 
@@ -234,19 +232,6 @@
 
     .producers-results strong {
         color: #344054;
-    }
-
-
-    /* ---------------------------------------------------------
-       MEMBER GRID
-    --------------------------------------------------------- */
-
-    .producer-card-column {
-        transition: opacity 0.2s ease;
-    }
-
-    .producer-card-column.hidden {
-        display: none;
     }
 
 
@@ -544,69 +529,7 @@
 
 
     /* ---------------------------------------------------------
-       LIVE SEARCH EMPTY STATE
-    --------------------------------------------------------- */
-
-    .live-search-empty {
-        display: none;
-
-        background: #ffffff;
-
-        border: 1px solid #e9eef4;
-
-        border-radius: 18px;
-
-        padding: 55px 25px;
-
-        text-align: center;
-
-        box-shadow: 0 8px 30px rgba(31, 45, 61, 0.05);
-
-        margin-top: 10px;
-    }
-
-    .live-search-empty.visible {
-        display: block;
-    }
-
-    .live-search-empty-icon {
-        width: 65px;
-        height: 65px;
-
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        margin: 0 auto 18px;
-
-        background: #f2f8f5;
-
-        color: #198754;
-
-        border-radius: 50%;
-
-        font-size: 25px;
-    }
-
-    .live-search-empty h4 {
-        color: #172b4d;
-
-        font-weight: 700;
-
-        margin-bottom: 8px;
-    }
-
-    .live-search-empty p {
-        color: #7a8798;
-
-        margin: 0;
-    }
-
-
-    /* ---------------------------------------------------------
        PAGINATION
-       Hidden during live search because all cards are already
-       loaded on the page.
     --------------------------------------------------------- */
 
     .producers-pagination {
@@ -693,10 +616,6 @@
         box-shadow: none;
     }
 
-    .producers-pagination.hidden {
-        display: none;
-    }
-
 
     /* ---------------------------------------------------------
        RESPONSIVE
@@ -769,303 +688,365 @@
     }
 </style>
 
+
 <section class="producers-page">
 
-```
-<div class="container">
+    <div class="container">
 
 
-    {{-- =====================================================
-         PAGE HEADER
-    ====================================================== --}}
+        {{-- =====================================================
+             PAGE HEADER
+        ====================================================== --}}
 
-    <div class="producers-header">
+        <div class="producers-header">
 
-        <div class="producers-eyebrow">
-            NACPDEAN Directory
-        </div>
-
-        <h1 class="producers-title">
-            Registered <span>producers</span>
-        </h1>
-
-        <p class="producers-description">
-            Explore approved producers registered with NACPDEAN.
-            All members displayed in this directory have been
-            approved by the association.
-        </p>
-
-    </div>
-
-
-    {{-- =====================================================
-         LIVE SEARCH
-    ====================================================== --}}
-
-    <div class="producers-search">
-
-        <form
-            id="producersearchForm"
-            onsubmit="return false;"
-        >
-
-            <div class="search-wrapper">
-
-                <div class="search-icon">
-                    <i class="bi bi-search"></i>
-                </div>
-
-                <input
-                    type="search"
-                    class="search-input"
-                    id="producersearchInput"
-                    placeholder="Search by name, membership number or business..."
-                    autocomplete="off"
-                    aria-label="Search registered producers"
-                >
-
-                <button
-                    type="button"
-                    class="search-clear"
-                    id="producersearchClear"
-                    aria-label="Clear search"
-                    title="Clear search"
-                >
-                    <i class="bi bi-x-circle-fill"></i>
-                </button>
-
+            <div class="producers-eyebrow">
+                NACPDEAN Directory
             </div>
 
-        </form>
+            <h1 class="producers-title">
+                Registered <span>Producers</span>
+            </h1>
 
-    </div>
-
-
-    {{-- =====================================================
-         RESULT SUMMARY
-    ====================================================== --}}
-
-    <div class="producers-summary">
-
-        <div class="producers-count">
-
-            <strong id="producerCount">
-                {{ $producers->count() }}
-            </strong>
-
-            <span id="producerCountLabel">
-                {{ $producers->count() === 1
-                    ? 'Registered producer'
-                    : 'Registered producers'
-                }}
-            </span>
+            <p class="producers-description">
+                Explore approved producers registered with NACPDEAN.
+                All members displayed in this directory have been
+                approved by the association.
+            </p>
 
         </div>
 
-    </div>
 
+        {{-- =====================================================
+             SERVER-SIDE SEARCH
+        ====================================================== --}}
 
-    {{-- =====================================================
-         CURRENT RESULTS
-    ====================================================== --}}
+        <div class="producers-search">
 
-    <div
-        class="producers-results"
-        id="producersResults"
-    >
-
-        Showing
-
-        <strong id="visibleproducerCount">
-            {{ $producers->count() }}
-        </strong>
-
-        of
-
-        <strong>
-            {{ $producers->count() }}
-        </strong>
-
-        producers
-
-    </div>
-
-
-    {{-- =====================================================
-         producer GRID
-    ====================================================== --}}
-
-    <div
-        class="row g-4"
-        id="producersGrid"
-    >
-
-        @forelse ($producers as $producer)
-
-            @php
-
-                $fullName = collect([
-                    $producer->first_name,
-                    $producer->middle_name,
-                    $producer->surname
-                ])->filter()->implode(' ');
-
-            @endphp
-
-            <div
-                class="col-xl-4 col-lg-4 col-md-6 producer-card-column"
-                data-search="{{ strtolower(
-                    $fullName . ' ' .
-                    ($producer->membership_number ?? '') . ' ' .
-                    ($producer->business_name ?? '')
-                ) }}"
+            <form
+                action="{{ route('producers') }}"
+                method="GET"
+                id="producerSearchForm"
             >
 
-                <article class="member-card">
+                <div class="search-wrapper">
 
+                    <div class="search-icon">
 
-                    {{-- =================================================
-                         MEMBER PHOTO
-                    ================================================== --}}
-
-                    <div class="member-photo-wrapper">
-
-                        @if ($producer->photo)
-
-                            <img
-                                class="member-photo"
-                                src="{{ asset('uploads/member_profiles/' . $producer->photo) }}"
-                                alt="{{ $fullName }}"
-                                loading="lazy"
-                                decoding="async"
-                            >
-
-                        @else
-
-                            <img
-                                class="member-photo"
-                                src="{{ asset('assets/img/default-member.jpg') }}"
-                                alt="NACPDEAN member"
-                                loading="lazy"
-                                decoding="async"
-                            >
-
-                        @endif
-
-
-                        {{-- VERIFIED BADGE --}}
-
-                        <div class="member-status">
-
-                            <i class="bi bi-patch-check-fill"></i>
-
-                            Verified
-
-                        </div>
+                        <i class="bi bi-search"></i>
 
                     </div>
 
+                    <input
+                        type="search"
+                        name="search"
+                        class="search-input"
+                        value="{{ request('search') }}"
+                        placeholder="Search by name, membership number or business..."
+                        autocomplete="off"
+                        aria-label="Search registered producers"
+                    >
 
-                    {{-- =================================================
-                         MEMBER INFORMATION
-                    ================================================== --}}
+                    @if(request('search'))
 
-                    <div class="member-body">
+                        <a
+                            href="{{ route('producers') }}"
+                            class="search-clear"
+                            aria-label="Clear search"
+                            title="Clear search"
+                        >
 
+                            <i class="bi bi-x-circle-fill"></i>
 
-                        {{-- CATEGORY --}}
+                        </a>
 
-                        <span class="member-badge">
+                    @endif
 
-                            {{ $producer->membershipCategory?->name ?? 'producer' }}
+                </div>
 
-                        </span>
+            </form>
 
-
-                        {{-- NAME --}}
-
-                        <h2 class="member-name">
-
-                            {{ $fullName }}
-
-                        </h2>
-
-
-                        {{-- POSITION --}}
-
-                        <p class="member-position">
-
-                            Registered producer
-
-                        </p>
+        </div>
 
 
-                        <div class="member-info">
+        {{-- =====================================================
+             RESULT SUMMARY
+        ====================================================== --}}
 
+        @if($producers->total() > 0)
 
-                            {{-- MEMBERSHIP NUMBER --}}
+            <div class="producers-summary">
 
-                            <div class="member-info-row">
+                <div class="producers-count">
 
-                                <div class="member-info-icon">
-                                    <i class="bi bi-person-vcard"></i>
-                                </div>
+                    <strong>
+                        {{ $producers->total() }}
+                    </strong>
 
-                                <div class="member-info-content">
+                    <span>
+                        {{ $producers->total() === 1
+                            ? 'Registered producer'
+                            : 'Registered producers'
+                        }}
+                    </span>
 
-                                    <span class="member-info-label">
-                                        Membership Number
-                                    </span>
-
-                                    <span class="member-info-value">
-
-                                        {{ $producer->membership_number ?: 'Not assigned' }}
-
-                                    </span>
-
-                                </div>
-
-                            </div>
-
-
-                            {{-- BUSINESS --}}
-
-                            <div class="member-info-row">
-
-                                <div class="member-info-icon">
-                                    <i class="bi bi-building"></i>
-                                </div>
-
-                                <div class="member-info-content">
-
-                                    <span class="member-info-label">
-                                        Business
-                                    </span>
-
-                                    <span class="member-info-value">
-
-                                        {{ $producer->business_name ?: 'Not provided' }}
-
-                                    </span>
-
-                                </div>
-
-                            </div>
-
-
-                        </div>
-
-                    </div>
-
-                </article>
+                </div>
 
             </div>
-
-        @empty
 
 
             {{-- =================================================
-                 NO producers IN DATABASE
+                 CURRENT RESULTS
+            ================================================== --}}
+
+            <div class="producers-results">
+
+                @if(request('search'))
+
+                    Showing
+
+                    <strong>
+                        {{ $producers->firstItem() }}
+                    </strong>
+
+                    to
+
+                    <strong>
+                        {{ $producers->lastItem() }}
+                    </strong>
+
+                    of
+
+                    <strong>
+                        {{ $producers->total() }}
+                    </strong>
+
+                    producers matching
+
+                    <strong>
+                        "{{ request('search') }}"
+                    </strong>
+
+                @else
+
+                    Showing
+
+                    <strong>
+                        {{ $producers->firstItem() }}
+                    </strong>
+
+                    to
+
+                    <strong>
+                        {{ $producers->lastItem() }}
+                    </strong>
+
+                    of
+
+                    <strong>
+                        {{ $producers->total() }}
+                    </strong>
+
+                    registered producers
+
+                @endif
+
+            </div>
+
+
+            {{-- =================================================
+                 PRODUCER GRID
+            ================================================== --}}
+
+            <div class="row g-4">
+
+                @foreach ($producers as $producer)
+
+                    @php
+
+                        $fullName = collect([
+                            $producer->first_name,
+                            $producer->middle_name,
+                            $producer->surname
+                        ])->filter()->implode(' ');
+
+                    @endphp
+
+
+                    <div class="col-xl-4 col-lg-4 col-md-6">
+
+                        <article class="member-card">
+
+
+                            {{-- =============================================
+                                 MEMBER PHOTO
+                            ============================================== --}}
+
+                            <div class="member-photo-wrapper">
+
+                                @if ($producer->photo)
+
+                                    <img
+                                        class="member-photo"
+                                        src="{{ asset('uploads/member_profiles/' . $producer->photo) }}"
+                                        alt="{{ $fullName }}"
+                                        loading="lazy"
+                                        decoding="async"
+                                    >
+
+                                @else
+
+                                    <img
+                                        class="member-photo"
+                                        src="{{ asset('assets/img/default-member.jpg') }}"
+                                        alt="NACPDEAN member"
+                                        loading="lazy"
+                                        decoding="async"
+                                    >
+
+                                @endif
+
+
+                                {{-- VERIFIED BADGE --}}
+
+                                <div class="member-status">
+
+                                    <i class="bi bi-patch-check-fill"></i>
+
+                                    Verified
+
+                                </div>
+
+                            </div>
+
+
+                            {{-- =============================================
+                                 MEMBER INFORMATION
+                            ============================================== --}}
+
+                            <div class="member-body">
+
+
+                                {{-- CATEGORY --}}
+
+                                <span class="member-badge">
+
+                                    {{ $producer->membershipCategory?->name ?? 'Producer' }}
+
+                                </span>
+
+
+                                {{-- NAME --}}
+
+                                <h2 class="member-name">
+
+                                    {{ $fullName }}
+
+                                </h2>
+
+
+                                {{-- POSITION --}}
+
+                                <p class="member-position">
+
+                                    Registered Producer
+
+                                </p>
+
+
+                                <div class="member-info">
+
+
+                                    {{-- MEMBERSHIP NUMBER --}}
+
+                                    <div class="member-info-row">
+
+                                        <div class="member-info-icon">
+
+                                            <i class="bi bi-person-vcard"></i>
+
+                                        </div>
+
+                                        <div class="member-info-content">
+
+                                            <span class="member-info-label">
+                                                Membership Number
+                                            </span>
+
+                                            <span class="member-info-value">
+
+                                                {{ $producer->membership_number ?: 'Not assigned' }}
+
+                                            </span>
+
+                                        </div>
+
+                                    </div>
+
+
+                                    {{-- BUSINESS --}}
+
+                                    <div class="member-info-row">
+
+                                        <div class="member-info-icon">
+
+                                            <i class="bi bi-building"></i>
+
+                                        </div>
+
+                                        <div class="member-info-content">
+
+                                            <span class="member-info-label">
+                                                Business
+                                            </span>
+
+                                            <span class="member-info-value">
+
+                                                {{ $producer->business_name ?: 'Not provided' }}
+
+                                            </span>
+
+                                        </div>
+
+                                    </div>
+
+
+                                </div>
+
+                            </div>
+
+                        </article>
+
+                    </div>
+
+                @endforeach
+
+            </div>
+
+
+            {{-- =================================================
+                 PAGINATION
+            ================================================== --}}
+
+            @if($producers->hasPages())
+
+                <div class="producers-pagination">
+
+                    {{ $producers
+                        ->onEachSide(1)
+                        ->links('pagination::bootstrap-5')
+                    }}
+
+                </div>
+
+            @endif
+
+
+        @else
+
+
+            {{-- =================================================
+                 NO RESULTS
             ================================================== --}}
 
             <div class="col-12">
@@ -1078,314 +1059,64 @@
 
                     </div>
 
-                    <h4>
-                        No Registered producers
-                    </h4>
 
-                    <p>
-                        There are currently no approved producers
-                        available in the directory.
-                    </p>
+                    @if(request('search'))
+
+                        <h4>
+                            No Producer Found
+                        </h4>
+
+                        <p>
+                            No registered producer matches
+                            "{{ request('search') }}".
+                            Try another name, membership number
+                            or business name.
+                        </p>
+
+                        <a
+                            href="{{ route('producers') }}"
+                            style="
+                                display:inline-flex;
+                                align-items:center;
+                                gap:7px;
+                                padding:10px 18px;
+                                background:#198754;
+                                color:#ffffff;
+                                border-radius:8px;
+                                text-decoration:none;
+                                font-size:13px;
+                                font-weight:700;
+                            "
+                        >
+
+                            <i class="bi bi-arrow-left"></i>
+
+                            View All Producers
+
+                        </a>
+
+                    @else
+
+                        <h4>
+                            No Registered Producers
+                        </h4>
+
+                        <p>
+                            There are currently no approved producers
+                            available in the NACPDEAN directory.
+                        </p>
+
+                    @endif
 
                 </div>
 
             </div>
 
-        @endforelse
+        @endif
+
 
     </div>
-
-
-    {{-- =====================================================
-         LIVE SEARCH EMPTY STATE
-    ====================================================== --}}
-
-    <div
-        class="live-search-empty"
-        id="liveSearchEmpty"
-    >
-
-        <div class="live-search-empty-icon">
-
-            <i class="bi bi-search"></i>
-
-        </div>
-
-        <h4>
-            No producer Found
-        </h4>
-
-        <p>
-            No registered producer matches your search.
-            Try another name, membership number or business name.
-        </p>
-
-    </div>
-
-
-    {{-- =====================================================
-         PAGINATION
-    ====================================================== --}}
-
-    @if($producers->hasPages())
-
-        <div
-            class="producers-pagination"
-            id="producersPagination"
-        >
-
-            {{ $producers
-                ->onEachSide(1)
-                ->links('pagination::bootstrap-5')
-            }}
-
-        </div>
-
-    @endif
-
-
-</div>
-```
 
 </section>
-
-{{-- =============================================================
-LIVE SEARCH
-
-```
- This search happens entirely in the browser.
-
- No:
- - Page reload
- - URL change
- - AJAX
- - Fetch
- - API
- - JSON request
-
- The cards are already loaded, so JavaScript simply
- hides cards that do not match the search.
-```
-
-============================================================= --}}
-
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-
-        const searchInput = document.getElementById(
-            'producersearchInput'
-        );
-
-        const searchClear = document.getElementById(
-            'producersearchClear'
-        );
-
-        const producerCards = document.querySelectorAll(
-            '.producer-card-column'
-        );
-
-        const producerCount = document.getElementById(
-            'producerCount'
-        );
-
-        const producerCountLabel = document.getElementById(
-            'producerCountLabel'
-        );
-
-        const visibleproducerCount = document.getElementById(
-            'visibleproducerCount'
-        );
-
-        const liveSearchEmpty = document.getElementById(
-            'liveSearchEmpty'
-        );
-
-        const producersResults = document.getElementById(
-            'producersResults'
-        );
-
-        const producersPagination = document.getElementById(
-            'producersPagination'
-        );
-
-
-        /*
-         * Total number of producers loaded
-         * from the database.
-         */
-        const totalproducers = producerCards.length;
-
-
-        /*
-         * Perform live search.
-         */
-        function performSearch() {
-
-            const searchTerm = searchInput.value
-                .toLowerCase()
-                .trim();
-
-            let visibleCount = 0;
-
-
-            producerCards.forEach(function (card) {
-
-                const searchableText =
-                    card.dataset.search || '';
-
-                const matches =
-                    searchTerm === '' ||
-                    searchableText.includes(searchTerm);
-
-
-                if (matches) {
-
-                    card.classList.remove('hidden');
-
-                    visibleCount++;
-
-                } else {
-
-                    card.classList.add('hidden');
-
-                }
-
-            });
-
-
-            /*
-             * Update count.
-             */
-            producerCount.textContent = visibleCount;
-
-            visibleproducerCount.textContent = visibleCount;
-
-
-            /*
-             * Update singular/plural text.
-             */
-            producerCountLabel.textContent =
-                visibleCount === 1
-                    ? 'Registered producer'
-                    : 'Registered producers';
-
-
-            /*
-             * Show/hide clear button.
-             */
-            if (searchTerm !== '') {
-
-                searchClear.classList.add('visible');
-
-            } else {
-
-                searchClear.classList.remove('visible');
-
-            }
-
-
-            /*
-             * Show empty state when no producer
-             * matches the search.
-             */
-            if (
-                searchTerm !== '' &&
-                visibleCount === 0
-            ) {
-
-                liveSearchEmpty.classList.add('visible');
-
-                producersResults.style.display = 'none';
-
-            } else {
-
-                liveSearchEmpty.classList.remove('visible');
-
-                producersResults.style.display = 'block';
-
-            }
-
-
-            /*
-             * Update result text.
-             */
-            if (searchTerm !== '') {
-
-                producersResults.innerHTML =
-                    'Showing <strong>' +
-                    visibleCount +
-                    '</strong> matching ' +
-                    (
-                        visibleCount === 1
-                            ? 'producer'
-                            : 'producers'
-                    );
-
-            } else {
-
-                producersResults.innerHTML =
-                    'Showing <strong>' +
-                    totalproducers +
-                    '</strong> of <strong>' +
-                    totalproducers +
-                    '</strong> producers';
-
-            }
-
-
-            /*
-             * Hide Laravel pagination while
-             * performing live browser search.
-             */
-            if (producersPagination) {
-
-                if (searchTerm !== '') {
-
-                    producersPagination.classList.add(
-                        'hidden'
-                    );
-
-                } else {
-
-                    producersPagination.classList.remove(
-                        'hidden'
-                    );
-
-                }
-
-            }
-
-        }
-
-
-        /*
-         * Search immediately whenever the
-         * user types.
-         */
-        searchInput.addEventListener(
-            'input',
-            performSearch
-        );
-
-
-        /*
-         * Clear search.
-         */
-        searchClear.addEventListener(
-            'click',
-            function () {
-
-                searchInput.value = '';
-
-                searchInput.focus();
-
-                performSearch();
-
-            }
-        );
-
-
-    });
-</script>
 
 @endsection

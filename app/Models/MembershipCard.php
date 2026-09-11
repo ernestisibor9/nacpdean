@@ -11,6 +11,7 @@ class MembershipCard extends Model
 
     protected $fillable = [
         'membership_id',
+        'card_type',
         'member_profile_id',
         'card_number',
         'membership_number',

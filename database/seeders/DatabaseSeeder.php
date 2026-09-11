@@ -19,8 +19,9 @@ class DatabaseSeeder extends Seeder
         $this->call([
             // MembershipCategorySeeder::class,
             // PaymentItemSeeder::class,
-            DocumentSeeder::class,
-
+            //DocumentSeeder::class,
+           // NationalExecutivePositionSeeder::class,
+           BlacklistedMemberSeeder::class,
         ]);
     }
 }

@@ -502,11 +502,15 @@
 
         border-radius: 18px;
 
-        padding: 55px 25px;
+        padding: 65px 25px;
 
         text-align: center;
 
         box-shadow: 0 8px 30px rgba(31, 45, 61, 0.05);
+
+        max-width: 850px;
+
+        margin: 0 auto;
     }
 
     .exporters-empty-icon {
@@ -605,8 +609,7 @@
 
     /* ---------------------------------------------------------
        PAGINATION
-       Hidden during live search because all cards are already
-       loaded on the page.
+       Hidden during live search.
     --------------------------------------------------------- */
 
     .exporters-pagination {
@@ -769,407 +772,439 @@
     }
 </style>
 
+
 <section class="exporters-page">
 
-```
-<div class="container">
+    <div class="container">
 
 
-    {{-- =====================================================
-         PAGE HEADER
-    ====================================================== --}}
+        {{-- =====================================================
+             PAGE HEADER
+        ====================================================== --}}
 
-    <div class="exporters-header">
+        <div class="exporters-header">
 
-        <div class="exporters-eyebrow">
-            NACPDEAN Directory
+            <div class="exporters-eyebrow">
+                NACPDEAN Directory
+            </div>
+
+            <h1 class="exporters-title">
+
+                Registered <span>Exporters</span>
+
+            </h1>
+
+            <p class="exporters-description">
+
+                Explore approved exporters registered with NACPDEAN.
+                All members displayed in this directory have been
+                approved by the association.
+
+            </p>
+
         </div>
 
-        <h1 class="exporters-title">
-            Registered <span>Exporters</span>
-        </h1>
 
-        <p class="exporters-description">
-            Explore approved exporters registered with NACPDEAN.
-            All members displayed in this directory have been
-            approved by the association.
-        </p>
+        {{-- =====================================================
+             ONLY SHOW SEARCH, COUNT, RESULTS AND MEMBERS
+             WHEN EXPORTERS EXIST
+        ====================================================== --}}
 
-    </div>
+        @if($exporters->count() > 0)
 
 
-    {{-- =====================================================
-         LIVE SEARCH
-    ====================================================== --}}
+            {{-- =================================================
+                 LIVE SEARCH
+            ================================================== --}}
 
-    <div class="exporters-search">
+            <div class="exporters-search">
 
-        <form
-            id="exporterSearchForm"
-            onsubmit="return false;"
-        >
+                <form
+                    id="exporterSearchForm"
+                    onsubmit="return false;"
+                >
 
-            <div class="search-wrapper">
+                    <div class="search-wrapper">
 
-                <div class="search-icon">
-                    <i class="bi bi-search"></i>
+                        <div class="search-icon">
+
+                            <i class="bi bi-search"></i>
+
+                        </div>
+
+
+                        <input
+                            type="search"
+                            class="search-input"
+                            id="exporterSearchInput"
+                            placeholder="Search by name, membership number or business..."
+                            autocomplete="off"
+                            aria-label="Search registered exporters"
+                        >
+
+
+                        <button
+                            type="button"
+                            class="search-clear"
+                            id="exporterSearchClear"
+                            aria-label="Clear search"
+                            title="Clear search"
+                        >
+
+                            <i class="bi bi-x-circle-fill"></i>
+
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+
+            {{-- =================================================
+                 RESULT SUMMARY
+            ================================================== --}}
+
+            <div class="exporters-summary">
+
+                <div class="exporters-count">
+
+                    <strong id="exporterCount">
+
+                        {{ $exporters->count() }}
+
+                    </strong>
+
+                    <span id="exporterCountLabel">
+
+                        {{ $exporters->count() === 1
+                            ? 'Registered Exporter'
+                            : 'Registered Exporters'
+                        }}
+
+                    </span>
+
                 </div>
 
-                <input
-                    type="search"
-                    class="search-input"
-                    id="exporterSearchInput"
-                    placeholder="Search by name, membership number or business..."
-                    autocomplete="off"
-                    aria-label="Search registered exporters"
-                >
-
-                <button
-                    type="button"
-                    class="search-clear"
-                    id="exporterSearchClear"
-                    aria-label="Clear search"
-                    title="Clear search"
-                >
-                    <i class="bi bi-x-circle-fill"></i>
-                </button>
-
             </div>
 
-        </form>
 
-    </div>
-
-
-    {{-- =====================================================
-         RESULT SUMMARY
-    ====================================================== --}}
-
-    <div class="exporters-summary">
-
-        <div class="exporters-count">
-
-            <strong id="exporterCount">
-                {{ $exporters->count() }}
-            </strong>
-
-            <span id="exporterCountLabel">
-                {{ $exporters->count() === 1
-                    ? 'Registered Exporter'
-                    : 'Registered Exporters'
-                }}
-            </span>
-
-        </div>
-
-    </div>
-
-
-    {{-- =====================================================
-         CURRENT RESULTS
-    ====================================================== --}}
-
-    <div
-        class="exporters-results"
-        id="exportersResults"
-    >
-
-        Showing
-
-        <strong id="visibleExporterCount">
-            {{ $exporters->count() }}
-        </strong>
-
-        of
-
-        <strong>
-            {{ $exporters->count() }}
-        </strong>
-
-        exporters
-
-    </div>
-
-
-    {{-- =====================================================
-         EXPORTER GRID
-    ====================================================== --}}
-
-    <div
-        class="row g-4"
-        id="exportersGrid"
-    >
-
-        @forelse ($exporters as $exporter)
-
-            @php
-
-                $fullName = collect([
-                    $exporter->first_name,
-                    $exporter->middle_name,
-                    $exporter->surname
-                ])->filter()->implode(' ');
-
-            @endphp
+            {{-- =================================================
+                 CURRENT RESULTS
+            ================================================== --}}
 
             <div
-                class="col-xl-4 col-lg-4 col-md-6 exporter-card-column"
-                data-search="{{ strtolower(
-                    $fullName . ' ' .
-                    ($exporter->membership_number ?? '') . ' ' .
-                    ($exporter->business_name ?? '')
-                ) }}"
+                class="exporters-results"
+                id="exportersResults"
             >
 
-                <article class="member-card">
+                Showing
 
+                <strong id="visibleExporterCount">
 
-                    {{-- =================================================
-                         MEMBER PHOTO
-                    ================================================== --}}
+                    {{ $exporters->count() }}
 
-                    <div class="member-photo-wrapper">
+                </strong>
 
-                        @if ($exporter->photo)
+                of
 
-                            <img
-                                class="member-photo"
-                                src="{{ asset('uploads/member_profiles/' . $exporter->photo) }}"
-                                alt="{{ $fullName }}"
-                                loading="lazy"
-                                decoding="async"
-                            >
+                <strong>
 
-                        @else
+                    {{ $exporters->count() }}
 
-                            <img
-                                class="member-photo"
-                                src="{{ asset('assets/img/default-member.jpg') }}"
-                                alt="NACPDEAN member"
-                                loading="lazy"
-                                decoding="async"
-                            >
+                </strong>
 
-                        @endif
-
-
-                        {{-- VERIFIED BADGE --}}
-
-                        <div class="member-status">
-
-                            <i class="bi bi-patch-check-fill"></i>
-
-                            Verified
-
-                        </div>
-
-                    </div>
-
-
-                    {{-- =================================================
-                         MEMBER INFORMATION
-                    ================================================== --}}
-
-                    <div class="member-body">
-
-
-                        {{-- CATEGORY --}}
-
-                        <span class="member-badge">
-
-                            {{ $exporter->membershipCategory?->name ?? 'Exporter' }}
-
-                        </span>
-
-
-                        {{-- NAME --}}
-
-                        <h2 class="member-name">
-
-                            {{ $fullName }}
-
-                        </h2>
-
-
-                        {{-- POSITION --}}
-
-                        <p class="member-position">
-
-                            Registered Exporter
-
-                        </p>
-
-
-                        <div class="member-info">
-
-
-                            {{-- MEMBERSHIP NUMBER --}}
-
-                            <div class="member-info-row">
-
-                                <div class="member-info-icon">
-                                    <i class="bi bi-person-vcard"></i>
-                                </div>
-
-                                <div class="member-info-content">
-
-                                    <span class="member-info-label">
-                                        Membership Number
-                                    </span>
-
-                                    <span class="member-info-value">
-
-                                        {{ $exporter->membership_number ?: 'Not assigned' }}
-
-                                    </span>
-
-                                </div>
-
-                            </div>
-
-
-                            {{-- BUSINESS --}}
-
-                            <div class="member-info-row">
-
-                                <div class="member-info-icon">
-                                    <i class="bi bi-building"></i>
-                                </div>
-
-                                <div class="member-info-content">
-
-                                    <span class="member-info-label">
-                                        Business
-                                    </span>
-
-                                    <span class="member-info-value">
-
-                                        {{ $exporter->business_name ?: 'Not provided' }}
-
-                                    </span>
-
-                                </div>
-
-                            </div>
-
-
-                        </div>
-
-                    </div>
-
-                </article>
+                exporters
 
             </div>
 
-        @empty
+
+            {{-- =================================================
+                 EXPORTER GRID
+            ================================================== --}}
+
+            <div
+                class="row g-4"
+                id="exportersGrid"
+            >
+
+                @foreach ($exporters as $exporter)
+
+                    @php
+
+                        $fullName = collect([
+                            $exporter->first_name,
+                            $exporter->middle_name,
+                            $exporter->surname
+                        ])->filter()->implode(' ');
+
+                    @endphp
+
+
+                    <div
+                        class="col-xl-4 col-lg-4 col-md-6 exporter-card-column"
+                        data-search="{{ strtolower(
+                            $fullName . ' ' .
+                            ($exporter->membership_number ?? '') . ' ' .
+                            ($exporter->business_name ?? '')
+                        ) }}"
+                    >
+
+                        <article class="member-card">
+
+
+                            {{-- =================================================
+                                 MEMBER PHOTO
+                            ================================================== --}}
+
+                            <div class="member-photo-wrapper">
+
+                                @if ($exporter->photo)
+
+                                    <img
+                                        class="member-photo"
+                                        src="{{ asset('uploads/member_profiles/' . $exporter->photo) }}"
+                                        alt="{{ $fullName }}"
+                                        loading="lazy"
+                                        decoding="async"
+                                    >
+
+                                @else
+
+                                    <img
+                                        class="member-photo"
+                                        src="{{ asset('assets/img/default-member.jpg') }}"
+                                        alt="NACPDEAN member"
+                                        loading="lazy"
+                                        decoding="async"
+                                    >
+
+                                @endif
+
+
+                                {{-- VERIFIED BADGE --}}
+
+                                <div class="member-status">
+
+                                    <i class="bi bi-patch-check-fill"></i>
+
+                                    Verified
+
+                                </div>
+
+                            </div>
+
+
+                            {{-- =================================================
+                                 MEMBER INFORMATION
+                            ================================================== --}}
+
+                            <div class="member-body">
+
+
+                                {{-- CATEGORY --}}
+
+                                <span class="member-badge">
+
+                                    {{ $exporter->membershipCategory?->name ?? 'Exporter' }}
+
+                                </span>
+
+
+                                {{-- NAME --}}
+
+                                <h2 class="member-name">
+
+                                    {{ $fullName }}
+
+                                </h2>
+
+
+                                {{-- POSITION --}}
+
+                                <p class="member-position">
+
+                                    Registered Exporter
+
+                                </p>
+
+
+                                <div class="member-info">
+
+
+                                    {{-- MEMBERSHIP NUMBER --}}
+
+                                    <div class="member-info-row">
+
+                                        <div class="member-info-icon">
+
+                                            <i class="bi bi-person-vcard"></i>
+
+                                        </div>
+
+                                        <div class="member-info-content">
+
+                                            <span class="member-info-label">
+
+                                                Membership Number
+
+                                            </span>
+
+                                            <span class="member-info-value">
+
+                                                {{ $exporter->membership_number ?: 'Not assigned' }}
+
+                                            </span>
+
+                                        </div>
+
+                                    </div>
+
+
+                                    {{-- BUSINESS --}}
+
+                                    <div class="member-info-row">
+
+                                        <div class="member-info-icon">
+
+                                            <i class="bi bi-building"></i>
+
+                                        </div>
+
+                                        <div class="member-info-content">
+
+                                            <span class="member-info-label">
+
+                                                Business
+
+                                            </span>
+
+                                            <span class="member-info-value">
+
+                                                {{ $exporter->business_name ?: 'Not provided' }}
+
+                                            </span>
+
+                                        </div>
+
+                                    </div>
+
+
+                                </div>
+
+                            </div>
+
+                        </article>
+
+                    </div>
+
+                @endforeach
+
+            </div>
+
+
+            {{-- =================================================
+                 LIVE SEARCH EMPTY STATE
+            ================================================== --}}
+
+            <div
+                class="live-search-empty"
+                id="liveSearchEmpty"
+            >
+
+                <div class="live-search-empty-icon">
+
+                    <i class="bi bi-search"></i>
+
+                </div>
+
+                <h4>
+
+                    No Exporter Found
+
+                </h4>
+
+                <p>
+
+                    No registered exporter matches your search.
+                    Try another name, membership number or business name.
+
+                </p>
+
+            </div>
+
+
+            {{-- =================================================
+                 PAGINATION
+            ================================================== --}}
+
+            @if($exporters->hasPages())
+
+                <div
+                    class="exporters-pagination"
+                    id="exportersPagination"
+                >
+
+                    {{ $exporters
+                        ->onEachSide(1)
+                        ->links('pagination::bootstrap-5')
+                    }}
+
+                </div>
+
+            @endif
+
+
+        @else
 
 
             {{-- =================================================
                  NO EXPORTERS IN DATABASE
             ================================================== --}}
 
-            <div class="col-12">
+            <div class="exporters-empty">
 
-                <div class="exporters-empty">
+                <div class="exporters-empty-icon">
 
-                    <div class="exporters-empty-icon">
-
-                        <i class="bi bi-search"></i>
-
-                    </div>
-
-                    <h4>
-                        No Registered Exporters
-                    </h4>
-
-                    <p>
-                        There are currently no approved exporters
-                        available in the directory.
-                    </p>
+                    <i class="bi bi-people"></i>
 
                 </div>
 
+                <h4>
+
+                    No Registered Exporters
+
+                </h4>
+
+                <p>
+
+                    There are currently no approved exporters
+                    available in the NACPDEAN directory.
+
+                </p>
+
             </div>
 
-        @endforelse
+
+        @endif
+
 
     </div>
-
-
-    {{-- =====================================================
-         LIVE SEARCH EMPTY STATE
-    ====================================================== --}}
-
-    <div
-        class="live-search-empty"
-        id="liveSearchEmpty"
-    >
-
-        <div class="live-search-empty-icon">
-
-            <i class="bi bi-search"></i>
-
-        </div>
-
-        <h4>
-            No Exporter Found
-        </h4>
-
-        <p>
-            No registered exporter matches your search.
-            Try another name, membership number or business name.
-        </p>
-
-    </div>
-
-
-    {{-- =====================================================
-         PAGINATION
-    ====================================================== --}}
-
-    @if($exporters->hasPages())
-
-        <div
-            class="exporters-pagination"
-            id="exportersPagination"
-        >
-
-            {{ $exporters
-                ->onEachSide(1)
-                ->links('pagination::bootstrap-5')
-            }}
-
-        </div>
-
-    @endif
-
-
-</div>
-```
 
 </section>
 
+
 {{-- =============================================================
-LIVE SEARCH
+     LIVE SEARCH
 
-```
- This search happens entirely in the browser.
-
- No:
- - Page reload
- - URL change
- - AJAX
- - Fetch
- - API
- - JSON request
-
- The cards are already loaded, so JavaScript simply
- hides cards that do not match the search.
-```
-
+     Only load the JavaScript when exporters actually exist.
 ============================================================= --}}
 
+@if($exporters->count() > 0)
+
 <script>
+
     document.addEventListener('DOMContentLoaded', function () {
 
         const searchInput = document.getElementById(
@@ -1210,8 +1245,8 @@ LIVE SEARCH
 
 
         /*
-         * Total number of exporters loaded
-         * from the database.
+         * Total number of exporters currently
+         * loaded on this page.
          */
         const totalExporters = exporterCards.length;
 
@@ -1232,6 +1267,7 @@ LIVE SEARCH
 
                 const searchableText =
                     card.dataset.search || '';
+
 
                 const matches =
                     searchTerm === '' ||
@@ -1256,9 +1292,12 @@ LIVE SEARCH
             /*
              * Update count.
              */
-            exporterCount.textContent = visibleCount;
+            exporterCount.textContent =
+                visibleCount;
 
-            visibleExporterCount.textContent = visibleCount;
+
+            visibleExporterCount.textContent =
+                visibleCount;
 
 
             /*
@@ -1275,11 +1314,15 @@ LIVE SEARCH
              */
             if (searchTerm !== '') {
 
-                searchClear.classList.add('visible');
+                searchClear.classList.add(
+                    'visible'
+                );
 
             } else {
 
-                searchClear.classList.remove('visible');
+                searchClear.classList.remove(
+                    'visible'
+                );
 
             }
 
@@ -1293,15 +1336,21 @@ LIVE SEARCH
                 visibleCount === 0
             ) {
 
-                liveSearchEmpty.classList.add('visible');
+                liveSearchEmpty.classList.add(
+                    'visible'
+                );
 
-                exportersResults.style.display = 'none';
+                exportersResults.style.display =
+                    'none';
 
             } else {
 
-                liveSearchEmpty.classList.remove('visible');
+                liveSearchEmpty.classList.remove(
+                    'visible'
+                );
 
-                exportersResults.style.display = 'block';
+                exportersResults.style.display =
+                    'block';
 
             }
 
@@ -1335,7 +1384,7 @@ LIVE SEARCH
 
             /*
              * Hide Laravel pagination while
-             * performing live browser search.
+             * searching.
              */
             if (exportersPagination) {
 
@@ -1359,8 +1408,7 @@ LIVE SEARCH
 
 
         /*
-         * Search immediately whenever the
-         * user types.
+         * Search whenever the user types.
          */
         searchInput.addEventListener(
             'input',
@@ -1384,8 +1432,10 @@ LIVE SEARCH
             }
         );
 
-
     });
+
 </script>
+
+@endif
 
 @endsection

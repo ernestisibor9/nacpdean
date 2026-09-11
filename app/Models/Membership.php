@@ -14,6 +14,7 @@ class Membership extends Model
         'member_profile_id',
         'membership_category_id',
         'membership_number',
+        'membership_position',
         'status',
         'issued_at',
         'expires_at',
@@ -87,18 +88,10 @@ class Membership extends Model
         );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | MEMBERSHIP CARD
-    |--------------------------------------------------------------------------
-    */
-
-    public function card(): HasOne
+    /* |-------------------------------------------------------------------------- | MEMBERSHIP CARDS |-------------------------------------------------------------------------- | | A membership can now have multiple active cards: | | 1. Membership Card | 2. National Executive Card | 3. Task Force Card | */
+    public function cards(): HasMany
     {
-        return $this->hasOne(
-            MembershipCard::class,
-            'membership_id'
-        );
+        return $this->hasMany(MembershipCard::class, 'membership_id');
     }
 
     /*
