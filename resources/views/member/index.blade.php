@@ -2308,7 +2308,7 @@
                                     </div>
 
 
-                                    <a href="{{ route('payment.additional') }}" class="nacp-btn w-100">
+                                    <a href="#" class="nacp-btn w-100">
 
                                         <i class="fas fa-credit-card"></i>
 

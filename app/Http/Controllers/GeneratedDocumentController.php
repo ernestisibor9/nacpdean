@@ -288,111 +288,140 @@ public function index(Request $request)
         ]);
     }
 
-    /**
-     * Download the generated document as a PDF.
-     *
-     * Membership expiry is checked through getMemberDocument().
-     */
-    public function download(
-        Request $request,
-        GeneratedDocument $generatedDocument,
-        QrCodeService $qrCodeService
-    ) {
-        $generatedDocument = $this->getMemberDocument(
-            $request,
-            $generatedDocument
+/**
+ * Download the generated document as a PDF.
+ *
+ * Membership expiry is checked through getMemberDocument().
+ */
+public function download(
+    Request $request,
+    GeneratedDocument $generatedDocument,
+    QrCodeService $qrCodeService
+) {
+    $generatedDocument = $this->getMemberDocument(
+        $request,
+        $generatedDocument
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Check Generated Document Status
+    |--------------------------------------------------------------------------
+    */
+
+    $this->checkDocumentStatus($generatedDocument);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Load Required Relationships
+    |--------------------------------------------------------------------------
+    */
+
+    $generatedDocument->load([
+        'document',
+        'user.profile',
+    ]);
+
+    $document = $generatedDocument->document;
+
+    if (!$document) {
+        abort(
+            404,
+            'The document definition could not be found.'
         );
-
-        /*
-        |--------------------------------------------------------------------------
-        | Check Generated Document Status
-        |--------------------------------------------------------------------------
-        */
-
-        $this->checkDocumentStatus($generatedDocument);
-
-        /*
-        |--------------------------------------------------------------------------
-        | Load Required Relationships
-        |--------------------------------------------------------------------------
-        */
-
-        $generatedDocument->load([
-            'document',
-            'user.profile',
-        ]);
-
-        $document = $generatedDocument->document;
-
-        if (!$document) {
-            abort(
-                404,
-                'The document definition could not be found.'
-            );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Resolve Configured Document Template
-        |--------------------------------------------------------------------------
-        */
-
-        $template = $this->resolveTemplate($document);
-
-        /*
-        |--------------------------------------------------------------------------
-        | Generate QR Code
-        |--------------------------------------------------------------------------
-        */
-
-        $qrCode = $qrCodeService->generate(
-            $generatedDocument->tracking_code
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | Render Blade Template
-        |--------------------------------------------------------------------------
-        */
-
-        $html = view($template, [
-            'generatedDocument' => $generatedDocument,
-            'document'         => $document,
-            'qrCode'           => $qrCode,
-            'printMode'        => true,
-            'downloadMode'     => true,
-        ])->render();
-
-        /*
-        |--------------------------------------------------------------------------
-        | Resolve PDF Orientation
-        |--------------------------------------------------------------------------
-        */
-
-        $orientation = $this->resolvePdfOrientation(
-            $document
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | Generate PDF
-        |--------------------------------------------------------------------------
-        */
-
-        $pdf = Pdf::loadHTML($html)
-            ->setPaper('a4', $orientation);
-
-        /*
-        |--------------------------------------------------------------------------
-        | PDF Filename
-        |--------------------------------------------------------------------------
-        */
-
-        $filename =
-            $generatedDocument->document_number . '.pdf';
-
-        return $pdf->download($filename);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Resolve Configured Document Template
+    |--------------------------------------------------------------------------
+    */
+
+    $template = $this->resolveTemplate($document);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Generate QR Code
+    |--------------------------------------------------------------------------
+    */
+
+    $qrCode = $qrCodeService->generate(
+        $generatedDocument->tracking_code
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD CERTIFICATE BACKGROUND FOR DOMPDF
+    |--------------------------------------------------------------------------
+    |
+    | Dompdf may not be able to load the certificate JPG through
+    | asset() when generating the PDF.
+    |
+    | Therefore, we read the actual JPG file from the public
+    | directory and convert it to a Base64 image.
+    |
+    */
+
+    $certificateBackground = null;
+
+    $certificatePath = public_path(
+        'images/certificates/regular-exporter-template.jpg'
+    );
+
+    if (file_exists($certificatePath)) {
+
+        $certificateBackground =
+            'data:image/jpeg;base64,' .
+            base64_encode(
+                file_get_contents($certificatePath)
+            );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Render Blade Template
+    |--------------------------------------------------------------------------
+    */
+
+    $html = view($template, [
+        'generatedDocument'      => $generatedDocument,
+        'document'              => $document,
+        'qrCode'                => $qrCode,
+        'certificateBackground' => $certificateBackground,
+        'printMode'             => true,
+        'downloadMode'          => true,
+    ])->render();
+
+    /*
+    |--------------------------------------------------------------------------
+    | Resolve PDF Orientation
+    |--------------------------------------------------------------------------
+    */
+
+    $orientation = $this->resolvePdfOrientation(
+        $document
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Generate PDF
+    |--------------------------------------------------------------------------
+    */
+
+    $pdf = Pdf::loadHTML($html)
+        ->setPaper('a4', $orientation);
+
+    /*
+    |--------------------------------------------------------------------------
+    | PDF Filename
+    |--------------------------------------------------------------------------
+    */
+
+    $filename =
+        $generatedDocument->document_number . '.pdf';
+
+    return $pdf->download($filename);
+}
 
     /**
      * Public document verification.

@@ -5,10 +5,7 @@
     |--------------------------------------------------------------------------
     */
 
-    $fields = collect(
-        $generatedDocument->field_values ?? []
-    );
-
+    $fields = collect($generatedDocument->field_values ?? []);
 
     /*
     |--------------------------------------------------------------------------
@@ -18,168 +15,108 @@
 
     $documentUser = $generatedDocument->user ?? null;
 
-
     /*
     |--------------------------------------------------------------------------
     | MEMBERSHIP
     |--------------------------------------------------------------------------
+    |
+    | Get the actual membership belonging to this generated document user.
+    |
     */
 
     $membership = null;
 
     if ($documentUser) {
-
-        $membership = \App\Models\Membership::with([
-            'membershipCategory',
-            'profile',
-        ])
+        $membership = \App\Models\Membership::query()
+            ->with(['profile', 'membershipCategory'])
             ->where('user_id', $documentUser->id)
             ->latest('id')
             ->first();
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | MEMBERSHIP CATEGORY
-    |--------------------------------------------------------------------------
-    */
-
-    $membershipCategory = $fields->get(
-        'membership_category',
-        $fields->get(
-            'membership_category_name',
-            ''
-        )
-    );
-
-    if (
-        !$membershipCategory &&
-        $membership?->membershipCategory
-    ) {
-
-        $membershipCategory =
-            $membership->membershipCategory->name;
-    }
-
-    $membershipCategory = trim(
-        (string) $membershipCategory
-    );
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | MEMBERSHIP CATEGORY CODE
-    |--------------------------------------------------------------------------
-    */
-
-    $membershipCategoryCode = strtoupper(
-        trim(
-            (string) (
-                $fields->get(
-                    'membership_category_code',
-                    ''
-                )
-                ?: $membership?->membershipCategory?->code
-                ?: ''
-            )
-        )
-    );
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | RCG DETECTION
-    |--------------------------------------------------------------------------
-    */
-
-    $isRcg =
-        $membershipCategoryCode === 'RCG'
-        ||
-        str_contains(
-            strtoupper($membershipCategory),
-            'RCG'
-        );
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | MEMBER PROFILE
-    |--------------------------------------------------------------------------
-    */
-
-    $memberProfile =
-        $membership?->profile;
-
-
     /*
     |--------------------------------------------------------------------------
     | MEMBER / COMPANY NAME
     |--------------------------------------------------------------------------
-    |
-    | IMPORTANT:
-    |
-    | We check several possible field names because different
-    | document field definitions may use different keys.
-    |
     */
 
     $companyName = '';
 
-
     /*
     |--------------------------------------------------------------------------
-    | 1. GENERATED DOCUMENT FIELD VALUES
+    | CHECK GENERATED DOCUMENT FIELDS
     |--------------------------------------------------------------------------
     */
 
-    $memberNameFields = [
+    $nameFields = [
         'member_name',
         'business_name',
         'company_name',
-        'companyName',
-        'businessName',
         'organisation_name',
         'organization_name',
         'organisation',
         'organization',
+        'business',
         'company',
         'member_business_name',
-        'business',
         'full_name',
         'name',
     ];
 
-
-    foreach ($memberNameFields as $fieldKey) {
-
+    foreach ($nameFields as $fieldKey) {
         $value = $fields->get($fieldKey);
 
-        if (
-            $value !== null &&
-            trim((string) $value) !== ''
-        ) {
-
-            $companyName =
-                trim((string) $value);
+        if ($value !== null && trim((string) $value) !== '') {
+            $companyName = trim((string) $value);
 
             break;
         }
     }
 
-
     /*
     |--------------------------------------------------------------------------
-    | 2. MEMBER PROFILE FALLBACK
+    | CHECK MEMBER PROFILE
     |--------------------------------------------------------------------------
     */
 
-    if (
-        !$companyName &&
-        $memberProfile
-    ) {
+    if (!$companyName && $membership && $membership->profile) {
+        $memberProfile = $membership->profile;
 
         $profileNameFields = [
+            'business_name',
+            'company_name',
+            'organisation_name',
+            'organization_name',
+            'organisation',
+            'organization',
+            'business',
+            'company',
+            'business_registration_name',
+            'registered_business_name',
+            'registered_company_name',
+            'full_name',
+            'name',
+        ];
+
+        foreach ($profileNameFields as $fieldKey) {
+            $value = $memberProfile->{$fieldKey} ?? null;
+
+            if ($value !== null && trim((string) $value) !== '') {
+                $companyName = trim((string) $value);
+
+                break;
+            }
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CHECK USER
+    |--------------------------------------------------------------------------
+    */
+
+    if (!$companyName && $documentUser) {
+        $userNameFields = [
             'business_name',
             'company_name',
             'organisation_name',
@@ -187,79 +124,28 @@
             'business',
             'company',
             'name',
-            'full_name',
         ];
-
-
-        foreach ($profileNameFields as $fieldKey) {
-
-            $value =
-                $memberProfile->{$fieldKey}
-                ?? null;
-
-            if (
-                $value !== null &&
-                trim((string) $value) !== ''
-            ) {
-
-                $companyName =
-                    trim((string) $value);
-
-                break;
-            }
-        }
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | 3. USER FALLBACK
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-        !$companyName &&
-        $documentUser
-    ) {
-
-        $userNameFields = [
-            'business_name',
-            'company_name',
-            'name',
-        ];
-
 
         foreach ($userNameFields as $fieldKey) {
+            $value = $documentUser->{$fieldKey} ?? null;
 
-            $value =
-                $documentUser->{$fieldKey}
-                ?? null;
-
-            if (
-                $value !== null &&
-                trim((string) $value) !== ''
-            ) {
-
-                $companyName =
-                    trim((string) $value);
+            if ($value !== null && trim((string) $value) !== '') {
+                $companyName = trim((string) $value);
 
                 break;
             }
         }
     }
 
-
     /*
     |--------------------------------------------------------------------------
-    | FINAL NAME FALLBACK
+    | FINAL FALLBACK
     |--------------------------------------------------------------------------
     */
 
     if (!$companyName) {
-
         $companyName = 'Member';
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -269,22 +155,12 @@
 
     $membershipNumber = $fields->get(
         'membership_number',
-        $fields->get(
-            'membership_no',
-            ''
-        )
+        $fields->get('membership_no', '')
     );
 
-
-    if (
-        !$membershipNumber &&
-        $membership
-    ) {
-
-        $membershipNumber =
-            $membership->membership_number;
+    if (!$membershipNumber && $membership) {
+        $membershipNumber = $membership->membership_number;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -294,15 +170,8 @@
 
     $certificateNumber = $fields->get(
         'certificate_number',
-        $fields->get(
-            'certificate_no',
-            $fields->get(
-                'document_number',
-                $generatedDocument->document_number
-            )
-        )
+        $generatedDocument->document_number
     );
-
 
     /*
     |--------------------------------------------------------------------------
@@ -310,46 +179,27 @@
     |--------------------------------------------------------------------------
     */
 
-    $issuedDate = $fields->get(
-        'issued_at',
-        $fields->get(
-            'issue_date',
-            ''
-        )
-    );
-
+    $issuedDate = $fields->get('issued_at', '');
 
     /*
     |--------------------------------------------------------------------------
-    | MEMBERSHIP ISSUE DATE FALLBACK
+    | FALLBACK TO MEMBERSHIP ISSUED DATE
     |--------------------------------------------------------------------------
     */
 
-    if (
-        !$issuedDate &&
-        $membership?->issued_at
-    ) {
-
-        $issuedDate =
-            $membership->issued_at;
+    if (!$issuedDate && $membership && $membership->issued_at) {
+        $issuedDate = $membership->issued_at;
     }
-
 
     /*
     |--------------------------------------------------------------------------
-    | GENERATED DOCUMENT ISSUE DATE FALLBACK
+    | FALLBACK TO GENERATED DOCUMENT ISSUED DATE
     |--------------------------------------------------------------------------
     */
 
-    if (
-        !$issuedDate &&
-        $generatedDocument->issued_at
-    ) {
-
-        $issuedDate =
-            $generatedDocument->issued_at;
+    if (!$issuedDate && $generatedDocument->issued_at) {
+        $issuedDate = $generatedDocument->issued_at;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -360,21 +210,13 @@
     $issuedDateFormatted = '';
 
     if ($issuedDate) {
-
         try {
-
-            $issuedDateFormatted =
-                \Carbon\Carbon::parse(
-                    $issuedDate
-                )->format('F jS, Y');
-
+            $issuedDateFormatted = \Carbon\Carbon::parse($issuedDate)
+                ->format('F jS, Y');
         } catch (\Throwable $e) {
-
-            $issuedDateFormatted =
-                (string) $issuedDate;
+            $issuedDateFormatted = (string) $issuedDate;
         }
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -384,119 +226,30 @@
 
     $verificationUrl = $fields->get(
         'verification_url',
-        ''
-    );
-
-
-    if (!$verificationUrl) {
-
-        $verificationUrl = route(
+        route(
             'documents.verify',
             $generatedDocument->tracking_code
-        );
-    }
-
+        )
+    );
 
     /*
     |--------------------------------------------------------------------------
-    | SIGNATORIES
+    | QR CODE
     |--------------------------------------------------------------------------
     */
 
-    $presidentName = $fields->get(
-        'president_name',
-        'Edu Babatunde'
-    );
-
-    $presidentTitle = $fields->get(
-        'president_title',
-        'National President'
-    );
-
-
-    $secretaryGeneralName = $fields->get(
-        'secretary_general_name',
-        $fields->get(
-            'secretary_name',
-            'Ojei Uche Joeseph'
-        )
-    );
-
-
-    $secretaryGeneralTitle = $fields->get(
-        'secretary_general_title',
-        'National Secretary-General'
-    );
-
+    $documentQrCode = $qrCode ?? null;
 
     /*
     |--------------------------------------------------------------------------
-    | ASSOCIATION NAME
+    | PDF MODE
     |--------------------------------------------------------------------------
+    |
+    | downloadMode=true when the controller is generating the PDF.
+    |
     */
 
-    $associationName = $fields->get(
-        'association_name',
-        'NATIONAL ASSOCIATION OF CHARCOAL PRODUCERS, DEALERS, EXPORTERS AND AFFORESTATION OF NIGERIA'
-    );
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | REGISTERED MEMBER TEXT
-    |--------------------------------------------------------------------------
-    */
-
-    if ($isRcg) {
-
-        $registeredText =
-            'is a Registered RCG Export Member with';
-
-    } elseif (
-        str_contains(
-            strtoupper($membershipCategory),
-            'EXPORTER'
-        )
-    ) {
-
-        $registeredText =
-            'is a Registered Export Member with';
-
-    } elseif (
-        str_contains(
-            strtoupper($membershipCategory),
-            'SUPPLIER'
-        )
-    ) {
-
-        $registeredText =
-            'is a Registered Supplier Member with';
-
-    } elseif (
-        str_contains(
-            strtoupper($membershipCategory),
-            'DEALER'
-        )
-    ) {
-
-        $registeredText =
-            'is a Registered Dealer Member with';
-
-    } elseif (
-        str_contains(
-            strtoupper($membershipCategory),
-            'PRODUCER'
-        )
-    ) {
-
-        $registeredText =
-            'is a Registered Producer Member with';
-
-    } else {
-
-        $registeredText =
-            'is a Registered Member with';
-    }
+    $isPdfMode = !empty($downloadMode);
 
 @endphp
 
@@ -512,15 +265,20 @@
         {{ $certificateNumber }}
     </title>
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 
     <style>
 
-        * {
+        /*
+        |--------------------------------------------------------------------------
+        | BASIC RESET
+        |--------------------------------------------------------------------------
+        */
+
+        *,
+        *::before,
+        *::after {
             box-sizing: border-box;
         }
 
@@ -529,20 +287,25 @@
         body {
             margin: 0;
             padding: 0;
-            background: #eee;
+        }
+
+
+        body {
+            background: #eeeeee;
             font-family: "Times New Roman", serif;
         }
 
 
         /*
         |--------------------------------------------------------------------------
-        | CERTIFICATE WRAPPER
+        | CERTIFICATE VIEWER
         |--------------------------------------------------------------------------
         */
 
-        .certificate-wrapper {
+        .nacp-certificate-wrapper {
             width: 100%;
             padding: 30px;
+            margin: 0;
         }
 
 
@@ -552,40 +315,87 @@
         |--------------------------------------------------------------------------
         */
 
-        .certificate {
+        .nacp-certificate {
             position: relative;
 
             width: 100%;
-            max-width: 1100px;
 
-            min-height: 770px;
+            max-width: 1200px;
 
-            margin: auto;
+            margin: 0 auto;
 
-            background: #fff;
+            padding: 0;
 
-            border: 28px solid #32b66d;
+            overflow: hidden;
 
-            padding: 12px;
+            background: #ffffff;
         }
 
 
         /*
         |--------------------------------------------------------------------------
-        | INNER CERTIFICATE
+        | CLIENT CERTIFICATE BACKGROUND
         |--------------------------------------------------------------------------
         */
 
-        .certificate-inner {
-            position: relative;
+        .nacp-certificate-background {
+            display: block;
 
-            min-height: 710px;
+            width: 100%;
 
-            border: 4px solid #10a653;
+            height: auto;
 
-            padding: 35px 45px;
+            margin: 0;
+
+            padding: 0;
+
+            border: 0;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | DYNAMIC FIELDS
+        |--------------------------------------------------------------------------
+        */
+
+        .nacp-certificate-field {
+            position: absolute;
+
+            z-index: 10;
+
+            color: #000;
 
             text-align: center;
+
+            line-height: 1.2;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | MEMBER / COMPANY NAME
+        |--------------------------------------------------------------------------
+        */
+
+        .nacp-certificate-name {
+            top: 32.8%;
+
+            left: 12%;
+
+            width: 76%;
+
+            font-size: 32px;
+
+            font-weight: bold;
+
+            text-transform: uppercase;
+
+            white-space: nowrap;
+
+            overflow: hidden;
+
+            text-overflow: ellipsis;
         }
 
 
@@ -595,141 +405,18 @@
         |--------------------------------------------------------------------------
         */
 
-        .certificate-number {
-            position: absolute;
+        .nacp-certificate-number {
+            top: 11.2%;
 
-            top: 15px;
-            right: 25px;
+            right: 11%;
+
+            width: 30%;
 
             font-size: 14px;
 
             font-weight: bold;
-        }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | LOGOS
-        |--------------------------------------------------------------------------
-        */
-
-        .logos {
-            margin: 20px auto 5px;
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            gap: 14px;
-        }
-
-
-        .nacpdean-logo {
-            width: 210px;
-
-            max-width: 100%;
-
-            height: auto;
-
-            display: block;
-
-            object-fit: contain;
-        }
-
-
-        .rcg-logo {
-            width: 65px;
-
-            height: 65px;
-
-            display: block;
-
-            object-fit: contain;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | TITLE
-        |--------------------------------------------------------------------------
-        */
-
-        .title {
-            margin-top: 5px;
-
-            font-size: 48px;
-
-            font-weight: bold;
-
-            color: #ed1c24;
-
-            font-style: italic;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | SUBTITLE
-        |--------------------------------------------------------------------------
-        */
-
-        .subtitle {
-            margin-top: 10px;
-
-            font-size: 22px;
-
-            font-style: italic;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | MEMBER NAME
-        |--------------------------------------------------------------------------
-        */
-
-        .member-name {
-            margin: 15px 0;
-
-            font-size: 36px;
-
-            font-weight: bold;
-
-            text-transform: uppercase;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | REGISTERED TEXT
-        |--------------------------------------------------------------------------
-        */
-
-        .registered-text {
-            font-size: 20px;
-
-            font-style: italic;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | ASSOCIATION
-        |--------------------------------------------------------------------------
-        */
-
-        .association {
-            margin: 15px auto;
-
-            max-width: 850px;
-
-            font-size: 20px;
-
-            font-weight: bold;
-
-            line-height: 1.35;
+            text-align: right;
         }
 
 
@@ -739,133 +426,39 @@
         |--------------------------------------------------------------------------
         */
 
-        .membership-number {
-            margin-top: 25px;
+        .nacp-membership-number {
+            top: 48.1%;
 
-            font-size: 21px;
+            left: 20%;
 
-            font-weight: bold;
+            width: 60%;
+
+            font-size: 18px;
+
+            font-weight: bolder;
+
+            color: red;
+
+            font-family: Tahoma, sans-serif;
         }
 
 
         /*
         |--------------------------------------------------------------------------
-        | DATE
+        | ISSUE DATE
         |--------------------------------------------------------------------------
         */
 
-        .dated {
-            margin-top: 12px;
+        .nacp-issued-date {
+            top: 51.7%;
 
-            font-size: 18px;
+            left: 20%;
+
+            width: 60%;
+
+            font-size: 17px;
 
             font-style: italic;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | BOTTOM SECTION
-        |
-        | IMPORTANT:
-        | Do NOT use CSS FLEXBOX here.
-        |
-        | Dompdf handles table layouts much more reliably than flexbox.
-        |--------------------------------------------------------------------------
-        */
-
-        .bottom-section {
-            position: absolute;
-
-            left: 45px;
-            right: 45px;
-
-            bottom: 25px;
-
-            width: calc(100% - 90px);
-
-            display: table;
-
-            table-layout: fixed;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | BOTTOM COLUMNS
-        |--------------------------------------------------------------------------
-        */
-
-        .bottom-item {
-            display: table-cell;
-
-            vertical-align: bottom;
-
-            text-align: center;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | SIGNATURE
-        |--------------------------------------------------------------------------
-        */
-
-        .signature {
-            width: 220px;
-
-            margin: 0 auto;
-
-            text-align: center;
-        }
-
-
-        .signature-line {
-            border-top: 1px solid #000;
-
-            margin-top: 8px;
-
-            padding-top: 5px;
-        }
-
-
-        .signature-name {
-            font-size: 18px;
-
-            font-weight: bold;
-        }
-
-
-        .signature-title {
-            font-size: 15px;
-
-            font-weight: bold;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | SEAL
-        |--------------------------------------------------------------------------
-        */
-
-        .seal {
-            width: 120px;
-
-            margin: 0 auto;
-
-            text-align: center;
-        }
-
-
-        .seal img {
-            width: 100px;
-
-            height: 100px;
-
-            display: block;
-
-            margin: 0 auto;
         }
 
 
@@ -875,39 +468,75 @@
         |--------------------------------------------------------------------------
         */
 
-        .qr-section {
-            width: 150px;
+        .nacp-certificate-qr {
+            position: absolute;
 
-            margin: 0 auto;
+            z-index: 20;
 
-            text-align: center;
+            left: 54.7%;
+
+            top: 76.3%;
+
+            width: 34%;
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 12px;
+
+            text-align: left;
         }
 
 
-        .qr-section img {
-            width: 120px;
-
-            height: 120px;
-
+        .nacp-certificate-qr img {
             display: block;
 
-            margin: 0 auto;
+            width: 90px;
+
+            height: 90px;
+
+            min-width: 90px;
+
+            min-height: 90px;
+
+            flex-shrink: 0;
+
+            object-fit: contain;
+
+            border: 0;
         }
 
 
-        .verify-text {
-            margin-top: 4px;
+        .nacp-certificate-verify {
+            font-size: 9px;
 
-            font-size: 11px;
+            line-height: 1.2;
+
+            color: #000;
+
+            text-align: left;
         }
 
 
-        .verify-url {
-            font-size: 8px;
+        /*
+        |--------------------------------------------------------------------------
+        | VERIFICATION URL
+        |--------------------------------------------------------------------------
+        */
+
+        .nacp-certificate-verification-url {
+            margin-top: 2px;
+
+            font-size: 7px;
+
+            line-height: 1.1;
 
             word-break: break-all;
 
             overflow-wrap: break-word;
+
+            color: #000;
         }
 
 
@@ -918,7 +547,7 @@
         */
 
         .document-actions {
-            max-width: 1100px;
+            max-width: 1200px;
 
             margin: 20px auto;
 
@@ -958,7 +587,59 @@
 
         /*
         |--------------------------------------------------------------------------
-        | PRINT / PDF
+        | MOBILE
+        |--------------------------------------------------------------------------
+        */
+
+        @media (max-width: 768px) {
+
+            .nacp-certificate-wrapper {
+                padding: 10px;
+            }
+
+            .nacp-certificate-name {
+                font-size: 18px;
+            }
+
+            .nacp-certificate-number {
+                font-size: 9px;
+            }
+
+            .nacp-membership-number {
+                font-size: 11px;
+            }
+
+            .nacp-issued-date {
+                font-size: 10px;
+            }
+
+            .nacp-certificate-qr {
+                gap: 6px;
+            }
+
+            .nacp-certificate-qr img {
+                width: 30px;
+
+                height: 30px;
+
+                min-width: 30px;
+
+                min-height: 30px;
+            }
+
+            .nacp-certificate-verify {
+                font-size: 6px;
+            }
+
+            .nacp-certificate-verification-url {
+                font-size: 5px;
+            }
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PRINT
         |--------------------------------------------------------------------------
         */
 
@@ -973,165 +654,358 @@
 
             html,
             body {
-                width: 297mm;
+                width: 297mm !important;
 
-                height: 210mm;
+                height: 210mm !important;
 
-                margin: 0;
+                margin: 0 !important;
 
-                padding: 0;
+                padding: 0 !important;
 
-                background: #fff;
+                background: #fff !important;
             }
 
 
-            .certificate-wrapper {
-                width: 297mm;
+            .nacp-certificate-wrapper {
+                width: 297mm !important;
 
-                height: 210mm;
+                height: 210mm !important;
 
-                padding: 0;
+                padding: 0 !important;
+
+                margin: 0 !important;
             }
 
 
-            .certificate {
-                width: 297mm;
+            .nacp-certificate {
+                position: relative !important;
 
-                height: 210mm;
+                width: 297mm !important;
 
-                max-width: none;
+                height: 210mm !important;
 
-                min-height: auto;
+                max-width: none !important;
 
-                margin: 0;
+                margin: 0 !important;
 
-                border-width: 8mm;
+                padding: 0 !important;
 
-                padding: 3mm;
+                overflow: hidden !important;
             }
 
 
-            .certificate-inner {
-                width: 100%;
+            .nacp-certificate-background {
+                display: block !important;
 
-                height: 190mm;
+                position: absolute !important;
 
-                min-height: 190mm;
+                z-index: 1 !important;
 
-                padding: 8mm 12mm;
+                top: 0 !important;
+
+                left: 0 !important;
+
+                width: 297mm !important;
+
+                height: 210mm !important;
+
+                margin: 0 !important;
+
+                padding: 0 !important;
+
+                border: 0 !important;
             }
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | LOGOS
-            |--------------------------------------------------------------------------
-            */
-
-            .logos {
-                margin-top: 4mm;
-
-                gap: 5mm;
-
-                display: flex;
-
-                align-items: center;
-
-                justify-content: center;
+            .nacp-certificate-field {
+                z-index: 10 !important;
             }
 
 
-            .nacpdean-logo {
-                width: 58mm;
-
-                height: auto;
-            }
-
-
-            .rcg-logo {
-                width: 18mm;
-
-                height: 18mm;
+            .nacp-certificate-qr {
+                z-index: 20 !important;
             }
 
 
             /*
             |--------------------------------------------------------------------------
-            | BOTTOM SECTION
+            | PRINT FIELD SIZES
             |--------------------------------------------------------------------------
             */
 
-            .bottom-section {
-                left: 12mm;
-
-                right: 12mm;
-
-                bottom: 8mm;
-
-                width: calc(100% - 24mm);
-
-                display: table;
-
-                table-layout: fixed;
+            .nacp-certificate-name {
+                font-size: 27px !important;
             }
 
 
-            .bottom-item {
-                display: table-cell;
-
-                vertical-align: bottom;
-
-                text-align: center;
+            .nacp-certificate-number {
+                font-size: 12px !important;
             }
 
 
-            .signature {
-                width: 220px;
-
-                margin: 0 auto;
+            .nacp-membership-number {
+                font-size: 16px !important;
             }
 
 
-            .seal {
-                width: 120px;
-
-                margin: 0 auto;
+            .nacp-issued-date {
+                font-size: 15px !important;
             }
 
 
-            .seal img {
-                width: 100px;
+            /*
+            |--------------------------------------------------------------------------
+            | QR
+            |--------------------------------------------------------------------------
+            */
 
-                height: 100px;
+            .nacp-certificate-qr img {
+                width: 15mm !important;
 
-                display: block;
+                height: 15mm !important;
 
-                margin: 0 auto;
+                min-width: 15mm !important;
+
+                min-height: 15mm !important;
             }
 
 
-            .qr-section {
-                width: 150px;
-
-                margin: 0 auto;
+            .nacp-certificate-verify {
+                font-size: 7px !important;
             }
 
 
-            .qr-section img {
-                width: 120px;
-
-                height: 120px;
-
-                display: block;
-
-                margin: 0 auto;
+            .nacp-certificate-verification-url {
+                font-size: 6px !important;
             }
 
+
+            /*
+            |--------------------------------------------------------------------------
+            | HIDE BUTTONS
+            |--------------------------------------------------------------------------
+            */
 
             .document-actions {
                 display: none !important;
             }
+        }
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | DOMPDF / DOWNLOAD MODE
+        |--------------------------------------------------------------------------
+        |
+        | THIS IS THE IMPORTANT PART.
+        |
+        | When Laravel generates the PDF, we do NOT want normal HTML
+        | flow to determine the page position.
+        |
+        | Everything is locked to one A4 landscape page.
+        |
+        */
+
+        @page {
+            size: A4 landscape;
+
+            margin: 0;
+        }
+
+
+        html.pdf-document,
+        body.pdf-document {
+            width: 297mm !important;
+
+            height: 210mm !important;
+
+            min-width: 297mm !important;
+
+            min-height: 210mm !important;
+
+            max-width: 297mm !important;
+
+            max-height: 210mm !important;
+
+            margin: 0 !important;
+
+            padding: 0 !important;
+
+            background: #ffffff !important;
+
+            overflow: hidden !important;
+        }
+
+
+        body.pdf-document {
+            position: relative !important;
+        }
+
+
+        body.pdf-document .nacp-certificate-wrapper {
+            position: relative !important;
+
+            width: 297mm !important;
+
+            height: 210mm !important;
+
+            min-width: 297mm !important;
+
+            min-height: 210mm !important;
+
+            max-width: 297mm !important;
+
+            max-height: 210mm !important;
+
+            margin: 0 !important;
+
+            padding: 0 !important;
+
+            overflow: hidden !important;
+
+            page-break-before: avoid !important;
+
+            page-break-after: avoid !important;
+
+            page-break-inside: avoid !important;
+        }
+
+
+        body.pdf-document .nacp-certificate {
+            position: relative !important;
+
+            width: 297mm !important;
+
+            height: 210mm !important;
+
+            min-width: 297mm !important;
+
+            min-height: 210mm !important;
+
+            max-width: 297mm !important;
+
+            max-height: 210mm !important;
+
+            margin: 0 !important;
+
+            padding: 0 !important;
+
+            overflow: hidden !important;
+
+            page-break-before: avoid !important;
+
+            page-break-after: avoid !important;
+
+            page-break-inside: avoid !important;
+
+            background: #ffffff !important;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PDF BACKGROUND
+        |--------------------------------------------------------------------------
+        |
+        | The JPG is absolutely positioned so it cannot create a
+        | second page by participating in normal document flow.
+        |
+        */
+
+        body.pdf-document .nacp-certificate-background {
+            position: absolute !important;
+
+            z-index: 1 !important;
+
+            top: 0 !important;
+
+            left: 0 !important;
+
+            display: block !important;
+
+            width: 297mm !important;
+
+            height: 210mm !important;
+
+            min-width: 297mm !important;
+
+            min-height: 210mm !important;
+
+            max-width: 297mm !important;
+
+            max-height: 210mm !important;
+
+            margin: 0 !important;
+
+            padding: 0 !important;
+
+            border: 0 !important;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PDF DYNAMIC FIELDS
+        |--------------------------------------------------------------------------
+        */
+
+        body.pdf-document .nacp-certificate-field {
+            position: absolute !important;
+        }
+
+
+        body.pdf-document .nacp-certificate-name {
+            z-index: 10 !important;
+        }
+
+
+        body.pdf-document .nacp-certificate-number {
+            z-index: 10 !important;
+        }
+
+
+        body.pdf-document .nacp-membership-number {
+            z-index: 10 !important;
+        }
+
+
+        body.pdf-document .nacp-issued-date {
+            z-index: 10 !important;
+        }
+
+
+        body.pdf-document .nacp-certificate-qr {
+            position: absolute !important;
+
+            z-index: 20 !important;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PDF ACTION BUTTONS
+        |--------------------------------------------------------------------------
+        */
+
+        body.pdf-document .document-actions {
+            display: none !important;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PDF PAGE BREAK PROTECTION
+        |--------------------------------------------------------------------------
+        */
+
+        body.pdf-document .nacp-certificate-wrapper,
+        body.pdf-document .nacp-certificate,
+        body.pdf-document .nacp-certificate-background {
+            page-break-before: avoid !important;
+
+            page-break-after: avoid !important;
+
+            page-break-inside: avoid !important;
         }
 
     </style>
@@ -1139,23 +1013,43 @@
 </head>
 
 
-<body>
+<body class="{{ $isPdfMode ? 'pdf-document' : '' }}">
 
 
-<div class="certificate-wrapper">
+    <div class="nacp-certificate-wrapper">
 
 
-    <div class="certificate">
+        {{-- ==========================================================
+             CERTIFICATE
+        =========================================================== --}}
+
+        <div class="nacp-certificate">
 
 
-        <div class="certificate-inner">
+            {{-- ======================================================
+                 CLIENT'S STATIC CERTIFICATE ARTWORK
+            ======================================================= --}}
+
+            @if ($isPdfMode && !empty($certificateBackground))
+
+                <img src="{{ $certificateBackground }}"
+                    class="nacp-certificate-background"
+                    alt="NACPDEAN Certificate">
+
+            @else
+
+                <img src="{{ asset('images/certificates/regular-exporter-template.jpg') }}"
+                    class="nacp-certificate-background"
+                    alt="NACPDEAN Certificate">
+
+            @endif
 
 
-            {{-- ==========================================================
-                 CERTIFICATE NUMBER
-            =========================================================== --}}
+            {{-- ======================================================
+                 DYNAMIC CERTIFICATE NUMBER
+            ======================================================= --}}
 
-            <div class="certificate-number">
+            <div class="nacp-certificate-field nacp-certificate-number">
 
                 Cert No:
                 {{ $certificateNumber }}
@@ -1163,96 +1057,22 @@
             </div>
 
 
-            {{-- ==========================================================
-                 NACPDEAN + RCG LOGOS
-            =========================================================== --}}
+            {{-- ======================================================
+                 DYNAMIC MEMBER / COMPANY NAME
+            ======================================================= --}}
 
-            <div class="logos">
+            <div class="nacp-certificate-field nacp-certificate-name">
 
-                {{-- NACPDEAN LOGO --}}
-
-                <img
-                    src="{{ asset('images/logo.png') }}"
-                    alt="NACPDEAN"
-                    class="nacpdean-logo"
-                >
-
-
-                {{-- RCG LOGO ONLY FOR RCG MEMBERS --}}
-
-                @if($isRcg)
-
-                    <img
-                        src="{{ asset('images/rcc.jpeg') }}"
-                        alt="RCG"
-                        class="rcg-logo"
-                    >
-
-                @endif
+                {{ $companyName }}
 
             </div>
 
 
-            {{-- ==========================================================
-                 TITLE
-            =========================================================== --}}
+            {{-- ======================================================
+                 DYNAMIC MEMBERSHIP NUMBER
+            ======================================================= --}}
 
-            <div class="title">
-
-                Certificate of Membership
-
-            </div>
-
-
-            {{-- ==========================================================
-                 SUBTITLE
-            =========================================================== --}}
-
-            <div class="subtitle">
-
-                This is to certify that
-
-            </div>
-
-
-            {{-- ==========================================================
-                 MEMBER / COMPANY NAME
-            =========================================================== --}}
-
-            <div class="member-name">
-
-                {{ strtoupper($companyName) }}
-
-            </div>
-
-
-            {{-- ==========================================================
-                 REGISTERED TEXT
-            =========================================================== --}}
-
-            <div class="registered-text">
-
-                {{ $registeredText }}
-
-            </div>
-
-
-            {{-- ==========================================================
-                 ASSOCIATION
-            =========================================================== --}}
-
-            <div class="association">
-
-                {{ strtoupper($associationName) }}
-
-            </div>
-
-
-            {{-- ==========================================================
-                 MEMBERSHIP NUMBER
-            =========================================================== --}}
-
-            <div class="membership-number">
+            <div class="nacp-certificate-field nacp-membership-number">
 
                 MEMBERSHIP NO.:
                 {{ $membershipNumber ?: '—' }}
@@ -1260,11 +1080,11 @@
             </div>
 
 
-            {{-- ==========================================================
-                 ISSUE DATE
-            =========================================================== --}}
+            {{-- ======================================================
+                 DYNAMIC ISSUE DATE
+            ======================================================= --}}
 
-            <div class="dated">
+            <div class="nacp-certificate-field nacp-issued-date">
 
                 Dated this:
                 {{ $issuedDateFormatted ?: '—' }}
@@ -1272,122 +1092,40 @@
             </div>
 
 
-            {{-- ==========================================================
-                 BOTTOM SECTION
-            =========================================================== --}}
+            {{-- ======================================================
+                 QR CODE
+            ======================================================= --}}
 
-            <div class="bottom-section">
+            @if (!empty($documentQrCode))
 
+                <div class="nacp-certificate-qr">
 
-                {{-- ======================================================
-                     PRESIDENT
-                ======================================================= --}}
+                    <img src="{{ $documentQrCode }}"
+                        alt="Certificate verification QR code">
 
-                <div class="bottom-item">
+                    <div>
 
-                    <div class="signature">
-
-                        <div class="signature-name">
-
-                            {{ $presidentName }}
-
-                        </div>
-
-                        <div class="signature-line">
-
-                            <strong>
-                                {{ $presidentTitle }}
-                            </strong>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-
-                {{-- ======================================================
-                     OFFICIAL SEAL
-                ======================================================= --}}
-
-                <div class="bottom-item">
-
-                    <div class="seal">
-
-                        <img
-                            src="{{ asset('images/seal.jpg') }}"
-                            alt="Official seal"
-                        >
-
-                    </div>
-
-                </div>
-
-
-                {{-- ======================================================
-                     QR CODE
-                ======================================================= --}}
-
-                <div class="bottom-item">
-
-                    <div class="qr-section">
-
-                        @if(!empty($qrCode))
-
-                            <img
-                                src="{{ $qrCode }}"
-                                alt="Certificate verification QR code"
-                            >
-
-                        @endif
-
-
-                        <div class="verify-text">
+                        <div class="nacp-certificate-verify">
 
                             Scan to Verify
 
                         </div>
 
+                        {{--
 
-                        <div class="verify-url">
+                        <div class="nacp-certificate-verification-url">
 
                             {{ $verificationUrl }}
 
                         </div>
 
-                    </div>
-
-                </div>
-
-
-                {{-- ======================================================
-                     SECRETARY-GENERAL
-                ======================================================= --}}
-
-                <div class="bottom-item">
-
-                    <div class="signature">
-
-                        <div class="signature-name">
-
-                            {{ $secretaryGeneralName }}
-
-                        </div>
-
-                        <div class="signature-line">
-
-                            <strong>
-                                {{ $secretaryGeneralTitle }}
-                            </strong>
-
-                        </div>
+                        --}}
 
                     </div>
 
                 </div>
 
-
-            </div>
+            @endif
 
 
         </div>
@@ -1396,36 +1134,30 @@
     </div>
 
 
-</div>
+    {{-- ================================================================
+         ACTION BUTTONS
+    ================================================================= --}}
+
+    @if (!$printMode)
+
+        <div class="document-actions">
+
+            <button type="button" onclick="window.print()">
+
+                🖨 Print Certificate
+
+            </button>
 
 
-{{-- ================================================================
-     ACTION BUTTONS
-================================================================= --}}
+            <a href="{{ route('member.documents.download', $generatedDocument) }}">
 
-@if(!$printMode)
+                ⬇ Download Certificate
 
-    <div class="document-actions">
+            </a>
 
-        <button
-            onclick="window.print()"
-        >
-            🖨 Print Certificate
-        </button>
+        </div>
 
-
-        <a
-            href="{{ route(
-                'member.documents.download',
-                $generatedDocument
-            ) }}"
-        >
-            ⬇ Download Certificate
-        </a>
-
-    </div>
-
-@endif
+    @endif
 
 
 </body>

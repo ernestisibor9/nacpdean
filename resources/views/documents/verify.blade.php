@@ -1,22 +1,11 @@
 <!DOCTYPE html>
-
 <html lang="en">
-
 <head>
-
 <meta charset="UTF-8">
-
-<meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
->
-
-<title>
-    Certificate Verification
-</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Certificate Verification</title>
 
 <style>
-
     * {
         box-sizing: border-box;
     }
@@ -40,6 +29,23 @@
         border-radius: 14px;
         padding: 40px;
         box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+        position: relative;
+    }
+
+    /* TOP ACTIVE STATUS BADGE */
+    .top-status-badge {
+        display: inline-block;
+        background-color: #e6f4ea;
+        color: #10a653;
+        border: 2px solid #10a653;
+        font-size: 14px;
+        font-weight: 900;
+        letter-spacing: 1.5px;
+        padding: 8px 20px;
+        border-radius: 30px;
+        text-transform: uppercase;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(16, 166, 83, 0.15);
     }
 
     .verification-header {
@@ -152,7 +158,6 @@
     }
 
     @media (max-width: 600px) {
-
         body {
             padding: 20px 12px;
         }
@@ -169,24 +174,24 @@
             margin-top: 5px;
             text-align: left;
         }
-
     }
-
 </style>
-```
-
 </head>
 
 <body>
 
 <div class="verification-container">
 
-```
 @if($valid && $generatedDocument)
 
     <div class="verification-card">
 
         <div class="verification-header">
+
+            <!-- BOLD TOP STATUS BADGE -->
+            <div class="top-status-badge">
+                ● STATUS: ACTIVE
+            </div>
 
             <div class="verification-icon">
                 ✓
@@ -203,45 +208,34 @@
         </div>
 
         <div class="document-name">
-
             {{ $generatedDocument->document->name ?? 'Certificate' }}
-
         </div>
 
         <div class="details">
 
             <div class="detail-row">
-
                 <div class="detail-label">
                     Certificate Number
                 </div>
-
                 <div class="detail-value">
                     {{ $generatedDocument->document_number }}
                 </div>
-
             </div>
 
             <div class="detail-row">
-
                 <div class="detail-label">
                     Tracking Code
                 </div>
-
                 <div class="detail-value">
                     {{ $generatedDocument->tracking_code }}
                 </div>
-
             </div>
 
             <div class="detail-row">
-
                 <div class="detail-label">
                     Member / Business
                 </div>
-
                 <div class="detail-value">
-
                     {{ $generatedDocument->user->profile->business_name
                         ?? trim(
                             ($generatedDocument->user->profile->first_name ?? '') .
@@ -251,83 +245,58 @@
                             ($generatedDocument->user->profile->surname ?? '')
                         )
                     }}
-
                 </div>
-
             </div>
 
             <div class="detail-row">
-
                 <div class="detail-label">
                     Membership Number
                 </div>
-
                 <div class="detail-value">
-
                     {{ $generatedDocument->user->membership?->membership_number
                         ?? $generatedDocument->user->profile->membership_number
                         ?? 'N/A'
                     }}
-
                 </div>
-
             </div>
 
             <div class="detail-row">
-
                 <div class="detail-label">
                     Issue Date
                 </div>
-
                 <div class="detail-value">
-
                     {{ $generatedDocument->issued_at
                         ? $generatedDocument->issued_at->format('F jS, Y')
                         : 'N/A'
                     }}
-
                 </div>
-
             </div>
 
             <div class="detail-row">
-
                 <div class="detail-label">
                     Valid Until
                 </div>
-
                 <div class="detail-value">
-
                     {{ $generatedDocument->expires_at
                         ? $generatedDocument->expires_at->format('F jS, Y')
                         : 'N/A'
                     }}
-
                 </div>
-
             </div>
 
             <div class="detail-row">
-
                 <div class="detail-label">
                     Status
                 </div>
-
                 <div class="detail-value valid-status">
-
                     ✓ ACTIVE / VALID
-
                 </div>
-
             </div>
 
         </div>
 
         <div class="footer">
-
-            This certificate was verified using the
-            NACPDEAN document verification system.
-
+            This certificate was verified using the NACPDEAN document verification system.
         </div>
 
     </div>
@@ -353,39 +322,30 @@
             <div class="details">
 
                 <div class="detail-row">
-
                     <div class="detail-label">
                         Certificate Number
                     </div>
-
                     <div class="detail-value">
                         {{ $generatedDocument->document_number }}
                     </div>
-
                 </div>
 
                 <div class="detail-row">
-
                     <div class="detail-label">
                         Tracking Code
                     </div>
-
                     <div class="detail-value">
                         {{ $generatedDocument->tracking_code }}
                     </div>
-
                 </div>
 
                 <div class="detail-row">
-
                     <div class="detail-label">
                         Status
                     </div>
-
                     <div class="detail-value">
                         {{ strtoupper($generatedDocument->status) }}
                     </div>
-
                 </div>
 
             </div>
@@ -393,10 +353,7 @@
         @endif
 
         <div class="footer">
-
-            If you believe this is an error, please contact
-            NACPDEAN for verification.
-
+            If you believe this is an error, please contact NACPDEAN for verification.
         </div>
 
     </div>
@@ -406,5 +363,4 @@
 </div>
 
 </body>
-
 </html>

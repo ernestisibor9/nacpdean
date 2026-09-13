@@ -9,6 +9,7 @@
         $generatedDocument->field_values ?? []
     );
 
+
     /*
     |--------------------------------------------------------------------------
     | LOAD USER
@@ -16,6 +17,7 @@
     */
 
     $documentUser = $generatedDocument->user ?? null;
+
 
     /*
     |--------------------------------------------------------------------------
@@ -26,25 +28,15 @@
     $memberProfile = null;
 
     if ($documentUser) {
+
         $memberProfile = $documentUser->profile ?? null;
     }
+
 
     /*
     |--------------------------------------------------------------------------
     | FULL MEMBER NAME
     |--------------------------------------------------------------------------
-    |
-    | Priority:
-    |
-    | 1. Generated document member_name
-    | 2. MemberProfile full_name
-    | 3. MemberProfile first/middle/last name
-    | 4. User name
-    |
-    | This replaces the old hard-coded:
-    |
-    | UWI TREES ENTERPRISES
-    |
     */
 
     $memberName = trim(
@@ -53,6 +45,13 @@
             ''
         )
     );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | FALLBACK TO PROFILE FULL NAME
+    |--------------------------------------------------------------------------
+    */
 
     if (!$memberName && $memberProfile) {
 
@@ -63,6 +62,7 @@
             )
         );
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -84,6 +84,7 @@
         );
     }
 
+
     /*
     |--------------------------------------------------------------------------
     | FINAL FALLBACK TO USER NAME
@@ -100,6 +101,7 @@
         );
     }
 
+
     /*
     |--------------------------------------------------------------------------
     | REPRESENTATIVE NAME
@@ -113,6 +115,7 @@
             ''
         )
     );
+
 
     /*
     |--------------------------------------------------------------------------
@@ -131,13 +134,11 @@
         );
     }
 
+
     /*
     |--------------------------------------------------------------------------
     | MEMBERSHIP NUMBER
     |--------------------------------------------------------------------------
-    |
-    | Membership ID = Membership Number
-    |
     */
 
     $membershipNumber = $fields->get(
@@ -151,9 +152,10 @@
         )
     );
 
+
     /*
     |--------------------------------------------------------------------------
-    | FALLBACK TO ACTUAL MEMBERSHIP RECORD
+    | FALLBACK TO ACTUAL MEMBERSHIP
     |--------------------------------------------------------------------------
     */
 
@@ -169,6 +171,7 @@
             ->latest('id')
             ->first();
 
+
         if (
             !$membershipNumber &&
             $membership
@@ -179,23 +182,24 @@
         }
     }
 
+
     /*
     |--------------------------------------------------------------------------
     | ISSUED DATE
     |--------------------------------------------------------------------------
-    |
-    | Priority:
-    |
-    | 1. field_values.issued_at
-    | 2. Membership issued_at
-    | 3. GeneratedDocument issued_at
-    |
     */
 
     $issuedDate = $fields->get(
         'issued_at',
         ''
     );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | FALLBACK TO MEMBERSHIP ISSUED DATE
+    |--------------------------------------------------------------------------
+    */
 
     if (
         !$issuedDate &&
@@ -207,6 +211,13 @@
             $membership->issued_at;
     }
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | FALLBACK TO GENERATED DOCUMENT ISSUED DATE
+    |--------------------------------------------------------------------------
+    */
+
     if (
         !$issuedDate &&
         $generatedDocument->issued_at
@@ -216,9 +227,10 @@
             $generatedDocument->issued_at;
     }
 
+
     /*
     |--------------------------------------------------------------------------
-    | FORMAT ISSUED DATE
+    | FORMAT ISSUE DATE
     |--------------------------------------------------------------------------
     */
 
@@ -240,6 +252,7 @@
         }
     }
 
+
     /*
     |--------------------------------------------------------------------------
     | REFERENCE NUMBER
@@ -250,944 +263,1058 @@
         'ref_no',
         $fields->get(
             'reference_number',
-            $generatedDocument->document_number
-                ?? ''
+            $generatedDocument->document_number ?? ''
         )
     );
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | PDF MODE
+    |--------------------------------------------------------------------------
+    */
+
+    $isPdfMode = !empty($downloadMode);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CONFIRMATION LETTER BACKGROUND
+    |--------------------------------------------------------------------------
+    |
+    | This confirmation letter uses ONE static client artwork image.
+    |
+    | File:
+    |
+    | public/images/certificates/exporter-confirmation-letter.jpg
+    |
+    */
+
+    $confirmationBackground = null;
+
+    $confirmationPath = public_path(
+        'images/certificates/exporter-confirmation-letter.jpg'
+    );
+
+    if (file_exists($confirmationPath)) {
+
+        $confirmationBackground =
+            'data:image/jpeg;base64,' .
+            base64_encode(
+                file_get_contents($confirmationPath)
+            );
+    }
+
 @endphp
 
+
 <!DOCTYPE html>
+
 <html lang="en">
 
 <head>
 
     <meta charset="UTF-8">
 
+    <title>
+        Membership Confirmation Letter - NACPDEAN
+    </title>
+
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>
-        Membership Confirmation Letter - NACPDEAN
-    </title>
 
     <style>
 
-        * {
+        /*
+        |--------------------------------------------------------------------------
+        | BASIC RESET
+        |--------------------------------------------------------------------------
+        */
+
+        *,
+        *::before,
+        *::after {
             box-sizing: border-box;
+        }
+
+
+        html,
+        body {
             margin: 0;
+
             padding: 0;
         }
 
+
         body {
-            font-family: Arial, Helvetica, sans-serif;
+            font-family:
+                Arial,
+                Helvetica,
+                sans-serif;
+
             color: #000000;
-            background-color: #f5f5f5;
-            padding: 20px;
-            font-size: 13.5px;
-            line-height: 1.5;
+
+            background: #f5f5f5;
         }
 
-        .page {
+
+        /*
+        |--------------------------------------------------------------------------
+        | DOCUMENT WRAPPER
+        |--------------------------------------------------------------------------
+        */
+
+        .confirmation-document-wrapper {
+
+            width: 100%;
+
+            padding:
+                30px
+                0
+                50px
+                0;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | SINGLE A4 CONFIRMATION LETTER
+        |--------------------------------------------------------------------------
+        */
+
+        .confirmation-page {
+
+            position: relative;
+
             width: 210mm;
-            min-height: 297mm;
+
+            height: 297mm;
+
+            margin:
+                0
+                auto
+                25px
+                auto;
+
+            padding: 0;
+
+            overflow: hidden;
+
             background: #ffffff;
-            margin: 0 auto 20px auto;
-            padding: 12mm 15mm 15mm 15mm;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
         }
 
-        /* Header Layout */
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid #000000;
-            padding-bottom: 8px;
-            margin-bottom: 12px;
-        }
+        /*
+        |--------------------------------------------------------------------------
+        | STATIC CLIENT ARTWORK
+        |--------------------------------------------------------------------------
+        */
 
-        .header-left {
-            width: 45%;
-        }
+        .confirmation-background {
 
-        .logo-text {
-            font-size: 34px;
-            font-weight: 900;
-            color: #3a2318;
-            letter-spacing: -1.5px;
-            line-height: 1;
-            font-family: Arial, sans-serif;
-        }
-
-        .logo-text span {
-            color: #8cc63f;
-        }
-
-        .header-right {
-            width: 53%;
-            text-align: right;
-        }
-
-        .it-number {
-            font-size: 11px;
-            font-weight: bold;
-            color: #000000;
-        }
-
-        .org-title {
-            font-size: 10.5px;
-            font-weight: bold;
-            color: #000000;
-            line-height: 1.2;
-            text-transform: uppercase;
-        }
-
-        /* Two-Column Layout */
-
-        .main-container {
-            display: flex;
-            justify-content: space-between;
-            flex-grow: 1;
-        }
-
-        /* Left Sidebar */
-
-        .sidebar-officers {
-            width: 24%;
-            padding-top: 130px;
-        }
-
-        .officer-block {
-            margin-bottom: 18px;
-            font-size: 10px;
-            line-height: 1.3;
-        }
-
-        .officer-name {
-            font-weight: bold;
-            color: #000000;
-            font-size: 10.5px;
-        }
-
-        .officer-title {
-            color: #333333;
-            font-size: 9.5px;
-        }
-
-        .officer-phone {
-            color: #000000;
-            font-size: 9.5px;
-        }
-
-        /* Main Letter Column */
-
-        .letter-content {
-            width: 74%;
-            padding-left: 10px;
-            position: relative;
-        }
-
-        .doc-meta {
-            margin-bottom: 14px;
-            font-size: 13px;
-            line-height: 1.4;
-            font-weight: normal;
-        }
-
-        .recipient-block {
-            margin-bottom: 16px;
-            font-size: 13px;
-            line-height: 1.4;
-        }
-
-        .company-name {
-            font-weight: bold;
-            color: #000000;
-        }
-
-        .subject {
-            text-align: center;
-            font-size: 14px;
-            font-weight: bold;
-            text-decoration: underline;
-            margin-bottom: 16px;
-            color: #000000;
-            text-transform: uppercase;
-        }
-
-        .body-text p {
-            margin-bottom: 12px;
-            text-align: justify;
-            font-size: 12.5px;
-            line-height: 1.45;
-        }
-
-        /* Bullet lists */
-
-        .details-list,
-        .benefits-list {
-            list-style: none;
-            margin: 8px 0 12px 10px;
-        }
-
-        .details-list li,
-        .benefits-list li {
-            position: relative;
-            padding-left: 16px;
-            margin-bottom: 5px;
-            font-size: 12.5px;
-            line-height: 1.4;
-        }
-
-        .details-list li::before,
-        .benefits-list li::before {
-            content: "•";
             position: absolute;
-            left: 0;
-            font-size: 14px;
-            top: -1px;
-        }
 
-        .highlight-red {
-            color: #c00000;
-            font-weight: bold;
-        }
-
-        /* Red Stamp Box */
-
-        .red-stamp-box {
-            position: absolute;
-            right: 0px;
-            top: 260px;
-            border: 2px solid #c00000;
-            padding: 6px 12px;
-            text-align: center;
-            background: #ffffff;
-            box-shadow: 0 0 0 1px #ffffff;
-        }
-
-        .red-stamp-title {
-            color: #c00000;
-            font-weight: bold;
-            font-size: 16px;
-            letter-spacing: 1px;
-        }
-
-        .red-stamp-sub {
-            color: #c00000;
-            font-size: 9px;
-            font-weight: bold;
-        }
-
-        /* Page 2 Signatures & Stamps */
-
-        .signatures-area {
-            position: relative;
-            margin-top: 30px;
-        }
-
-        .signatures {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin-bottom: 10px;
-            padding: 0 10px;
-        }
-
-        .sig-block {
-            text-align: center;
-            width: 40%;
-            position: relative;
-            z-index: 2;
-        }
-
-        .sig-image {
-            height: 45px;
-            margin-bottom: -10px;
-        }
-
-        .sig-name {
-            font-weight: bold;
-            font-size: 13px;
-        }
-
-        .sig-title {
-            font-weight: bold;
-            font-size: 12px;
-            color: #000000;
-        }
-
-        /* Center Red Wax Seal */
-
-        .wax-seal {
-            position: absolute;
-            left: 50%;
-            top: -15px;
-            transform: translateX(-50%);
-            width: 70px;
-            height: 70px;
-            background: radial-gradient(
-                circle,
-                #aa0000 0%,
-                #770000 100%
-            );
-            border-radius: 50%;
-            box-shadow: 2px 3px 6px rgba(0,0,0,0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
             z-index: 1;
+
+            top: 0;
+
+            left: 0;
+
+            display: block;
+
+            width: 210mm;
+
+            height: 297mm;
+
+            min-width: 210mm;
+
+            min-height: 297mm;
+
+            max-width: 210mm;
+
+            max-height: 297mm;
+
+            margin: 0;
+
+            padding: 0;
+
+            border: 0;
+
+            object-fit: fill;
         }
 
-        .wax-seal-inner {
-            width: 54px;
-            height: 54px;
-            border: 1px dashed #ff9999;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #ffcccc;
-            font-size: 7px;
-            font-weight: bold;
-            text-align: center;
-            text-shadow: 1px 1px 1px #000;
-        }
 
-        .center-title-sub {
-            text-align: center;
-            font-weight: bold;
-            font-size: 11px;
-            margin-top: 5px;
-        }
+        /*
+        |--------------------------------------------------------------------------
+        | DYNAMIC FIELDS
+        |--------------------------------------------------------------------------
+        |
+        | Coordinates and fonts below were measured directly from the
+        | reference letter PDF's embedded text (real vector text, word
+        | -level bounding boxes extracted via pdftotext -bbox). Percentages
+        | are relative to the confirmation-page (210mm x 297mm), so they
+        | scale correctly at any render size.
+        |
+        | Reference letter body copy uses "Bookman Old Style" throughout
+        | (regular for values, bold for labels/headings, bold red for
+        | the membership number). If that font isn't installed on your
+        | PDF renderer (dompdf, wkhtmltopdf, etc.), install it or swap
+        | in the closest match — Georgia is the nearest common fallback.
+        |
+        | Every field below carries white-space: nowrap + ellipsis so a
+        | long value truncates cleanly instead of wrapping onto a second
+        | line and overlapping whatever sits below it on the artwork.
+        |--------------------------------------------------------------------------
+        */
 
-        .for-organization {
-            text-align: center;
-            font-weight: bold;
-            font-size: 12px;
-            margin-top: 8px;
-        }
+        .confirmation-field {
 
-        /* Footer */
+            position: absolute;
 
-        .footer {
-            margin-top: auto;
-            padding-top: 6px;
-            border-top: 1.5px solid #000000;
-            font-size: 8px;
-            text-align: center;
-            line-height: 1.3;
+            z-index: 10;
+
             color: #000000;
+
+            font-family:
+                "Bookman Old Style",
+                "URW Bookman",
+                Georgia,
+                serif;
+
+            line-height: 1.2;
+
+            white-space: nowrap;
+
+            overflow: hidden;
+
+            text-overflow: ellipsis;
         }
 
-        .motto {
-            font-style: italic;
+
+        /*
+        |--------------------------------------------------------------------------
+        | ADDRESSEE COMPANY NAME
+        |--------------------------------------------------------------------------
+        |
+        | The line right under "The Managing Director" at the top of the
+        | letter. Measured value box: left 12.9%–41.0%, top 22.9%–24.7%
+        | (regular weight, black)
+        |
+        */
+
+        .confirmation-addressee-name {
+
+            top: 22.6%;
+
+            left: 12.9%;
+
+            width: 40%;
+
+            font-size: 17px;
+
+            font-weight: normal;
+
+            text-transform: uppercase;
+
+            text-align: left;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | DATE
+        |--------------------------------------------------------------------------
+        |
+        | Measured value box: left 19.2%–35.5%, top 16.0%–17.7%
+        | (regular weight, black — the "Date:" label itself is static
+        | artwork, so this only needs to hold e.g. "25th June 2026")
+        |
+        */
+
+        .confirmation-date {
+
+            top: 15.9%;
+
+            left: 19.2%;
+
+            width: 30%;
+
+            font-size: 17px;
+
+            font-weight: normal;
+
+            text-align: left;
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | REFERENCE NUMBER
+        |--------------------------------------------------------------------------
+        |
+        | Measured value box: left 17.9%–52.2%, top 17.7%–19.5%
+        | (bold weight, black — "Ref:" label is static artwork).
+        |
+        | NOTE: on a previous version of this letter, this field was
+        | rendering a long auto-generated value that wrapped onto two
+        | lines and overlapped "The Managing Director" line below it.
+        | If your $refNo can be long, keep an eye on this — the
+        | nowrap+ellipsis above will now truncate it instead of
+        | overlapping, but a truncated reference number may not be
+        | what you want either. If reference numbers are meant to be
+        | short/fixed-format, this is fine as-is.
+        |
+        */
+
+        .confirmation-reference {
+
+            top: 17.3%;
+
+            left: 17.9%;
+
+            width: 45%;
+
+            font-size: 17px;
+
             font-weight: bold;
-            margin-bottom: 2px;
-            font-size: 8.5px;
+
+            text-align: left;
         }
 
-        .address,
-        .contact-info {
-            margin-bottom: 2px;
+
+        /*
+        |--------------------------------------------------------------------------
+        | MEMBER / COMPANY NAME (WELCOME PARAGRAPH)
+        |--------------------------------------------------------------------------
+        |
+        | The name inserted into "...we are delighted to welcome
+        | ______ as a valued member...". Measured against the
+        | reference PDF, it sits on its own line at top 41.5%–43.2%
+        | (regular weight, black).
+        |
+        | NOTE: a live screenshot of this letter previously showed
+        | this landing on the SAME line as "as a valued member..."
+        | rather than its own line above it — meaning the deployed
+        | background image has tighter line spacing here than the
+        | reference PDF this coordinate was measured from. Nudged up
+        | slightly (was 41.1%) as a starting correction; adjust in
+        | small steps against your actual artwork if it's still off.
+        |
+        */
+
+        .confirmation-welcome-name {
+
+            top: 42.0%;
+
+            left: 12.1%;
+
+            width: 40%;
+
+            font-size: 17px;
+
+            font-weight: normal;
+
+            text-transform: uppercase;
+
+            text-align: left;
         }
 
-        .inaugurators {
-            font-weight: bold;
+
+        /*
+        |--------------------------------------------------------------------------
+        | MEMBER / COMPANY NAME (BULLET LIST)
+        |--------------------------------------------------------------------------
+        |
+        | Measured value box: left 41.2%–69.3%, top 60.7%–62.5%
+        | (regular weight, NOT bold, black)
+        |
+        */
+
+        .confirmation-member-name {
+
+            top: 61.1%;
+
+            left: 41.2%;
+
+            width: 40%;
+
+            font-size: 17px;
+
+            font-weight: normal;
+
+            text-transform: uppercase;
+
+            text-align: left;
         }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | REPRESENTATIVE NAME
+        |--------------------------------------------------------------------------
+        |
+        | Measured value box: left 51.6%–76.0%, top 62.6%–64.3%
+        | (regular weight, black)
+        |
+        */
+
+        .confirmation-representative {
+
+            top: 62.2%;
+
+            left: 51.6%;
+
+            width: 40%;
+
+            font-size: 17px;
+
+            font-weight: normal;
+
+            text-align: left;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | MEMBERSHIP NUMBER
+        |--------------------------------------------------------------------------
+        |
+        | Measured value box: left 43.6%–64.0%, top 64.6%–66.3%
+        | (bold weight, pure red #FF0000 — not #C00000)
+        |
+        */
+
+        .confirmation-membership-number {
+
+            top: 65.0%;
+
+            left: 43.6%;
+
+            width: 35%;
+
+            font-size: 17px;
+
+            font-weight: bolder;
+
+            color: #FF0000;
+
+            text-align: left;
+
+            font-family: 'tahoma'
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | ACTION BUTTONS
+        |--------------------------------------------------------------------------
+        */
+
+        .document-actions {
+
+            width: 100%;
+
+            margin:
+                20px
+                auto;
+
+            text-align: center;
+        }
+
+
+        .document-actions a,
+        .document-actions button {
+
+            display: inline-block;
+
+            padding:
+                10px
+                18px;
+
+            margin:
+                0
+                5px;
+
+            border: none;
+
+            border-radius: 5px;
+
+            background: #10a653;
+
+            color: #ffffff;
+
+            text-decoration: none;
+
+            cursor: pointer;
+
+            font-size: 14px;
+
+            font-family:
+                Arial,
+                Helvetica,
+                sans-serif;
+        }
+
+
+        .document-actions a:hover,
+        .document-actions button:hover {
+
+            opacity: .9;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | MOBILE
+        |--------------------------------------------------------------------------
+        */
+
+        @media (max-width: 768px) {
+
+            .confirmation-document-wrapper {
+
+                padding: 10px;
+            }
+
+
+            .confirmation-page {
+
+                width: 100%;
+
+                height: auto;
+
+                aspect-ratio: 210 / 297;
+
+                margin-bottom: 15px;
+            }
+
+
+            .confirmation-background {
+
+                width: 100%;
+
+                height: 100%;
+
+                min-width: 100%;
+
+                min-height: 100%;
+
+                max-width: 100%;
+
+                max-height: 100%;
+            }
+
+
+            .confirmation-date,
+            .confirmation-reference {
+
+                font-size: 11px;
+            }
+
+
+            .confirmation-addressee-name,
+            .confirmation-welcome-name,
+            .confirmation-member-name {
+
+                font-size: 11px;
+            }
+
+
+            .confirmation-representative {
+
+                font-size: 11px;
+            }
+
+
+            .confirmation-membership-number {
+
+                font-size: 10px;
+            }
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PRINT
+        |--------------------------------------------------------------------------
+        */
 
         @media print {
 
-            body {
-                background-color: #ffffff;
-                padding: 0;
-            }
+            @page {
 
-            .page {
-                box-shadow: none;
+                size: A4 portrait;
+
                 margin: 0;
-                width: 100%;
-                height: 100vh;
-                page-break-after: always;
             }
 
+
+            html,
+            body {
+
+                width: 210mm !important;
+
+                height: 297mm !important;
+
+                margin: 0 !important;
+
+                padding: 0 !important;
+
+                background: #ffffff !important;
+            }
+
+
+            .confirmation-document-wrapper {
+
+                width: 210mm !important;
+
+                height: 297mm !important;
+
+                margin: 0 !important;
+
+                padding: 0 !important;
+            }
+
+
+            .confirmation-page {
+
+                position: relative !important;
+
+                width: 210mm !important;
+
+                height: 297mm !important;
+
+                margin: 0 !important;
+
+                padding: 0 !important;
+
+                overflow: hidden !important;
+
+                page-break-before: avoid !important;
+
+                page-break-inside: avoid !important;
+
+                page-break-after: avoid !important;
+            }
+
+
+            .confirmation-background {
+
+                position: absolute !important;
+
+                top: 0 !important;
+
+                left: 0 !important;
+
+                width: 210mm !important;
+
+                height: 297mm !important;
+
+                min-width: 210mm !important;
+
+                min-height: 297mm !important;
+
+                max-width: 210mm !important;
+
+                max-height: 297mm !important;
+            }
+
+
+            .document-actions {
+
+                display: none !important;
+            }
         }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | DOMPDF PDF MODE
+        |--------------------------------------------------------------------------
+        |
+        | ONE A4 PORTRAIT PAGE ONLY.
+        |
+        */
+
+        @page {
+
+            size: A4 portrait;
+
+            margin: 0;
+        }
+
+
+        html.pdf-document,
+        body.pdf-document {
+
+            width: 210mm !important;
+
+            height: 297mm !important;
+
+            min-width: 210mm !important;
+
+            max-width: 210mm !important;
+
+            margin: 0 !important;
+
+            padding: 0 !important;
+
+            background: #ffffff !important;
+        }
+
+
+        body.pdf-document {
+
+            overflow: hidden !important;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PDF DOCUMENT WRAPPER
+        |--------------------------------------------------------------------------
+        */
+
+        body.pdf-document
+        .confirmation-document-wrapper {
+
+            width: 210mm !important;
+
+            height: 297mm !important;
+
+            margin: 0 !important;
+
+            padding: 0 !important;
+
+            overflow: hidden !important;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PDF SINGLE PAGE
+        |--------------------------------------------------------------------------
+        */
+
+        body.pdf-document
+        .confirmation-page {
+
+            position: relative !important;
+
+            width: 210mm !important;
+
+            height: 297mm !important;
+
+            min-width: 210mm !important;
+
+            min-height: 297mm !important;
+
+            max-width: 210mm !important;
+
+            max-height: 297mm !important;
+
+            margin: 0 !important;
+
+            padding: 0 !important;
+
+            overflow: hidden !important;
+
+            background: #ffffff !important;
+
+            page-break-before: avoid !important;
+
+            page-break-inside: avoid !important;
+
+            page-break-after: avoid !important;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PDF BACKGROUND
+        |--------------------------------------------------------------------------
+        */
+
+        body.pdf-document
+        .confirmation-background {
+
+            position: absolute !important;
+
+            z-index: 1 !important;
+
+            top: 0 !important;
+
+            left: 0 !important;
+
+            display: block !important;
+
+            width: 210mm !important;
+
+            height: 297mm !important;
+
+            min-width: 210mm !important;
+
+            min-height: 297mm !important;
+
+            max-width: 210mm !important;
+
+            max-height: 297mm !important;
+
+            margin: 0 !important;
+
+            padding: 0 !important;
+
+            border: 0 !important;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PDF DYNAMIC FIELDS
+        |--------------------------------------------------------------------------
+        */
+
+        body.pdf-document
+        .confirmation-field {
+
+            position: absolute !important;
+
+            z-index: 10 !important;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | HIDE BUTTONS IN PDF
+        |--------------------------------------------------------------------------
+        */
+
+        body.pdf-document
+        .document-actions {
+
+            display: none !important;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | FINAL PAGE PROTECTION
+        |--------------------------------------------------------------------------
+        */
+
+        body.pdf-document
+        .confirmation-document-wrapper,
+        body.pdf-document
+        .confirmation-page,
+        body.pdf-document
+        .confirmation-background {
+
+            page-break-before: avoid !important;
+
+            page-break-inside: avoid !important;
+
+            page-break-after: avoid !important;
+        }
+
 
     </style>
 
 </head>
 
-<body>
 
-    <!-- PAGE 1 -->
+<body class="{{ $isPdfMode ? 'pdf-document' : '' }}">
 
-    <div class="page">
 
-        <div>
+    {{-- ================================================================
+         DOCUMENT WRAPPER
+    ================================================================= --}}
 
-            <!-- Header Banner -->
+    <div class="confirmation-document-wrapper">
 
-            <div class="header">
 
-                <div class="header-left">
+        {{-- ==========================================================
+             SINGLE CONFIRMATION LETTER
+        =========================================================== --}}
 
-                    <div class="logo-text">
-                        nacpde<span>an</span>
-                    </div>
+        <div class="confirmation-page">
 
-                </div>
 
-                <div class="header-right">
+            {{-- ======================================================
+                 STATIC CLIENT ARTWORK
+            ======================================================= --}}
 
-                    <div class="it-number">
-                        IT:182068
-                    </div>
+            @if ($isPdfMode && !empty($confirmationBackground))
 
-                    <div class="org-title">
+                <img
+                    src="{{ $confirmationBackground }}"
+                    class="confirmation-background"
+                    alt="NACPDEAN Confirmation Letter"
+                >
 
-                        NATIONAL ASSOCIATION OF CHARCOAL<br>
+            @else
 
-                        PRODUCERS, DEALERS, EXPORTERS AND<br>
+                <img
+                    src="{{ asset('images/certificates/exporter-confirmation-letter.jpg') }}"
+                    class="confirmation-background"
+                    alt="NACPDEAN Confirmation Letter"
+                >
 
-                        AFFORESTATION OF NIGERIA
+            @endif
 
-                    </div>
 
-                </div>
+            {{-- ======================================================
+                 DYNAMIC DATE
+            ======================================================= --}}
 
-            </div>
+            @if ($issuedDateFormatted)
 
-            <!-- Two Column Content Layout -->
+                <div class="confirmation-field confirmation-date">
 
-            <div class="main-container">
-
-                <!-- Left Sidebar: Executive Officers -->
-
-                <div class="sidebar-officers">
-
-                    <div class="officer-block">
-
-                        <div class="officer-name">
-                            Edu Babatunde
-                        </div>
-
-                        <div class="officer-title">
-                            National President
-                        </div>
-
-                        <div class="officer-phone">
-                            +2348023972044
-                        </div>
-
-                    </div>
-
-                    <div class="officer-block">
-
-                        <div class="officer-name">
-                            Ali Bukar Jallaba
-                        </div>
-
-                        <div class="officer-title">
-                            National Dep. President
-                        </div>
-
-                        <div class="officer-phone">
-                            +2347069728541
-                        </div>
-
-                    </div>
-
-                    <div class="officer-block">
-
-                        <div class="officer-name">
-                            Ojei Joseph Uche
-                        </div>
-
-                        <div class="officer-title">
-                            National Asst. Sec. General
-                        </div>
-
-                        <div class="officer-phone">
-                            +2348036670360
-                        </div>
-
-                    </div>
-
-                    <div class="officer-block">
-
-                        <div class="officer-name">
-                            Abubakar A. Bako
-                        </div>
-
-                        <div class="officer-title">
-                            National Treasurer
-                        </div>
-
-                        <div class="officer-phone">
-                            +2348062832928
-                        </div>
-
-                    </div>
-
-                    <div class="officer-block">
-
-                        <div class="officer-name">
-                            Dada Daniel
-                        </div>
-
-                        <div class="officer-title">
-                            National Fin. Secretary
-                        </div>
-
-                        <div class="officer-phone">
-                            +2349071723949
-                        </div>
-
-                    </div>
+                    {{ $issuedDateFormatted }}
 
                 </div>
 
-                <!-- Right Column: Page 1 Content -->
+            @endif
 
-                <div class="letter-content">
 
-                    <!-- Date & Ref -->
+            {{-- ======================================================
+                 DYNAMIC REFERENCE NUMBER
+            ======================================================= --}}
 
-                    <div class="doc-meta">
+            {{--  @if ($refNo)
 
-                        <div>
-                            Date:
-                            {{ $issuedDateFormatted ?: '—' }}
-                        </div>
+                <div class="confirmation-field confirmation-reference">
 
-                        <div>
-                            Ref:
-                            {{ $refNo ?: '—' }}
-                        </div>
-
-                    </div>
-
-                    <!-- Recipient -->
-
-                    <div class="recipient-block">
-
-                        <div>
-                            The Managing Director
-                        </div>
-
-                        <div class="company-name">
-
-                            {{ $memberName ?: '—' }}
-
-                        </div>
-
-                        <div>
-
-                            Attn:
-                            {{ $representativeName ?: '—' }}
-
-                        </div>
-
-                    </div>
-
-                    <!-- Subject -->
-
-                    <div class="subject">
-
-                        MEMBERSHIP CONFIRMATION LETTER
-
-                    </div>
-
-                    <!-- Body Content -->
-
-                    <div class="body-text">
-
-                        <p>
-
-                            On behalf of the National Charcoal Producers,
-                            Dealers &amp; Exporters Association of Nigeria
-                            (NACPDEAN), we are pleased to formally confirm
-                            your organization's membership in our Association
-                            for the year 2026.
-
-                        </p>
-
-                        <p>
-
-                            Following the payment of your membership fee,
-                            we are delighted to welcome
-
-                            <strong>
-                                {{ $memberName ?: '—' }}
-                            </strong>
-
-                            as a valued member of the National Charcoal
-                            Producers, Dealers, Exporters, and Afforestation
-                            Association of Nigeria (NACPDEAN).
-
-                        </p>
-
-                        <p>
-
-                            Your membership affirms your commitment to
-                            fostering sustainable practices, ensuring
-                            compliance with government regulations,
-                            supporting NACPDEAN's vision, and contributing
-                            to the collective growth and development of
-                            Nigeria's charcoal industry.
-
-                        </p>
-
-                        <p>
-
-                            Please find below your official membership
-                            details:
-
-                        </p>
-
-                        <ul class="details-list">
-
-                            <li>
-
-                                Membership Name:
-
-                                <strong>
-                                    {{ $memberName ?: '—' }}
-                                </strong>
-
-                            </li>
-
-                            <li>
-
-                                Membership Representative:
-
-                                <strong>
-                                    {{ $representativeName ?: '—' }}
-                                </strong>
-
-                            </li>
-
-                            <li>
-
-                                Membership Number:
-
-                                <strong class="highlight-red">
-                                    {{ $membershipNumber ?: '—' }}
-                                </strong>
-
-                            </li>
-
-                        </ul>
-
-                        <!-- Red Stamp Box -->
-
-                        <div class="red-stamp-box">
-
-                            <div class="red-stamp-title">
-                                NACPDEAN
-                            </div>
-
-                            <div class="red-stamp-sub">
-                                IT:182068
-                            </div>
-
-                        </div>
-
-                        <p>
-
-                            As a member, you are entitled to:
-
-                        </p>
-
-                        <ul class="benefits-list">
-
-                            <li>
-
-                                Access to NACPDEAN support and
-                                representation in dealings with government
-                                agencies and international partners.
-
-                            </li>
-
-                            <li>
-
-                                Participation in stakeholder meetings,
-                                trainings, and trade forums organized
-                                by NACPDEAN.
-
-                            </li>
-
-                            <li>
-
-                                Ensuring compliance with NACPDEAN's policies
-                                and government regulations governing charcoal
-                                production and the entire export value chain.
-
-                            </li>
-
-                            <li>
-
-                                Collaboration and networking with other
-                                industry players for sustainable growth.
-
-                            </li>
-
-                        </ul>
-
-                    </div>
+                    {{ $refNo }}
 
                 </div>
 
-            </div>
+            @endif  --}}
+
+
+            {{-- ======================================================
+                 DYNAMIC ADDRESSEE NAME
+                 (the line under "The Managing Director")
+            ======================================================= --}}
+
+            {{--  @if ($memberName)
+
+                <div class="confirmation-field confirmation-addressee-name">
+
+                    {{ $memberName }}
+
+                </div>
+
+            @endif  --}}
+
+
+            {{-- ======================================================
+                 DYNAMIC MEMBER / COMPANY NAME
+                 (the "...delighted to welcome ______ as a valued
+                 member..." paragraph)
+            ======================================================= --}}
+
+            @if ($memberName)
+
+                <div class="confirmation-field confirmation-welcome-name">
+
+                    {{ $memberName }}
+
+                </div>
+
+            @endif
+
+
+            {{-- ======================================================
+                 DYNAMIC MEMBER / COMPANY NAME (BULLET LIST)
+            ======================================================= --}}
+
+            @if ($memberName)
+
+                <div class="confirmation-field confirmation-member-name">
+
+                    {{ $memberName }}
+
+                </div>
+
+            @endif
+
+
+            {{-- ======================================================
+                 DYNAMIC REPRESENTATIVE NAME
+            ======================================================= --}}
+
+            @if ($representativeName)
+
+                <div class="confirmation-field confirmation-representative">
+
+                    {{ $representativeName }}
+
+                </div>
+
+            @endif
+
+
+            {{-- ======================================================
+                 DYNAMIC MEMBERSHIP NUMBER
+            ======================================================= --}}
+
+            @if ($membershipNumber)
+
+                <div class="confirmation-field confirmation-membership-number">
+
+                    {{ $membershipNumber }}
+
+                </div>
+
+            @endif
+
 
         </div>
 
-        <!-- Footer -->
-
-        <div class="footer">
-
-            <div class="motto">
-
-                ...Strive for Biomass Energy, Ecological Afforestation,
-                Nation Builder, Transparency &amp; Traceability
-
-            </div>
-
-            <div class="address">
-
-                Block D Complex, Federal Ministry of Industry,
-                Trade &amp; Investment, Old Secretariat, Area 1,
-                Garki, Abuja, FCT.
-
-            </div>
-
-            <div class="contact-info">
-
-                Tel: +234 814 567 2358,
-                +234 803 667 0360,
-                +234 905 301 8515
-
-                &nbsp;|&nbsp;
-
-                Email: nacpdean55@gmail.com
-
-                &nbsp;|&nbsp;
-
-                W: www.nacpdean.com
-
-            </div>
-
-            <div class="inaugurators">
-
-                Our inaugurators:
-                Federation of Agricultural Commodity Associations
-                of Nigeria FACAN
-                |
-                Federal Ministry of Industry Trade and Investment - FMITI
-
-            </div>
-
-        </div>
 
     </div>
 
 
-    <!-- PAGE 2 -->
+    {{-- ================================================================
+         ACTION BUTTONS
+    ================================================================= --}}
 
-    <div class="page">
+    @if (!$printMode)
 
-        <div>
+        <div class="document-actions">
 
-            <!-- Page 2 Content Header -->
 
-            <div
-                class="body-text"
-                style="padding-top: 20px;"
+            <button
+                type="button"
+                onclick="window.print()"
             >
 
-                <p>
+                🖨 Print Confirmation Letter
 
-                    We encourage you to actively participate in our
-                    programs and contribute to our mission of building
-                    a transparent, well-regulated, and globally
-                    competitive charcoal sector.
+            </button>
 
-                </p>
 
-                <p>
+            <a
+                href="{{ route(
+                    'member.documents.download',
+                    $generatedDocument
+                ) }}"
+            >
 
-                    Once again, we congratulate you on your successful
-                    registration and look forward to working closely
-                    with you.
+                ⬇ Download Confirmation Letter
 
-                </p>
+            </a>
 
-                <p>
-
-                    We remain grateful for your attention to this matter
-                    and respectfully extend our highest regards and best
-                    wishes from the National Association of Charcoal
-                    Producers, Dealers, Exporters, and Afforestation
-                    of Nigeria (NACPDEAN)
-
-                </p>
-
-                <!-- Signatures Section -->
-
-                <div class="signatures-area">
-
-                    <!-- Wax Seal -->
-
-                    <div class="wax-seal">
-
-                        <div class="wax-seal-inner">
-
-                            NACPDEAN<br>
-                            SEAL
-
-                        </div>
-
-                    </div>
-
-                    <div class="signatures">
-
-                        <div class="sig-block">
-
-                            <div
-                                style="
-                                    font-family: 'Brush Script MT', cursive;
-                                    font-size: 24px;
-                                    color: #1a237e;
-                                    transform: rotate(-5deg);
-                                "
-                            >
-
-                                Edu Babatunde
-
-                            </div>
-
-                            <div class="sig-name">
-
-                                Edu Babatunde
-
-                            </div>
-
-                            <div class="sig-title">
-
-                                National President
-
-                            </div>
-
-                        </div>
-
-                        <div class="sig-block">
-
-                            <div
-                                style="
-                                    font-family: 'Brush Script MT', cursive;
-                                    font-size: 24px;
-                                    color: #1a237e;
-                                    transform: rotate(-3deg);
-                                "
-                            >
-
-                                Ojei Uche
-
-                            </div>
-
-                            <div class="sig-name">
-
-                                Ojei Uche Joseph
-
-                            </div>
-
-                            <div class="sig-title">
-
-                                National Secretary-General
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="center-title-sub">
-
-                        National President
-
-                    </div>
-
-                    <div class="for-organization">
-
-                        For:
-                        National Association of Charcoal Producers,
-                        Dealers, Exporters, and Afforestation of Nigeria
-                        (NACPDEAN)
-
-                    </div>
-
-                </div>
-
-            </div>
 
         </div>
 
-        <!-- Footer -->
+    @endif
 
-        <div class="footer">
-
-            <div class="motto">
-
-                ...Strive for Biomass Energy, Ecological Afforestation,
-                Nation Builder, Transparency &amp; Traceability
-
-            </div>
-
-            <div class="address">
-
-                Block D Complex, Federal Ministry of Industry,
-                Trade &amp; Investment, Old Secretariat, Area 1,
-                Garki, Abuja, FCT.
-
-            </div>
-
-            <div class="contact-info">
-
-                Tel: +234 814 567 2358,
-                +234 803 667 0360,
-                +234 905 301 8515
-
-                &nbsp;|&nbsp;
-
-                Email: nacpdean55@gmail.com
-
-                &nbsp;|&nbsp;
-
-                W: www.nacpdean.com
-
-            </div>
-
-            <div class="inaugurators">
-
-                Our inaugurators:
-                Federation of Agricultural Commodity Associations
-                of Nigeria FACAN
-                |
-                Federal Ministry of Industry Trade and Investment - FMITI
-
-            </div>
-
-        </div>
-
-    </div>
 
 </body>
 
