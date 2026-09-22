@@ -36,7 +36,7 @@
     $buyerName           = $fields->get('buyer_member_name');
     $buyerMembershipNo   = $fields->get('buyer_membership_no');
     $buyerDealingRightNo = $fields->get('buyer_dealing_right_no');
-    $buyerState          = $fields->get('buyer_state');
+    $buyerState          = $fields->get('state');
     $vehicleNumber       = $fields->get('vehicle_number');
 
     $trackingCode = $fields->get('tracking_code', $generatedDocument->tracking_code);

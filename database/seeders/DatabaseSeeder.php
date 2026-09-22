@@ -20,8 +20,9 @@ class DatabaseSeeder extends Seeder
             // MembershipCategorySeeder::class,
             // PaymentItemSeeder::class,
             //DocumentSeeder::class,
-           // NationalExecutivePositionSeeder::class,
-           BlacklistedMemberSeeder::class,
+            // NationalExecutivePositionSeeder::class,
+            // BlacklistedMemberSeeder::class,
+            ExecutiveBioSeeder::class,
         ]);
     }
 }

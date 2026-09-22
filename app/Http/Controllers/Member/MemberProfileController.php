@@ -5,13 +5,82 @@ namespace App\Http\Controllers\Member;
 use App\Http\Controllers\Controller;
 use App\Models\MemberProfile;
 use App\Models\Payment;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class MemberProfileController extends Controller
 {
+    /*
+    |--------------------------------------------------------------------------
+    | RESOLVE EFFECTIVE USER
+    |--------------------------------------------------------------------------
+    |
+    | Returns the member when an admin is filling a profile on their behalf,
+    | otherwise returns the authenticated user.
+    |
+    | The session flag "admin_filling_profile_for_member_id" is set by
+    | AdminMemberController@completeProfile().
+    |
+    */
+
+    protected function resolveEffectiveUser()
+    {
+        $user = Auth::user();
+
+        /*
+        |--------------------------------------------------------------------------
+        | ADMIN ON-BEHALF MODE
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $user &&
+            $user->role === 'admin' &&
+            session()->has('admin_filling_profile_for_member_id')
+        ) {
+            $memberId = (int) session('admin_filling_profile_for_member_id');
+
+            $member = User::where('id', $memberId)
+                ->where('role', 'member')
+                ->first();
+
+            if ($member) {
+                return $member;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | MEMBER GONE — CLEAR STALE FLAG
+            |--------------------------------------------------------------------------
+            */
+
+            session()->forget([
+                'admin_filling_profile_for_member_id',
+                'admin_filling_profile_return_url',
+            ]);
+        }
+
+        return $user;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | IS ADMIN FILLING ON BEHALF?
+    |--------------------------------------------------------------------------
+    */
+
+    protected function isAdminOnBehalf(): bool
+    {
+        return Auth::check()
+            && Auth::user()->role === 'admin'
+            && session()->has('admin_filling_profile_for_member_id');
+    }
+
+
     /*
     |--------------------------------------------------------------------------
     | SHOW PROFILE
@@ -20,7 +89,30 @@ class MemberProfileController extends Controller
 
     public function index()
     {
-        $user = Auth::user();
+        /*
+        |--------------------------------------------------------------------------
+        | EFFECTIVE USER
+        |--------------------------------------------------------------------------
+        */
+
+        $user = $this->resolveEffectiveUser();
+
+        /*
+        |--------------------------------------------------------------------------
+        | ADMIN FILLING ON BEHALF?
+        |--------------------------------------------------------------------------
+        |
+        | Passed to the view so the Blade can render the admin banner.
+        |
+        */
+
+        $adminFillingFor = $this->isAdminOnBehalf() ? $user : null;
+
+        /*
+        |--------------------------------------------------------------------------
+        | PROFILE
+        |--------------------------------------------------------------------------
+        */
 
         $profile = MemberProfile::firstOrCreate(
             [
@@ -31,60 +123,21 @@ class MemberProfileController extends Controller
             ]
         );
 
-        /*
-        |--------------------------------------------------------------------------
-        | MEMBERSHIP STATUS
-        |--------------------------------------------------------------------------
-        */
-
         $membershipStatus = $profile->status;
-
-        /*
-        |--------------------------------------------------------------------------
-        | CHECK APPROVAL
-        |--------------------------------------------------------------------------
-        */
 
         $isApproved = $profile->status === 'approved';
 
-        /*
-        |--------------------------------------------------------------------------
-        | LOAD MEMBERSHIP CATEGORY
-        |--------------------------------------------------------------------------
-        */
-
         $profile->load('membershipCategory');
-
-        /*
-        |--------------------------------------------------------------------------
-        | IF PROFILE DOES NOT HAVE CATEGORY
-        |--------------------------------------------------------------------------
-        |
-        | Get category from the member's successful membership payment.
-        |
-        */
 
         if (!$profile->membership_category_id) {
 
-            $payment = Payment::where(
-                'user_id',
-                $user->id
-            )
-                ->where(
-                    'payment_type',
-                    'membership'
-                )
-                ->where(
-                    'status',
-                    'paid'
-                )
+            $payment = Payment::where('user_id', $user->id)
+                ->where('payment_type', 'membership')
+                ->where('status', 'paid')
                 ->latest()
                 ->first();
 
-            if (
-                $payment &&
-                $payment->membership_category_id
-            ) {
+            if ($payment && $payment->membership_category_id) {
 
                 $profile->membership_category_id =
                     $payment->membership_category_id;
@@ -95,13 +148,26 @@ class MemberProfileController extends Controller
             }
         }
 
+        /*
+|--------------------------------------------------------------------------
+| RENDER THE RIGHT LAYOUT
+|--------------------------------------------------------------------------
+|
+| When an admin is filling the profile on behalf of a member,
+| render the admin-layout Blade. Otherwise render the member Blade.
+|
+| Both blades share the same fields, forms, and validation.
+| The only difference is the surrounding layout (sidebar, chrome).
+|
+*/
+
+        $view = $adminFillingFor
+            ? 'admin.member.profile'
+            : 'member.profile.index';
+
         return view(
-            'member.profile.index',
-            compact(
-                'profile',
-                'membershipStatus',
-                'isApproved'
-            )
+            $view,
+            compact('profile', 'membershipStatus', 'isApproved', 'adminFillingFor')
         );
     }
 
@@ -110,19 +176,17 @@ class MemberProfileController extends Controller
     |--------------------------------------------------------------------------
     | SAVE PROFILE SECTION
     |--------------------------------------------------------------------------
-    |
-    | Sections:
-    |
-    | personal
-    | residential
-    | business
-    | documents
-    |
     */
 
     public function update(Request $request)
     {
-        $user = Auth::user();
+        /*
+        |--------------------------------------------------------------------------
+        | EFFECTIVE USER
+        |--------------------------------------------------------------------------
+        */
+
+        $user = $this->resolveEffectiveUser();
 
         $profile = MemberProfile::firstOrCreate(
             [
@@ -133,22 +197,7 @@ class MemberProfileController extends Controller
             ]
         );
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | DO NOT ALLOW EDITING AFTER SUBMISSION
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            in_array(
-                $profile->status,
-                [
-                    'submitted',
-                    'approved',
-                ]
-            )
-        ) {
+        if (in_array($profile->status, ['submitted', 'approved'])) {
 
             return back()->with(
                 'error',
@@ -156,34 +205,11 @@ class MemberProfileController extends Controller
             );
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | GET SUCCESSFUL MEMBERSHIP PAYMENT
-        |--------------------------------------------------------------------------
-        */
-
-        $payment = Payment::where(
-            'user_id',
-            $user->id
-        )
-            ->where(
-                'payment_type',
-                'membership'
-            )
-            ->where(
-                'status',
-                'paid'
-            )
+        $payment = Payment::where('user_id', $user->id)
+            ->where('payment_type', 'membership')
+            ->where('status', 'paid')
             ->latest()
             ->first();
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | MEMBERSHIP PAYMENT MUST EXIST
-        |--------------------------------------------------------------------------
-        */
 
         if (!$payment) {
 
@@ -193,13 +219,6 @@ class MemberProfileController extends Controller
             );
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | MEMBERSHIP CATEGORY MUST EXIST
-        |--------------------------------------------------------------------------
-        */
-
         if (!$payment->membership_category_id) {
 
             return back()->with(
@@ -207,13 +226,6 @@ class MemberProfileController extends Controller
                 'Your membership category could not be determined from your payment.'
             );
         }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | SAVE MEMBERSHIP CATEGORY
-        |--------------------------------------------------------------------------
-        */
 
         if (
             !$profile->membership_category_id ||
@@ -226,13 +238,6 @@ class MemberProfileController extends Controller
 
             $profile->save();
         }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | GET SECTION
-        |--------------------------------------------------------------------------
-        */
 
         $section = $request->input('section');
 
@@ -247,29 +252,15 @@ class MemberProfileController extends Controller
 
             $validated = $request->validate([
 
-                'surname' =>
-                    'nullable|string|max:255',
+                'surname'       => 'nullable|string|max:255',
+                'first_name'    => 'nullable|string|max:255',
+                'middle_name'   => 'nullable|string|max:255',
+                'phone'         => 'nullable|string|max:255',
+                'date_of_birth' => 'nullable|date',
+                'gender'        => 'nullable|string|in:Male,Female',
+                'nationality'   => 'nullable|string|max:255',
 
-                'first_name' =>
-                    'nullable|string|max:255',
-
-                'middle_name' =>
-                    'nullable|string|max:255',
-
-                'phone' =>
-                    'nullable|string|max:255',
-
-                'date_of_birth' =>
-                    'nullable|date',
-
-                'gender' =>
-                    'nullable|string|in:Male,Female',
-
-                'nationality' =>
-                    'nullable|string|max:255',
-
-                'photo' =>
-                    'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+                'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
 
             ]);
 
@@ -284,33 +275,24 @@ class MemberProfileController extends Controller
 
                 $photo = $request->file('photo');
 
-$uploadPath = env(
-    'MEMBER_PROFILE_UPLOAD_PATH',
-    public_path('uploads/member_profiles')
-);
+                $uploadPath = config('filesystems.member_uploads.photo_path');
 
-
-                /*
-                |--------------------------------------------------------------------------
-                | CREATE DIRECTORY
-                |--------------------------------------------------------------------------
-                */
+                Log::info('Photo upload debug', [
+                    'valid'       => $photo->isValid(),
+                    'error_code'  => $photo->getError(),
+                    'error_msg'   => $photo->getErrorMessage(),
+                    'size'        => $photo->getSize(),
+                    'upload_path' => $uploadPath,
+                    'writable'    => File::exists($uploadPath)
+                        ? is_writable($uploadPath)
+                        : false,
+                    'exists'      => File::exists($uploadPath),
+                ]);
 
                 if (!File::exists($uploadPath)) {
 
-                    File::makeDirectory(
-                        $uploadPath,
-                        0755,
-                        true
-                    );
+                    File::makeDirectory($uploadPath, 0755, true);
                 }
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | DELETE OLD PHOTO
-                |--------------------------------------------------------------------------
-                */
 
                 if ($profile->photo) {
 
@@ -325,17 +307,9 @@ $uploadPath = env(
                     }
                 }
 
-
-                /*
-                |--------------------------------------------------------------------------
-                | GENERATE UNIQUE FILE NAME
-                |--------------------------------------------------------------------------
-                */
-
-                $extension =
-                    strtolower(
-                        $photo->getClientOriginalExtension()
-                    );
+                $extension = strtolower(
+                    $photo->getClientOriginalExtension()
+                );
 
                 $filename =
                     'member_' .
@@ -345,40 +319,21 @@ $uploadPath = env(
                     '.' .
                     $extension;
 
+                $photo->move($uploadPath, $filename);
 
-                /*
-                |--------------------------------------------------------------------------
-                | MOVE PHOTO
-                |--------------------------------------------------------------------------
-                */
-
-                $photo->move(
-                    $uploadPath,
-                    $filename
-                );
-
-
-                $validated['photo'] =
-                    $filename;
+                $validated['photo'] = $filename;
             }
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | SAVE PERSONAL INFORMATION
-            |--------------------------------------------------------------------------
-            */
 
             $profile->update(
                 array_merge(
                     $validated,
                     [
                         'membership_category_id' =>
-                            $payment->membership_category_id,
+                        $payment->membership_category_id,
                     ]
                 )
             );
-
 
             return back()->with(
                 'success',
@@ -397,37 +352,22 @@ $uploadPath = env(
 
             $validated = $request->validate([
 
-                'address' =>
-                    'nullable|string',
-
-                'city' =>
-                    'nullable|string|max:255',
-
-                'state' =>
-                    'nullable|string|max:255',
-
-                'lga' =>
-                    'nullable|string|max:255',
+                'address' => 'nullable|string',
+                'city'    => 'nullable|string|max:255',
+                'state'   => 'nullable|string|max:255',
+                'lga'     => 'nullable|string|max:255',
 
             ]);
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | SAVE RESIDENTIAL ADDRESS
-            |--------------------------------------------------------------------------
-            */
 
             $profile->update(
                 array_merge(
                     $validated,
                     [
                         'membership_category_id' =>
-                            $payment->membership_category_id,
+                        $payment->membership_category_id,
                     ]
                 )
             );
-
 
             return back()->with(
                 'success',
@@ -447,36 +387,28 @@ $uploadPath = env(
             $validated = $request->validate([
 
                 'business_name' =>
-                    'nullable|string|max:255',
+                'nullable|string|max:255',
 
                 'business_registration_number' =>
-                    'nullable|string|max:255',
+                'nullable|string|max:255',
 
                 'business_type' =>
-                    'nullable|string|max:255',
+                'nullable|string|max:255',
 
                 'business_address' =>
-                    'nullable|string',
+                'nullable|string',
 
             ]);
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | SAVE BUSINESS INFORMATION
-            |--------------------------------------------------------------------------
-            */
 
             $profile->update(
                 array_merge(
                     $validated,
                     [
                         'membership_category_id' =>
-                            $payment->membership_category_id,
+                        $payment->membership_category_id,
                     ]
                 )
             );
-
 
             return back()->with(
                 'success',
@@ -493,15 +425,7 @@ $uploadPath = env(
 
         if ($section === 'documents') {
 
-            /*
-            |--------------------------------------------------------------------------
-            | LOAD MEMBERSHIP CATEGORY
-            |--------------------------------------------------------------------------
-            */
-
-            $category =
-                $payment->membershipCategory;
-
+            $category = $payment->membershipCategory;
 
             if (!$category) {
 
@@ -511,125 +435,39 @@ $uploadPath = env(
                 );
             }
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | CATEGORY CODE
-            |--------------------------------------------------------------------------
-            |
-            | Current database:
-            |
-            | EXP = Exporter
-            | SLR = Supplier
-            | DEA = Dealer
-            | PRD = Producer
-            | RCG = Affiliate
-            |
-            */
-
-            $categoryCode =
-                strtoupper(
-                    trim(
-                        $category->code ?? ''
-                    )
-                );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | CATEGORY NAME
-            |--------------------------------------------------------------------------
-            */
-
-            $categoryName =
-                strtolower(
-                    trim(
-                        $category->name ?? ''
-                    )
-                );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | DETERMINE CATEGORY
-            |--------------------------------------------------------------------------
-            */
+            $categoryCode = strtoupper(trim($category->code ?? ''));
+            $categoryName = strtolower(trim($category->name ?? ''));
 
             $isExporter =
                 $categoryCode === 'EXP' ||
-                str_contains(
-                    $categoryName,
-                    'exporter'
-                );
-
+                str_contains($categoryName, 'exporter');
 
             $isSupplier =
                 $categoryCode === 'SLR' ||
-                str_contains(
-                    $categoryName,
-                    'supplier'
-                );
-
+                str_contains($categoryName, 'supplier');
 
             $isDealer =
                 $categoryCode === 'DEA' ||
-                str_contains(
-                    $categoryName,
-                    'dealer'
-                );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | VALIDATE UPLOADS
-            |--------------------------------------------------------------------------
-            |
-            | All documents are nullable here because documents are saved
-            | individually.
-            |
-            | Exporter requirements are enforced during final submission.
-            |
-            */
+                str_contains($categoryName, 'dealer');
 
             $validated = $request->validate([
 
                 'cac_certificate' =>
-                    'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+                'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
 
                 'cac_particulars_of_directors' =>
-                    'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+                'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
 
                 'nepc_export_license' =>
-                    'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+                'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
 
             ]);
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | BASE DOCUMENT DIRECTORY
-            |--------------------------------------------------------------------------
-            */
-
-$basePath = env(
-    'MEMBER_DOCUMENT_UPLOAD_PATH',
-    public_path('document/member_profiles')
-);
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | CREATE BASE DIRECTORY
-            |--------------------------------------------------------------------------
-            */
+            $basePath = config('filesystems.member_uploads.document_path');
 
             if (!File::exists($basePath)) {
 
-                File::makeDirectory(
-                    $basePath,
-                    0755,
-                    true
-                );
+                File::makeDirectory($basePath, 0755, true);
             }
 
 
@@ -641,40 +479,23 @@ $basePath = env(
 
             if ($request->hasFile('cac_certificate')) {
 
-                $file =
-                    $request->file(
-                        'cac_certificate'
-                    );
-
+                $file = $request->file('cac_certificate');
 
                 $directory =
                     $basePath .
                     DIRECTORY_SEPARATOR .
                     'cac_certificate';
 
-
                 if (!File::exists($directory)) {
 
-                    File::makeDirectory(
-                        $directory,
-                        0755,
-                        true
-                    );
+                    File::makeDirectory($directory, 0755, true);
                 }
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | DELETE OLD CAC CERTIFICATE
-                |--------------------------------------------------------------------------
-                */
 
                 if ($profile->cac_certificate) {
 
-                $oldFile =
-                    $basePath .
-                    DIRECTORY_SEPARATOR .
-                    $profile->cac_particulars_of_directors;
+                    $oldFile = public_path(
+                        'document/' . $profile->cac_certificate
+                    );
 
                     if (File::exists($oldFile)) {
 
@@ -682,17 +503,9 @@ $basePath = env(
                     }
                 }
 
-
-                /*
-                |--------------------------------------------------------------------------
-                | GENERATE UNIQUE FILE NAME
-                |--------------------------------------------------------------------------
-                */
-
-                $extension =
-                    strtolower(
-                        $file->getClientOriginalExtension()
-                    );
+                $extension = strtolower(
+                    $file->getClientOriginalExtension()
+                );
 
                 $filename =
                     'member_' .
@@ -702,28 +515,10 @@ $basePath = env(
                     '.' .
                     $extension;
 
-
-                /*
-                |--------------------------------------------------------------------------
-                | MOVE FILE
-                |--------------------------------------------------------------------------
-                */
-
-                $file->move(
-                    $directory,
-                    $filename
-                );
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | STORE RELATIVE PATH
-                |--------------------------------------------------------------------------
-                */
+                $file->move($directory, $filename);
 
                 $validated['cac_certificate'] =
-                    'member_profiles/cac_certificate/' .
-                    $filename;
+                    'member_profiles/cac_certificate/' . $filename;
             }
 
 
@@ -733,48 +528,25 @@ $basePath = env(
             |--------------------------------------------------------------------------
             */
 
-            if (
-                $request->hasFile(
-                    'cac_particulars_of_directors'
-                )
-            ) {
+            if ($request->hasFile('cac_particulars_of_directors')) {
 
-                $file =
-                    $request->file(
-                        'cac_particulars_of_directors'
-                    );
-
+                $file = $request->file('cac_particulars_of_directors');
 
                 $directory =
                     $basePath .
                     DIRECTORY_SEPARATOR .
                     'cac_particulars_of_directors';
 
-
                 if (!File::exists($directory)) {
 
-                    File::makeDirectory(
-                        $directory,
-                        0755,
-                        true
-                    );
+                    File::makeDirectory($directory, 0755, true);
                 }
 
+                if ($profile->cac_particulars_of_directors) {
 
-                /*
-                |--------------------------------------------------------------------------
-                | DELETE OLD DOCUMENT
-                |--------------------------------------------------------------------------
-                */
-
-                if (
-                    $profile->cac_particulars_of_directors
-                ) {
-
-                $oldFile =
-                    $basePath .
-                    DIRECTORY_SEPARATOR .
-                    $profile->cac_particulars_of_directors;
+                    $oldFile = public_path(
+                        'document/' . $profile->cac_particulars_of_directors
+                    );
 
                     if (File::exists($oldFile)) {
 
@@ -782,17 +554,9 @@ $basePath = env(
                     }
                 }
 
-
-                /*
-                |--------------------------------------------------------------------------
-                | GENERATE UNIQUE FILE NAME
-                |--------------------------------------------------------------------------
-                */
-
-                $extension =
-                    strtolower(
-                        $file->getClientOriginalExtension()
-                    );
+                $extension = strtolower(
+                    $file->getClientOriginalExtension()
+                );
 
                 $filename =
                     'member_' .
@@ -802,28 +566,9 @@ $basePath = env(
                     '.' .
                     $extension;
 
+                $file->move($directory, $filename);
 
-                /*
-                |--------------------------------------------------------------------------
-                | MOVE FILE
-                |--------------------------------------------------------------------------
-                */
-
-                $file->move(
-                    $directory,
-                    $filename
-                );
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | STORE RELATIVE PATH
-                |--------------------------------------------------------------------------
-                */
-
-                $validated[
-                    'cac_particulars_of_directors'
-                ] =
+                $validated['cac_particulars_of_directors'] =
                     'member_profiles/cac_particulars_of_directors/' .
                     $filename;
             }
@@ -835,48 +580,25 @@ $basePath = env(
             |--------------------------------------------------------------------------
             */
 
-            if (
-                $request->hasFile(
-                    'nepc_export_license'
-                )
-            ) {
+            if ($request->hasFile('nepc_export_license')) {
 
-                $file =
-                    $request->file(
-                        'nepc_export_license'
-                    );
-
+                $file = $request->file('nepc_export_license');
 
                 $directory =
                     $basePath .
                     DIRECTORY_SEPARATOR .
                     'nepc_export_license';
 
-
                 if (!File::exists($directory)) {
 
-                    File::makeDirectory(
-                        $directory,
-                        0755,
-                        true
-                    );
+                    File::makeDirectory($directory, 0755, true);
                 }
 
+                if ($profile->nepc_export_license) {
 
-                /*
-                |--------------------------------------------------------------------------
-                | DELETE OLD NEPC LICENSE
-                |--------------------------------------------------------------------------
-                */
-
-                if (
-                    $profile->nepc_export_license
-                ) {
-
-                $oldFile =
-                    $basePath .
-                    DIRECTORY_SEPARATOR .
-                    $profile->nepc_export_license;
+                    $oldFile = public_path(
+                        'document/' . $profile->nepc_export_license
+                    );
 
                     if (File::exists($oldFile)) {
 
@@ -884,17 +606,9 @@ $basePath = env(
                     }
                 }
 
-
-                /*
-                |--------------------------------------------------------------------------
-                | GENERATE UNIQUE FILE NAME
-                |--------------------------------------------------------------------------
-                */
-
-                $extension =
-                    strtolower(
-                        $file->getClientOriginalExtension()
-                    );
+                $extension = strtolower(
+                    $file->getClientOriginalExtension()
+                );
 
                 $filename =
                     'member_' .
@@ -904,55 +618,22 @@ $basePath = env(
                     '.' .
                     $extension;
 
+                $file->move($directory, $filename);
 
-                /*
-                |--------------------------------------------------------------------------
-                | MOVE FILE
-                |--------------------------------------------------------------------------
-                */
-
-                $file->move(
-                    $directory,
-                    $filename
-                );
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | STORE RELATIVE PATH
-                |--------------------------------------------------------------------------
-                */
-
-                $validated[
-                    'nepc_export_license'
-                ] =
-                    'member_profiles/nepc_export_license/' .
-                    $filename;
+                $validated['nepc_export_license'] =
+                    'member_profiles/nepc_export_license/' . $filename;
             }
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | SAVE DOCUMENT INFORMATION
-            |--------------------------------------------------------------------------
-            */
 
             $profile->update(
                 array_merge(
                     $validated,
                     [
                         'membership_category_id' =>
-                            $payment->membership_category_id,
+                        $payment->membership_category_id,
                     ]
                 )
             );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | SUCCESS
-            |--------------------------------------------------------------------------
-            */
 
             return back()->with(
                 'success',
@@ -982,26 +663,17 @@ $basePath = env(
 
     public function submit(Request $request)
     {
-        $user = Auth::user();
-
-
         /*
         |--------------------------------------------------------------------------
-        | GET PROFILE
+        | EFFECTIVE USER
         |--------------------------------------------------------------------------
         */
 
-        $profile = MemberProfile::where(
-            'user_id',
-            $user->id
-        )->first();
+        $user = $this->resolveEffectiveUser();
 
+        $isAdminOnBehalf = $this->isAdminOnBehalf();
 
-        /*
-        |--------------------------------------------------------------------------
-        | PROFILE MUST EXIST
-        |--------------------------------------------------------------------------
-        */
+        $profile = MemberProfile::where('user_id', $user->id)->first();
 
         if (!$profile) {
 
@@ -1013,13 +685,6 @@ $basePath = env(
                 );
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | ALREADY APPROVED
-        |--------------------------------------------------------------------------
-        */
-
         if ($profile->status === 'approved') {
 
             return redirect()
@@ -1029,13 +694,6 @@ $basePath = env(
                     'Your application has already been approved.'
                 );
         }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | ALREADY SUBMITTED
-        |--------------------------------------------------------------------------
-        */
 
         if ($profile->status === 'submitted') {
 
@@ -1047,306 +705,118 @@ $basePath = env(
                 );
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | VALIDATE DATABASE PROFILE
-        |--------------------------------------------------------------------------
-        */
-
         $errors = [];
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | PERSONAL INFORMATION
-        |--------------------------------------------------------------------------
-        */
-
         if (empty($profile->surname)) {
-
-            $errors[] =
-                'Surname is required.';
+            $errors[] = 'Surname is required.';
         }
-
 
         if (empty($profile->first_name)) {
-
-            $errors[] =
-                'First name is required.';
+            $errors[] = 'First name is required.';
         }
-
 
         if (empty($profile->phone)) {
-
-            $errors[] =
-                'Phone number is required.';
+            $errors[] = 'Phone number is required.';
         }
-
 
         if (empty($profile->date_of_birth)) {
-
-            $errors[] =
-                'Date of birth is required.';
+            $errors[] = 'Date of birth is required.';
         }
-
 
         if (empty($profile->gender)) {
-
-            $errors[] =
-                'Gender is required.';
+            $errors[] = 'Gender is required.';
         }
-
 
         if (empty($profile->nationality)) {
-
-            $errors[] =
-                'Nationality is required.';
+            $errors[] = 'Nationality is required.';
         }
-
 
         if (empty($profile->photo)) {
-
-            $errors[] =
-                'Passport photograph is required.';
+            $errors[] = 'Passport photograph is required.';
         }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | RESIDENTIAL ADDRESS
-        |--------------------------------------------------------------------------
-        */
 
         if (empty($profile->address)) {
-
-            $errors[] =
-                'Residential address is required.';
+            $errors[] = 'Residential address is required.';
         }
-
 
         if (empty($profile->city)) {
-
-            $errors[] =
-                'City is required.';
+            $errors[] = 'City is required.';
         }
-
 
         if (empty($profile->state)) {
-
-            $errors[] =
-                'State is required.';
+            $errors[] = 'State is required.';
         }
-
 
         if (empty($profile->lga)) {
-
-            $errors[] =
-                'LGA is required.';
+            $errors[] = 'LGA is required.';
         }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | BUSINESS INFORMATION
-        |--------------------------------------------------------------------------
-        */
 
         if (empty($profile->business_name)) {
-
-            $errors[] =
-                'Business name is required.';
+            $errors[] = 'Business name is required.';
         }
-
 
         if (empty($profile->business_type)) {
-
-            $errors[] =
-                'Business type is required.';
+            $errors[] = 'Business type is required.';
         }
-
 
         if (empty($profile->business_address)) {
-
-            $errors[] =
-                'Business address is required.';
+            $errors[] = 'Business address is required.';
         }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | LOAD MEMBERSHIP CATEGORY
-        |--------------------------------------------------------------------------
-        */
 
         $profile->load('membershipCategory');
 
-        $category =
-            $profile->membershipCategory;
-
+        $category = $profile->membershipCategory;
 
         if (!$category) {
 
             $errors[] =
                 'Membership category could not be determined.';
-
         } else {
 
-            /*
-            |--------------------------------------------------------------------------
-            | CATEGORY CODE
-            |--------------------------------------------------------------------------
-            */
-
-            $categoryCode =
-                strtoupper(
-                    trim(
-                        $category->code ?? ''
-                    )
-                );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | CATEGORY NAME
-            |--------------------------------------------------------------------------
-            */
-
-            $categoryName =
-                strtolower(
-                    trim(
-                        $category->name ?? ''
-                    )
-                );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | IDENTIFY EXPORTER
-            |--------------------------------------------------------------------------
-            */
+            $categoryCode = strtoupper(trim($category->code ?? ''));
+            $categoryName = strtolower(trim($category->name ?? ''));
 
             $isExporter =
                 $categoryCode === 'EXP' ||
-                str_contains(
-                    $categoryName,
-                    'exporter'
-                );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | IDENTIFY SUPPLIER
-            |--------------------------------------------------------------------------
-            */
+                str_contains($categoryName, 'exporter');
 
             $isSupplier =
                 $categoryCode === 'SLR' ||
-                str_contains(
-                    $categoryName,
-                    'supplier'
-                );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | IDENTIFY DEALER
-            |--------------------------------------------------------------------------
-            */
+                str_contains($categoryName, 'supplier');
 
             $isDealer =
                 $categoryCode === 'DEA' ||
-                str_contains(
-                    $categoryName,
-                    'dealer'
-                );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | EXPORTER DOCUMENT REQUIREMENTS
-            |--------------------------------------------------------------------------
-            |
-            | Exporters MUST provide:
-            |
-            | 1. CAC Certificate
-            | 2. CAC Particulars of Directors
-            | 3. NEPC Export License
-            |
-            */
+                str_contains($categoryName, 'dealer');
 
             if ($isExporter) {
 
-                if (
-                    empty(
-                        $profile->cac_certificate
-                    )
-                ) {
+                if (empty($profile->cac_certificate)) {
 
                     $errors[] =
                         'CAC Certificate is required for Exporters.';
                 }
 
-
-                if (
-                    empty(
-                        $profile->cac_particulars_of_directors
-                    )
-                ) {
+                if (empty($profile->cac_particulars_of_directors)) {
 
                     $errors[] =
                         'CAC Particulars of Directors is required for Exporters.';
                 }
 
-
-                if (
-                    empty(
-                        $profile->nepc_export_license
-                    )
-                ) {
+                if (empty($profile->nepc_export_license)) {
 
                     $errors[] =
                         'NEPC (Export) License is required for Exporters.';
                 }
             }
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | SUPPLIER DOCUMENTS
-            |--------------------------------------------------------------------------
-            |
-            | Supplier documents are optional.
-            |
-            */
-
             if ($isSupplier) {
-
                 // No compulsory document validation.
             }
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | DEALER DOCUMENTS
-            |--------------------------------------------------------------------------
-            |
-            | Dealer documents are optional.
-            |
-            */
-
             if ($isDealer) {
-
                 // No compulsory document validation.
             }
         }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | STOP IF PROFILE IS INCOMPLETE
-        |--------------------------------------------------------------------------
-        */
 
         if (!empty($errors)) {
 
@@ -1355,36 +825,48 @@ $basePath = env(
                 ->withErrors($errors);
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | SUBMIT APPLICATION
-        |--------------------------------------------------------------------------
-        */
-
         $profile->update([
 
-            'status' =>
-                'submitted',
-
-            'submitted_at' =>
-                now(),
-
-            'approved_at' =>
-                null,
-
-            'rejection_reason' =>
-                null,
-
-            'admin_comment' =>
-                null,
+            'status'           => 'submitted',
+            'submitted_at'     => now(),
+            'approved_at'      => null,
+            'rejection_reason' => null,
+            'admin_comment'    => null,
 
         ]);
 
+        /*
+        |--------------------------------------------------------------------------
+        | ADMIN ON-BEHALF RETURN
+        |--------------------------------------------------------------------------
+        |
+        | If the profile was submitted by an admin on behalf of a member,
+        | clear the session flag and return the admin to their member list.
+        |
+        */
+
+        if ($isAdminOnBehalf) {
+
+            $adminReturnUrl = session(
+                'admin_filling_profile_return_url',
+                route('admin.member.index')
+            );
+
+            session()->forget([
+                'admin_filling_profile_for_member_id',
+                'admin_filling_profile_return_url',
+            ]);
+
+            return redirect($adminReturnUrl)
+                ->with(
+                    'success',
+                    'Profile submitted successfully on behalf of the member.'
+                );
+        }
 
         /*
         |--------------------------------------------------------------------------
-        | REDIRECT
+        | MEMBER RETURN
         |--------------------------------------------------------------------------
         */
 
@@ -1407,17 +889,7 @@ $basePath = env(
     {
         $user = Auth::user();
 
-        $profile = MemberProfile::where(
-            'user_id',
-            $user->id
-        )->first();
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | PROFILE MUST EXIST
-        |--------------------------------------------------------------------------
-        */
+        $profile = MemberProfile::where('user_id', $user->id)->first();
 
         if (!$profile) {
 
@@ -1428,7 +900,6 @@ $basePath = env(
                     'Please complete your profile first.'
                 );
         }
-
 
         return view(
             'member.application-status',

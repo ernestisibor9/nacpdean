@@ -372,26 +372,56 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        if (!$hasPaid) {
+        // if (!$hasPaid) {
 
-            $dashboardStatus = 'payment_required';
+        //     $dashboardStatus = 'payment_required';
 
-        } elseif (!$profile || $profile->status === 'draft') {
+        // } elseif (!$profile || $profile->status === 'draft') {
 
-            $dashboardStatus = 'profile_incomplete';
+        //     $dashboardStatus = 'profile_incomplete';
 
-        } elseif ($profile->status === 'submitted') {
+        // } elseif ($profile->status === 'submitted') {
 
-            $dashboardStatus = 'awaiting_approval';
+        //     $dashboardStatus = 'awaiting_approval';
 
-        } elseif ($profile->status === 'approved') {
+        // } elseif ($profile->status === 'approved') {
 
-            $dashboardStatus = 'approved';
+        //     $dashboardStatus = 'approved';
 
-        } else {
+        // } else {
 
-            $dashboardStatus = 'profile_incomplete';
-        }
+        //     $dashboardStatus = 'profile_incomplete';
+        // }
+
+        /*
+|--------------------------------------------------------------------------
+| PROFILE STATUS / DASHBOARD STATUS
+|--------------------------------------------------------------------------
+|
+| PAYMENT IS NOT REQUIRED FOR DASHBOARD ACCESS.
+|
+*/
+
+if (!$profile || $profile->status === 'draft') {
+
+    $dashboardStatus = 'profile_incomplete';
+
+} elseif ($profile->status === 'submitted') {
+
+    $dashboardStatus = 'awaiting_approval';
+
+} elseif ($profile->status === 'approved') {
+
+    $dashboardStatus = 'approved';
+
+} elseif ($profile->status === 'rejected') {
+
+    $dashboardStatus = 'profile_incomplete';
+
+} else {
+
+    $dashboardStatus = 'profile_incomplete';
+}
 
 
         /*
@@ -429,18 +459,37 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        if (!$hasPaid) {
+        // if (!$hasPaid) {
 
-            $memberStage = 1;
+        //     $memberStage = 1;
 
-        } elseif ($isApproved) {
+        // } elseif ($isApproved) {
 
-            $memberStage = 3;
+        //     $memberStage = 3;
 
-        } else {
+        // } else {
 
-            $memberStage = 2;
-        }
+        //     $memberStage = 2;
+        // }
+
+        /*
+|--------------------------------------------------------------------------
+| MEMBER STAGE
+|--------------------------------------------------------------------------
+|
+| DASHBOARD ACCESS DEPENDS ON PROFILE APPROVAL.
+| PAYMENT IS NOT REQUIRED.
+|
+*/
+
+if ($isApproved) {
+
+    $memberStage = 3;
+
+} else {
+
+    $memberStage = 2;
+}
 
 
         /*

@@ -10,30 +10,30 @@ use Illuminate\Http\Request;
 
 class GeneratedDocumentController extends Controller
 {
-/**
- * Display the authenticated member's current documents.
- *
- * IMPORTANT:
- * A member must have an active, non-expired membership
- * before they can access their generated documents.
- *
- * Active documents are displayed.
- *
- * Expired documents are displayed only when they have
- * NOT already been replaced by a successful renewal.
- *
- * Old replaced documents remain in the database for
- * historical and audit purposes.
- */
-public function index(Request $request)
-{
-    $user = $request->user();
+    /**
+     * Display the authenticated member's current documents.
+     *
+     * IMPORTANT:
+     * A member must have an active, non-expired membership
+     * before they can access their generated documents.
+     *
+     * Active documents are displayed.
+     *
+     * Expired documents are displayed only when they have
+     * NOT already been replaced by a successful renewal.
+     *
+     * Old replaced documents remain in the database for
+     * historical and audit purposes.
+     */
+    public function index(Request $request)
+    {
+        $user = $request->user();
 
-    if (!$user) {
-        abort(403);
-    }
+        if (!$user) {
+            abort(403);
+        }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Membership Access Check
     |--------------------------------------------------------------------------
@@ -50,9 +50,9 @@ public function index(Request $request)
     |
     */
 
-    $membership = $this->getActiveMembership($user->id);
+        $membership = $this->getActiveMembership($user->id);
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Get Member Generated Documents
     |--------------------------------------------------------------------------
@@ -66,10 +66,10 @@ public function index(Request $request)
     |
     */
 
-    $generatedDocuments = GeneratedDocument::query()
-        ->where('user_id', $user->id)
+        $generatedDocuments = GeneratedDocument::query()
+            ->where('user_id', $user->id)
 
-        /*
+            /*
         |--------------------------------------------------------------------------
         | Only show:
         |
@@ -82,67 +82,66 @@ public function index(Request $request)
         |--------------------------------------------------------------------------
         */
 
-        ->where(function ($query) {
+            ->where(function ($query) {
 
-            /*
+                /*
             |--------------------------------------------------------------------------
             | Active documents
             |--------------------------------------------------------------------------
             */
 
-            $query->where('status', 'active')
+                $query->where('status', 'active')
 
-                /*
+                    /*
                 |--------------------------------------------------------------------------
                 | Expired documents that have NOT been renewed/replaced
                 |--------------------------------------------------------------------------
                 */
 
-                ->orWhere(function ($query) {
+                    ->orWhere(function ($query) {
 
-                    $query
-                        ->where('status', 'expired')
-                        ->whereNull('replaced_by_document_id');
+                        $query
+                            ->where('status', 'expired')
+                            ->whereNull('replaced_by_document_id');
+                    });
+            })
 
-                });
-        })
-
-        /*
+            /*
         |--------------------------------------------------------------------------
         | Load Required Relationships
         |--------------------------------------------------------------------------
         */
 
-        ->with([
-            'document',
-            'user.profile',
-            'transaction.paymentItem.renewalPaymentItem',
-            'replacedBy',
-        ])
+            ->with([
+                'document',
+                'user.profile',
+                'transaction.paymentItem.renewalPaymentItem',
+                'replacedBy',
+            ])
 
-        /*
+            /*
         |--------------------------------------------------------------------------
         | Newest Documents First
         |--------------------------------------------------------------------------
         */
 
-        ->latest('id')
-        ->get();
+            ->latest('id')
+            ->get();
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Return Member Documents View
     |--------------------------------------------------------------------------
     */
 
-    return view(
-        'member.documents.index',
-        compact(
-            'generatedDocuments',
-            'membership'
-        )
-    );
-}
+        return view(
+            'member.documents.index',
+            compact(
+                'generatedDocuments',
+                'membership'
+            )
+        );
+    }
 
     /**
      * Display a generated document.
@@ -208,13 +207,16 @@ public function index(Request $request)
             $generatedDocument->tracking_code
         );
 
+        $documentArtwork = $this->resolveDocumentArtwork($document, false);
+
         return view('member.documents.show', [
             'generatedDocument' => $generatedDocument,
-            'document'         => $document,
-            'template'         => $template,
-            'qrCode'            => $qrCode,
-            'printMode'        => false,
-            'downloadMode'     => false,
+            'document' => $document,
+            'template' => $template,
+            'qrCode' => $qrCode,
+            'documentArtwork' => $documentArtwork,
+            'printMode' => false,
+            'downloadMode' => false,
         ]);
     }
 
@@ -279,77 +281,80 @@ public function index(Request $request)
             $generatedDocument->tracking_code
         );
 
+        $documentArtwork = $this->resolveDocumentArtwork($document, false);
+
         return view($template, [
             'generatedDocument' => $generatedDocument,
-            'document'         => $document,
-            'qrCode'            => $qrCode,
-            'printMode'        => true,
-            'downloadMode'     => false,
+            'document' => $document,
+            'qrCode' => $qrCode,
+            'documentArtwork' => $documentArtwork,
+            'printMode' => true,
+            'downloadMode' => false,
         ]);
     }
 
-/**
- * Download the generated document as a PDF.
- *
- * Membership expiry is checked through getMemberDocument().
- */
-public function download(
-    Request $request,
-    GeneratedDocument $generatedDocument,
-    QrCodeService $qrCodeService
-) {
-    $generatedDocument = $this->getMemberDocument(
-        $request,
-        $generatedDocument
-    );
+    /**
+     * Download the generated document as a PDF.
+     *
+     * Membership expiry is checked through getMemberDocument().
+     */
+    public function download(
+        Request $request,
+        GeneratedDocument $generatedDocument,
+        QrCodeService $qrCodeService
+    ) {
+        $generatedDocument = $this->getMemberDocument(
+            $request,
+            $generatedDocument
+        );
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Check Generated Document Status
     |--------------------------------------------------------------------------
     */
 
-    $this->checkDocumentStatus($generatedDocument);
+        $this->checkDocumentStatus($generatedDocument);
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Load Required Relationships
     |--------------------------------------------------------------------------
     */
 
-    $generatedDocument->load([
-        'document',
-        'user.profile',
-    ]);
+        $generatedDocument->load([
+            'document',
+            'user.profile',
+        ]);
 
-    $document = $generatedDocument->document;
+        $document = $generatedDocument->document;
 
-    if (!$document) {
-        abort(
-            404,
-            'The document definition could not be found.'
-        );
-    }
+        if (!$document) {
+            abort(
+                404,
+                'The document definition could not be found.'
+            );
+        }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Resolve Configured Document Template
     |--------------------------------------------------------------------------
     */
 
-    $template = $this->resolveTemplate($document);
+        $template = $this->resolveTemplate($document);
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Generate QR Code
     |--------------------------------------------------------------------------
     */
 
-    $qrCode = $qrCodeService->generate(
-        $generatedDocument->tracking_code
-    );
+        $qrCode = $qrCodeService->generate(
+            $generatedDocument->tracking_code
+        );
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | LOAD CERTIFICATE BACKGROUND FOR DOMPDF
     |--------------------------------------------------------------------------
@@ -362,66 +367,60 @@ public function download(
     |
     */
 
-    $certificateBackground = null;
+$documentArtwork = $this->resolveDocumentArtwork($document, true);
 
-    $certificatePath = public_path(
-        'images/certificates/regular-exporter-template.jpg'
-    );
+$certificateBackground = null;
 
-    if (file_exists($certificatePath)) {
+$certificatePath = public_path(
+    'images/certificates/regular-exporter-template.jpg'
+);
 
-        $certificateBackground =
-            'data:image/jpeg;base64,' .
-            base64_encode(
-                file_get_contents($certificatePath)
-            );
-    }
+if (file_exists($certificatePath)) {
+    $certificateBackground =
+        'data:image/jpeg;base64,' .
+        base64_encode(file_get_contents($certificatePath));
+}
 
-    /*
-    |--------------------------------------------------------------------------
-    | Render Blade Template
-    |--------------------------------------------------------------------------
-    */
+$html = view($template, [
+    'generatedDocument' => $generatedDocument,
+    'document' => $document,
+    'qrCode' => $qrCode,
+    'documentArtwork' => $documentArtwork,
+    'certificateBackground' => $certificateBackground,
+    'printMode' => true,
+    'downloadMode' => true,
+])->render();
 
-    $html = view($template, [
-        'generatedDocument'      => $generatedDocument,
-        'document'              => $document,
-        'qrCode'                => $qrCode,
-        'certificateBackground' => $certificateBackground,
-        'printMode'             => true,
-        'downloadMode'          => true,
-    ])->render();
-
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Resolve PDF Orientation
     |--------------------------------------------------------------------------
     */
 
-    $orientation = $this->resolvePdfOrientation(
-        $document
-    );
+        $orientation = $this->resolvePdfOrientation(
+            $document
+        );
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Generate PDF
     |--------------------------------------------------------------------------
     */
 
-    $pdf = Pdf::loadHTML($html)
-        ->setPaper('a4', $orientation);
+        $pdf = Pdf::loadHTML($html)
+            ->setPaper('a4', $orientation);
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | PDF Filename
     |--------------------------------------------------------------------------
     */
 
-    $filename =
-        $generatedDocument->document_number . '.pdf';
+        $filename =
+            $generatedDocument->document_number . '.pdf';
 
-    return $pdf->download($filename);
-}
+        return $pdf->download($filename);
+    }
 
     /**
      * Public document verification.
@@ -1047,4 +1046,47 @@ public function download(
             ]
         );
     }
+
+
+private function resolveDocumentArtwork($document, bool $forPdf = false)
+{
+    $artworkMap = [
+        'NACPDEAN-AFFORESTATION-RECEIPT' =>
+            'images/documents/afforestation-payment.jpg',
+
+        'NACPDEAN-CHARCOAL-TRANSIT-PASS' =>
+            'images/documents/traceability-transit-pass.jpg',
+
+        'NACPDEAN-AFFORESTATION-COMPLIANCE-RECEIPT' =>
+            'images/documents/afforestation-compliance-payment.jpg',
+    ];
+
+    $artwork = $artworkMap[$document->code] ?? null;
+
+    if (!$artwork) {
+        return null;
+    }
+
+    $path = public_path($artwork);
+
+    if (!file_exists($path)) {
+        abort(404, 'Artwork file not found: ' . $artwork);
+    }
+
+    if (!$forPdf) {
+        return asset($artwork);
+    }
+
+    $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+    $mimeType = match ($extension) {
+        'png' => 'image/png',
+        'jpg', 'jpeg' => 'image/jpeg',
+        'webp' => 'image/webp',
+        default => 'application/octet-stream',
+    };
+
+    return 'data:' . $mimeType . ';base64,' .
+        base64_encode(file_get_contents($path));
+}
 }

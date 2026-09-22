@@ -105,7 +105,7 @@
                                     <div class="alert alert-info mb-0">
 
                                         <div class="fw-semibold">
-                                            Document
+                                            Documents
                                         </div>
 
                                         <div id="documentName"></div>
@@ -116,10 +116,87 @@
 
 
                                 {{-- =================================================
+                                | SELLER DETAILS
+                                ================================================== --}}
+
+                                <div id="sellerDetails" class="d-none mb-4">
+
+                                    <hr class="my-4">
+
+                                    <h5 class="fw-bold mb-3">
+                                        Seller Details
+                                    </h5>
+
+                                    <div class="row g-3">
+
+                                        <div class="col-md-6">
+
+                                            <small class="text-muted d-block">
+                                                Member Name
+                                            </small>
+
+                                            <div
+                                                id="sellerMemberName"
+                                                class="fw-semibold"
+                                            ></div>
+
+                                        </div>
+
+
+                                        <div class="col-md-6">
+
+                                            <small class="text-muted d-block">
+                                                Membership No.
+                                            </small>
+
+                                            <div
+                                                id="sellerMembershipNo"
+                                                class="fw-semibold"
+                                            ></div>
+
+                                        </div>
+
+
+                                        <div class="col-md-6">
+
+                                            <small class="text-muted d-block">
+                                                Dealing Right No.
+                                            </small>
+
+                                            <div
+                                                id="sellerDealingRightNo"
+                                                class="fw-semibold"
+                                            ></div>
+
+                                        </div>
+
+
+                                        <div class="col-md-6">
+
+                                            <small class="text-muted d-block">
+                                                Phone
+                                            </small>
+
+                                            <div
+                                                id="sellerPhone"
+                                                class="fw-semibold"
+                                            ></div>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+
+                                {{-- =================================================
                                 | DYNAMIC DOCUMENT FIELDS
                                 ================================================== --}}
 
-                                <div id="documentFieldsSection" class="d-none mb-4">
+                                <div
+                                    id="documentFieldsSection"
+                                    class="d-none mb-4"
+                                >
 
                                     <hr class="my-4">
 
@@ -141,7 +218,7 @@
                                     <div class="alert alert-light border mb-0">
 
                                         No additional information is required for
-                                        this document.
+                                        this payment.
 
                                     </div>
 
@@ -240,6 +317,21 @@
             const noDocumentFields =
                 document.getElementById('noDocumentFields');
 
+            const sellerDetails =
+                document.getElementById('sellerDetails');
+
+            const sellerMemberName =
+                document.getElementById('sellerMemberName');
+
+            const sellerMembershipNo =
+                document.getElementById('sellerMembershipNo');
+
+            const sellerDealingRightNo =
+                document.getElementById('sellerDealingRightNo');
+
+            const sellerPhone =
+                document.getElementById('sellerPhone');
+
             const payButton =
                 document.getElementById('payButton');
 
@@ -254,13 +346,11 @@
             |--------------------------------------------------------------------------
             | DOCUMENT FIELD STATE
             |--------------------------------------------------------------------------
-            |
-            | Pay Now remains disabled until the selected payment item's
-            | document information has successfully loaded.
-            |
             */
 
             let documentFieldsLoaded = false;
+
+            let fieldsRequestController = null;
 
 
             /*
@@ -279,11 +369,71 @@
 
                 noDocumentFields.classList.add('d-none');
 
+                sellerDetails.classList.add('d-none');
+
                 documentName.textContent = '';
 
                 documentFields.innerHTML = '';
 
+                sellerMemberName.textContent = '';
+
+                sellerMembershipNo.textContent = '';
+
+                sellerDealingRightNo.textContent = '';
+
+                sellerPhone.textContent = '';
+
                 payButton.disabled = true;
+
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | DISPLAY SELLER DETAILS
+            |--------------------------------------------------------------------------
+            */
+
+            function displaySellerDetails(data) {
+
+                const seller =
+                    data.seller || data.member || null;
+
+
+                if (!seller) {
+
+                    sellerDetails.classList.add('d-none');
+
+                    return;
+
+                }
+
+
+                sellerMemberName.textContent =
+                    seller.name ||
+                    seller.full_name ||
+                    seller.member_name ||
+                    'N/A';
+
+
+                sellerMembershipNo.textContent =
+                    seller.membership_no ||
+                    seller.membership_number ||
+                    'N/A';
+
+
+                sellerDealingRightNo.textContent =
+                    seller.dealing_right_no ||
+                    seller.dealing_right_number ||
+                    'N/A';
+
+
+                sellerPhone.textContent =
+                    seller.phone ||
+                    'N/A';
+
+
+                sellerDetails.classList.remove('d-none');
 
             }
 
@@ -294,7 +444,7 @@
             |--------------------------------------------------------------------------
             */
 
-            function renderField(field) {
+            function renderField(field, documentCode) {
 
                 const wrapper =
                     document.createElement('div');
@@ -316,11 +466,14 @@
 
                 label.setAttribute(
                     'for',
-                    'document_field_' + field.field_key
+                    documentCode +
+                    '_' +
+                    field.field_key
                 );
 
                 label.textContent =
-                    field.label || field.field_key;
+                    field.label ||
+                    field.field_key;
 
 
                 /*
@@ -404,27 +557,33 @@
                         input.appendChild(emptyOption);
 
 
-                        if (Array.isArray(field.options)) {
+                        let options =
+                            field.options || [];
 
-                            field.options.forEach(function (option) {
+
+                        if (typeof options === 'string') {
+
+                            try {
+
+                                options =
+                                    JSON.parse(options);
+
+                            } catch (error) {
+
+                                options = [];
+
+                            }
+
+                        }
+
+
+                        if (Array.isArray(options)) {
+
+                            options.forEach(function (option) {
 
                                 const optionElement =
                                     document.createElement('option');
 
-
-                                /*
-                                |--------------------------------------------------------------------------
-                                | OBJECT OPTION
-                                |--------------------------------------------------------------------------
-                                |
-                                | Example:
-                                |
-                                | {
-                                |     value: "dealer",
-                                |     label: "Dealer"
-                                | }
-                                |
-                                */
 
                                 if (
                                     option !== null &&
@@ -434,6 +593,7 @@
                                     optionElement.value =
                                         option.value ??
                                         option.key ??
+                                        option.id ??
                                         '';
 
                                     optionElement.textContent =
@@ -443,21 +603,7 @@
                                         option.key ??
                                         '';
 
-                                }
-
-
-                                /*
-                                |--------------------------------------------------------------------------
-                                | SIMPLE OPTION
-                                |--------------------------------------------------------------------------
-                                |
-                                | Example:
-                                |
-                                | ["Dealer", "Supplier", "Exporter"]
-                                |
-                                */
-
-                                else {
+                                } else {
 
                                     optionElement.value =
                                         option ?? '';
@@ -468,7 +614,9 @@
                                 }
 
 
-                                input.appendChild(optionElement);
+                                input.appendChild(
+                                    optionElement
+                                );
 
                             });
 
@@ -564,25 +712,51 @@
                 */
 
                 input.id =
-                    'document_field_' +
+                    documentCode +
+                    '_' +
                     field.field_key;
 
 
                 /*
                 |--------------------------------------------------------------------------
-                | IMPORTANT
+                | NESTED FIELD NAME
                 |--------------------------------------------------------------------------
                 |
-                | Laravel initializeAdditional() expects:
+                | IMPORTANT:
                 |
-                | document_field_values[field_key]
+                | This allows multiple documents to contain fields with
+                | the same field_key such as:
+                |
+                | state
+                | vehicle_number
+                |
+                | Example:
+                |
+                | document_field_values[
+                |     NACPDEAN-AFFORESTATION-RECEIPT
+                | ][state]
                 |
                 */
 
                 input.name =
                     'document_field_values[' +
+                    documentCode +
+                    '][' +
                     field.field_key +
                     ']';
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | DATA ATTRIBUTES
+                |--------------------------------------------------------------------------
+                */
+
+                input.dataset.documentCode =
+                    documentCode;
+
+                input.dataset.fieldKey =
+                    field.field_key;
 
 
                 /*
@@ -679,6 +853,30 @@
                 resetDocumentFields();
 
 
+                if (!paymentItemId) {
+
+                    return;
+
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | CANCEL PREVIOUS REQUEST
+                |--------------------------------------------------------------------------
+                */
+
+                if (fieldsRequestController) {
+
+                    fieldsRequestController.abort();
+
+                }
+
+
+                fieldsRequestController =
+                    new AbortController();
+
+
                 try {
 
                     const response =
@@ -691,12 +889,17 @@
 
                                 headers: {
 
-                                    'Accept': 'application/json',
+                                    'Accept':
+                                        'application/json',
 
                                     'X-Requested-With':
                                         'XMLHttpRequest'
 
-                                }
+                                },
+
+                                signal:
+                                    fieldsRequestController.signal
+
                             }
                         );
 
@@ -707,8 +910,28 @@
                     |--------------------------------------------------------------------------
                     */
 
-                    const data =
-                        await response.json();
+  const responseText = await response.text();
+
+console.log(
+    'PAYMENT INITIALIZATION HTTP STATUS:',
+    response.status
+);
+
+console.log(
+    'PAYMENT INITIALIZATION RAW RESPONSE:',
+    responseText
+);
+
+let data;
+
+try {
+    data = JSON.parse(responseText);
+} catch (error) {
+    throw new Error(
+        'The server returned an invalid response. HTTP status: ' +
+        response.status
+    );
+}
 
 
                     if (
@@ -726,14 +949,43 @@
 
                     /*
                     |--------------------------------------------------------------------------
-                    | NO DOCUMENT
+                    | SELLER DETAILS
                     |--------------------------------------------------------------------------
                     */
 
-                    if (
-                        !data.has_document ||
-                        !data.document
-                    ) {
+                    displaySellerDetails(data);
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | GET ALL DOCUMENTS
+                    |--------------------------------------------------------------------------
+                    |
+                    | IMPORTANT:
+                    |
+                    | Do NOT use data.document / data.fields here.
+                    |
+                    | Afforestation payments can have multiple documents.
+                    |
+                    */
+
+                    const documents =
+                        Array.isArray(data.documents)
+                            ? data.documents
+                            : [];
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | NO DOCUMENTS
+                    |--------------------------------------------------------------------------
+                    */
+
+                    if (!documents.length) {
+
+                        documentInfo.classList.add(
+                            'd-none'
+                        );
 
                         noDocumentFields.classList.remove(
                             'd-none'
@@ -755,7 +1007,31 @@
                     */
 
                     documentName.textContent =
-                        data.document.name || '';
+                        '';
+
+
+                    documents.forEach(
+                        function (documentItem, index) {
+
+                            const documentLine =
+                                document.createElement('div');
+
+                            documentLine.className =
+                                'mb-1';
+
+                            documentLine.textContent =
+                                documentItem.name ||
+                                documentItem.document_name ||
+                                '';
+
+
+                            documentName.appendChild(
+                                documentLine
+                            );
+
+                        }
+                    );
+
 
                     documentInfo.classList.remove(
                         'd-none'
@@ -764,69 +1040,171 @@
 
                     /*
                     |--------------------------------------------------------------------------
-                    | GET MANUAL FIELDS
+                    | CLEAR OLD FIELDS
                     |--------------------------------------------------------------------------
                     */
 
-                    const fields =
-                        Array.isArray(data.fields)
-                            ? data.fields
-                            : [];
+                    documentFields.innerHTML = '';
+
+
+                    let hasManualFields = false;
 
 
                     /*
                     |--------------------------------------------------------------------------
-                    | NO MANUAL FIELDS
+                    | RENDER EVERY DOCUMENT
                     |--------------------------------------------------------------------------
                     */
 
-                    if (!fields.length) {
+                    documents.forEach(
+                        function (documentItem) {
+
+                            const documentCode =
+                                documentItem.code ||
+                                documentItem.document_code ||
+                                '';
+
+
+                            if (!documentCode) {
+
+                                return;
+
+                            }
+
+
+                            const fields =
+                                Array.isArray(
+                                    documentItem.fields
+                                )
+                                    ? documentItem.fields
+                                    : [];
+
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | DOCUMENT SECTION
+                            |--------------------------------------------------------------------------
+                            */
+
+                            const documentSection =
+                                document.createElement('div');
+
+                            documentSection.className =
+                                'border rounded-3 p-4 mb-4 bg-white';
+
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | DOCUMENT TITLE
+                            |--------------------------------------------------------------------------
+                            */
+
+                            const heading =
+                                document.createElement('h5');
+
+                            heading.className =
+                                'fw-bold mb-3';
+
+                            heading.textContent =
+                                documentItem.name ||
+                                documentItem.document_name ||
+                                'Document';
+
+
+                            documentSection.appendChild(
+                                heading
+                            );
+
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | NO MANUAL FIELDS
+                            |--------------------------------------------------------------------------
+                            */
+
+                            if (!fields.length) {
+
+                                const message =
+                                    document.createElement('p');
+
+                                message.className =
+                                    'text-muted mb-0';
+
+                                message.textContent =
+                                    'No additional information is required for this document.';
+
+                                documentSection.appendChild(
+                                    message
+                                );
+
+                            }
+
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | RENDER MANUAL FIELDS
+                            |--------------------------------------------------------------------------
+                            */
+
+                            fields.forEach(
+                                function (field) {
+
+                                    hasManualFields = true;
+
+                                    const fieldElement =
+                                        renderField(
+                                            field,
+                                            documentCode
+                                        );
+
+                                    documentSection.appendChild(
+                                        fieldElement
+                                    );
+
+                                }
+                            );
+
+
+                            documentFields.appendChild(
+                                documentSection
+                            );
+
+                        }
+                    );
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | SHOW / HIDE FIELD SECTION
+                    |--------------------------------------------------------------------------
+                    */
+
+                    if (hasManualFields) {
+
+                        documentFieldsSection.classList.remove(
+                            'd-none'
+                        );
+
+                        noDocumentFields.classList.add(
+                            'd-none'
+                        );
+
+                    } else {
+
+                        documentFieldsSection.classList.add(
+                            'd-none'
+                        );
 
                         noDocumentFields.classList.remove(
                             'd-none'
                         );
-
-                        documentFieldsLoaded = true;
-
-                        payButton.disabled = false;
-
-                        return;
 
                     }
 
 
                     /*
                     |--------------------------------------------------------------------------
-                    | RENDER FIELDS
-                    |--------------------------------------------------------------------------
-                    */
-
-                    fields.forEach(function (field) {
-
-                        const fieldElement =
-                            renderField(field);
-
-                        documentFields.appendChild(
-                            fieldElement
-                        );
-
-                    });
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | SHOW DOCUMENT FIELDS
-                    |--------------------------------------------------------------------------
-                    */
-
-                    documentFieldsSection.classList.remove(
-                        'd-none'
-                    );
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | MARK AS LOADED
+                    | MARK FIELDS AS LOADED
                     |--------------------------------------------------------------------------
                     */
 
@@ -836,9 +1214,19 @@
 
                 } catch (error) {
 
+                    if (
+                        error.name === 'AbortError'
+                    ) {
+
+                        return;
+
+                    }
+
+
                     documentFieldsLoaded = false;
 
                     payButton.disabled = true;
+
 
                     console.error(
                         'Document fields error:',
@@ -860,7 +1248,9 @@
                         'Unable to load document fields.';
 
 
-                    documentFields.appendChild(errorBox);
+                    documentFields.appendChild(
+                        errorBox
+                    );
 
 
                     documentFieldsSection.classList.remove(
@@ -877,12 +1267,16 @@
             | COLLECT DOCUMENT FIELD VALUES
             |--------------------------------------------------------------------------
             |
-            | Collect ONLY the fields rendered inside #documentFields.
-            |
-            | Example result:
+            | Returns:
             |
             | {
-            |     container_number: "MSCU1234567"
+            |     "DOCUMENT-CODE-1": {
+            |         "field": "value"
+            |     },
+            |
+            |     "DOCUMENT-CODE-2": {
+            |         "field": "value"
+            |     }
             | }
             |
             */
@@ -894,30 +1288,36 @@
 
                 const fields =
                     documentFields.querySelectorAll(
-                        'input[name], textarea[name], select[name]'
+                        'input[data-document-code], ' +
+                        'textarea[data-document-code], ' +
+                        'select[data-document-code]'
                     );
 
 
                 fields.forEach(function (field) {
 
-                    if (!field.name) {
-                        return;
-                    }
-
-
-                    const match =
-                        field.name.match(
-                            /^document_field_values\[(.+)\]$/
-                        );
-
-
-                    if (!match) {
-                        return;
-                    }
-
+                    const documentCode =
+                        field.dataset.documentCode;
 
                     const fieldKey =
-                        match[1];
+                        field.dataset.fieldKey;
+
+
+                    if (
+                        !documentCode ||
+                        !fieldKey
+                    ) {
+
+                        return;
+
+                    }
+
+
+                    if (!values[documentCode]) {
+
+                        values[documentCode] = {};
+
+                    }
 
 
                     let value =
@@ -934,7 +1334,7 @@
                     }
 
 
-                    values[fieldKey] =
+                    values[documentCode][fieldKey] =
                         value;
 
                 });
@@ -955,7 +1355,9 @@
 
                 const requiredFields =
                     documentFields.querySelectorAll(
-                        'input[name][required], textarea[name][required], select[name][required]'
+                        'input[required], ' +
+                        'textarea[required], ' +
+                        'select[required]'
                     );
 
 
@@ -1074,7 +1476,7 @@
 
                     /*
                     |--------------------------------------------------------------------------
-                    | LOAD DOCUMENT FIELDS
+                    | LOAD ALL DOCUMENT FIELDS
                     |--------------------------------------------------------------------------
                     */
 
@@ -1189,17 +1591,6 @@
                         |--------------------------------------------------------------------------
                         | CREATE FORMDATA
                         |--------------------------------------------------------------------------
-                        |
-                        | IMPORTANT:
-                        |
-                        | We are deliberately NOT using JSON here.
-                        |
-                        | Laravel will receive:
-                        |
-                        | payment_item_id
-                        |
-                        | document_field_values[container_number]
-                        |
                         */
 
                         const formData =
@@ -1234,33 +1625,57 @@
                         |--------------------------------------------------------------------------
                         | DOCUMENT FIELD VALUES
                         |--------------------------------------------------------------------------
+                        |
+                        | IMPORTANT:
+                        |
+                        | The values are now grouped by document code.
+                        |
+                        | Example:
+                        |
+                        | document_field_values[
+                        |     NACPDEAN-AFFORESTATION-RECEIPT
+                        | ][loading_point]
+                        |
+                        | document_field_values[
+                        |     NACPDEAN-CHARCOAL-TRANSIT-PASS
+                        | ][seller_name]
+                        |
                         */
 
                         Object.keys(
                             documentFieldValues
-                        ).forEach(function (fieldKey) {
+                        ).forEach(
+                            function (documentCode) {
 
-                            formData.append(
-                                'document_field_values[' +
-                                fieldKey +
-                                ']',
-                                documentFieldValues[fieldKey]
-                            );
+                                Object.keys(
+                                    documentFieldValues[
+                                        documentCode
+                                    ]
+                                ).forEach(
+                                    function (fieldKey) {
 
-                        });
+                                        formData.append(
+                                            'document_field_values[' +
+                                            documentCode +
+                                            '][' +
+                                            fieldKey +
+                                            ']',
+                                            documentFieldValues[
+                                                documentCode
+                                            ][fieldKey]
+                                        );
+
+                                    }
+                                );
+
+                            }
+                        );
 
 
                         /*
                         |--------------------------------------------------------------------------
                         | DEBUG FORMDATA
                         |--------------------------------------------------------------------------
-                        |
-                        | Open browser console and you should see:
-                        |
-                        | payment_item_id = 98
-                        | _token = ...
-                        | document_field_values[container_number] = MSCU1234567
-                        |
                         */
 
                         console.log(
@@ -1293,21 +1708,6 @@
                                 {
                                     method: 'POST',
 
-                                    /*
-                                    |--------------------------------------------------------------------------
-                                    | DO NOT SET Content-Type MANUALLY
-                                    |--------------------------------------------------------------------------
-                                    |
-                                    | The browser automatically sets:
-                                    |
-                                    | multipart/form-data;
-                                    | boundary=...
-                                    |
-                                    | This is important for Laravel to correctly
-                                    | parse document_field_values.
-                                    |--------------------------------------------------------------------------
-                                    */
-
                                     headers: {
 
                                         'Accept':
@@ -1318,7 +1718,8 @@
 
                                     },
 
-                                    body: formData
+                                    body:
+                                        formData
 
                                 }
                             );
@@ -1330,8 +1731,28 @@
                         |--------------------------------------------------------------------------
                         */
 
-                        const data =
-                            await response.json();
+const responseText = await response.text();
+
+console.log(
+    'PAYMENT INITIALIZATION HTTP STATUS:',
+    response.status
+);
+
+console.log(
+    'PAYMENT INITIALIZATION RAW RESPONSE:',
+    responseText
+);
+
+let data;
+
+try {
+    data = JSON.parse(responseText);
+} catch (error) {
+    throw new Error(
+        'The server returned an invalid response. HTTP status: ' +
+        response.status
+    );
+}
 
 
                         console.log(
@@ -1342,7 +1763,7 @@
 
                         /*
                         |--------------------------------------------------------------------------
-                        | ERROR
+                        | PAYMENT ERROR
                         |--------------------------------------------------------------------------
                         */
 

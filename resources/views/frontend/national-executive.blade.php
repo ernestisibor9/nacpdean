@@ -173,7 +173,7 @@
 
 <main class="main">
 
-```
+
 <!-- HERO -->
 
 <section class="hero text-center">
@@ -482,7 +482,7 @@
     @endif
 
 </div>
-```
+
 
 </main>
 
@@ -496,7 +496,7 @@
     aria-hidden="true"
 >
 
-```
+
 <div class="modal-dialog modal-lg modal-dialog-scrollable">
 
     <div class="modal-content">
@@ -505,7 +505,7 @@
 
             <h4
                 id="modalName"
-                class="modal-title"
+                class="modal-title text-white"
             ></h4>
 
             <button
@@ -564,7 +564,6 @@
     </div>
 
 </div>
-```
 
 </div>
 

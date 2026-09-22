@@ -74,54 +74,36 @@ NACPDEAN - Payment Successful
     ============================================================ */
 
     .next-step {
-        background: linear-gradient(
-            135deg,
-            #f0fff7,
-            #ffffff
-        );
-
+        background: linear-gradient(135deg, #f0fff7, #ffffff);
         border: 2px solid #198754;
         border-radius: 15px;
-
         padding: 28px 25px;
-
         text-align: center;
-
         margin-bottom: 35px;
-
         position: relative;
         overflow: hidden;
     }
 
     .next-step::before {
         content: "";
-
         position: absolute;
-
         top: 0;
         left: 0;
-
         width: 6px;
         height: 100%;
-
         background: #198754;
     }
 
     .next-step-icon {
         width: 52px;
         height: 52px;
-
         background: #198754;
         color: #fff;
-
         border-radius: 50%;
-
         display: flex;
         align-items: center;
         justify-content: center;
-
         margin: 0 auto 14px;
-
         font-size: 25px;
     }
 
@@ -135,70 +117,82 @@ NACPDEAN - Payment Successful
     .next-step p {
         color: #5f6b66;
         font-size: 14px;
-
         max-width: 650px;
-
         margin: 0 auto 22px;
-
         line-height: 1.6;
     }
 
     .next-step-label {
         display: inline-block;
-
         background: #d1e7dd;
         color: #0f5132;
-
         font-size: 11px;
         font-weight: 800;
-
         padding: 6px 12px;
-
         border-radius: 20px;
-
         margin-bottom: 12px;
-
         text-transform: uppercase;
         letter-spacing: .5px;
     }
 
     .application-btn {
         display: inline-flex;
-
         align-items: center;
         justify-content: center;
-
         gap: 9px;
-
         background: #0d6efd;
         border: 0;
-
         color: #fff;
-
         padding: 14px 32px;
-
         border-radius: 9px;
-
         font-size: 16px;
         font-weight: 800;
-
         min-width: 250px;
-
         box-shadow: 0 5px 15px rgba(13, 110, 253, 0.25);
-
         transition: all .2s ease;
     }
 
     .application-btn:hover {
         background: #0b5ed7;
         color: #fff;
-
         transform: translateY(-2px);
-
         box-shadow: 0 8px 20px rgba(13, 110, 253, 0.35);
     }
 
     .application-btn i {
+        font-size: 19px;
+    }
+
+
+    /* ============================================================
+       DOCUMENT CTA (shown when profile exists)
+    ============================================================ */
+
+    .document-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        background: #198754;
+        border: 0;
+        color: #fff;
+        padding: 14px 32px;
+        border-radius: 9px;
+        font-size: 16px;
+        font-weight: 800;
+        min-width: 250px;
+        box-shadow: 0 5px 15px rgba(25, 135, 84, 0.25);
+        transition: all .2s ease;
+    }
+
+    .document-btn:hover {
+        background: #157347;
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(25, 135, 84, 0.35);
+    }
+
+    .document-btn i {
         font-size: 19px;
     }
 
@@ -209,47 +203,34 @@ NACPDEAN - Payment Successful
 
     .amount-section {
         text-align: center;
-
         padding: 5px 0 28px;
-
         border-bottom: 1px solid #eee;
-
         margin-bottom: 28px;
     }
 
     .amount-label {
         color: #6c757d;
         font-size: 14px;
-
         margin-bottom: 5px;
     }
 
     .amount {
         font-size: 38px;
         font-weight: 800;
-
         color: #212529;
-
         letter-spacing: -1px;
     }
 
     .payment-status {
         display: inline-flex;
-
         align-items: center;
-
         gap: 6px;
-
         background: #d1e7dd;
         color: #0f5132;
-
         padding: 7px 14px;
-
         border-radius: 30px;
-
         font-size: 12px;
         font-weight: 700;
-
         margin-top: 10px;
     }
 
@@ -260,11 +241,8 @@ NACPDEAN - Payment Successful
 
     .section-title {
         font-size: 15px;
-
         font-weight: 700;
-
         color: #212529;
-
         margin-bottom: 15px;
     }
 
@@ -275,25 +253,17 @@ NACPDEAN - Payment Successful
 
     .details-card {
         border: 1px solid #e9ecef;
-
         border-radius: 12px;
-
         overflow: hidden;
-
         background: #fff;
     }
 
     .detail-row {
         display: flex;
-
         justify-content: space-between;
-
         align-items: center;
-
         gap: 20px;
-
         padding: 15px 18px;
-
         border-bottom: 1px solid #f0f0f0;
     }
 
@@ -303,33 +273,23 @@ NACPDEAN - Payment Successful
 
     .detail-label {
         color: #6c757d;
-
         font-size: 13px;
-
         font-weight: 500;
     }
 
     .detail-value {
         color: #212529;
-
         font-size: 14px;
-
         font-weight: 600;
-
         text-align: right;
-
         word-break: break-word;
     }
 
     .reference {
         font-family: monospace;
-
         background: #f8f9fa;
-
         padding: 5px 8px;
-
         border-radius: 5px;
-
         font-size: 12px;
     }
 
@@ -340,31 +300,22 @@ NACPDEAN - Payment Successful
 
     .balance-card {
         margin-top: 25px;
-
         background: #f8f9fa;
-
         border: 1px solid #e9ecef;
-
         border-radius: 12px;
-
         padding: 20px;
-
         text-align: center;
     }
 
     .balance-label {
         color: #6c757d;
-
         font-size: 13px;
-
         margin-bottom: 4px;
     }
 
     .balance-amount {
         font-size: 24px;
-
         font-weight: 800;
-
         color: #212529;
     }
 
@@ -403,21 +354,17 @@ NACPDEAN - Payment Successful
             font-size: 20px;
         }
 
-        .application-btn {
+        .application-btn,
+        .document-btn {
             width: 100%;
-
             min-width: unset;
-
             padding: 15px 20px;
-
             font-size: 15px;
         }
 
         .detail-row {
             align-items: flex-start;
-
             flex-direction: column;
-
             gap: 5px;
         }
 
@@ -461,42 +408,91 @@ NACPDEAN - Payment Successful
 
 
             {{-- ====================================================
-                 IMPORTANT NEXT STEP
-                 THIS IS INTENTIONALLY AT THE TOP
+                 NEXT STEP BLOCK
+                 ----------------------------------------------------
+                 Two states:
+
+                 1. No profile  → "Complete Your Application Profile"
+                 2. Has profile → "View Your Documents"
             ===================================================== --}}
-            <div class="next-step">
+            @if ($hasProfile)
 
-                <div class="next-step-icon">
-                    <i class="bi bi-person-vcard"></i>
+                {{-- ============================================
+                     VIEW DOCUMENTS
+                ============================================= --}}
+                <div class="next-step">
+
+                    <div class="next-step-icon">
+                        <i class="bi bi-file-earmark-text"></i>
+                    </div>
+
+                    <div class="next-step-label">
+                        Next Step
+                    </div>
+
+                    <h4>
+                        View Your Documents
+                    </h4>
+
+                    <p>
+                        Your payment has been confirmed and your
+                        document has been generated. Click below
+                        to view, print, or download your document.
+                    </p>
+
+                    <a href="{{ route('member.documents.index') }}"
+                       class="btn document-btn">
+
+                        <i class="bi bi-file-earmark-check"></i>
+
+                        <span>
+                            VIEW YOUR DOCUMENTS
+                        </span>
+
+                    </a>
+
                 </div>
 
-                <div class="next-step-label">
-                    Next Step
+            @else
+
+                {{-- ============================================
+                     COMPLETE APPLICATION PROFILE
+                ============================================= --}}
+                <div class="next-step">
+
+                    <div class="next-step-icon">
+                        <i class="bi bi-person-vcard"></i>
+                    </div>
+
+                    <div class="next-step-label">
+                        Next Step
+                    </div>
+
+                    <h4>
+                        Complete Your Application Profile
+                    </h4>
+
+                    <p>
+                        Your payment is confirmed. The next step is to
+                        complete your application form and provide your
+                        profile information so that your membership
+                        application can be processed.
+                    </p>
+
+                    <a href="{{ route('member.profile') }}"
+                       class="btn application-btn">
+
+                        <i class="bi bi-arrow-right-circle-fill"></i>
+
+                        <span>
+                            COMPLETE APPLICATION FORM
+                        </span>
+
+                    </a>
+
                 </div>
 
-                <h4>
-                    Complete Your Application Profile
-                </h4>
-
-                <p>
-                    Your payment is confirmed. The next step is to
-                    complete your application form and provide your
-                    profile information so that your membership
-                    application can be processed.
-                </p>
-
-                <a href="{{ route('member.profile') }}"
-                   class="btn application-btn">
-
-                    <i class="bi bi-arrow-right-circle-fill"></i>
-
-                    <span>
-                        COMPLETE APPLICATION FORM
-                    </span>
-
-                </a>
-
-            </div>
+            @endif
 
 
             {{-- ====================================================

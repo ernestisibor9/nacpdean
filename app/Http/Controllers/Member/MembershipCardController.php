@@ -5,14 +5,22 @@ namespace App\Http\Controllers\Member;
 use App\Http\Controllers\Controller;
 use App\Models\MembershipCard;
 use App\Models\MembershipOfficerAppointment;
+use App\Models\User;
 use App\Services\QrCodeService;
 use Illuminate\Support\Facades\Auth;
 
 class MembershipCardController extends Controller
 {
-    public function index(QrCodeService $qrCodeService)
+    public function index(QrCodeService $qrCodeService, $id = -1)
     {
-        $user = Auth::user();
+
+
+        if ($id == -1) {
+            $user = Auth::user();
+        } else {
+            $user = User::find($id);
+            $user = $user->role == "admin" ? $user : Auth::user();
+        }
 
         /*
         |--------------------------------------------------------------------------

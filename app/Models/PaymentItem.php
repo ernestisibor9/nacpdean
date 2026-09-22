@@ -3,8 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PaymentItem extends Model
@@ -12,15 +12,14 @@ class PaymentItem extends Model
     protected $fillable = [
         'name',
         'code',
+        'description',
         'type',
+        'payment_group',
         'amount',
-        'membership_category_id',
-        'document_id',
         'is_active',
         'is_renewable',
         'renewal_payment_item_id',
     ];
-
 
     protected $casts = [
         'amount' => 'decimal:2',
@@ -28,20 +27,14 @@ class PaymentItem extends Model
         'is_renewable' => 'boolean',
     ];
 
-
-    public function membershipCategory(): BelongsTo
+    public function membershipCategories(): BelongsToMany
     {
-        return $this->belongsTo(
-            MembershipCategory::class
-        );
-    }
-
-
-    public function document(): BelongsTo
-    {
-        return $this->belongsTo(
-            Document::class
-        );
+        return $this->belongsToMany(
+            MembershipCategory::class,
+            'payment_item_categories',
+            'payment_item_id',
+            'membership_category_id'
+        )->withTimestamps();
     }
 
     public function documents(): BelongsToMany
@@ -59,20 +52,14 @@ class PaymentItem extends Model
             ->withTimestamps();
     }
 
-
     public function payments(): HasMany
     {
-        return $this->hasMany(
-            Payment::class
-        );
+        return $this->hasMany(Payment::class);
     }
-
 
     public function transactions(): HasMany
     {
-        return $this->hasMany(
-            Transaction::class
-        );
+        return $this->hasMany(Transaction::class);
     }
 
     public function renewalPaymentItem(): BelongsTo
@@ -91,58 +78,21 @@ class PaymentItem extends Model
         );
     }
 
-    /**
-     * Categories this payment item applies to.
-     */
-    public function membershipCategories(): BelongsToMany
-    {
-        return $this->belongsToMany(
-            MembershipCategory::class,
-            'payment_item_categories',
-            'payment_item_id',
-            'membership_category_id'
-        )->withTimestamps();
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | ELIGIBILITY
-    |--------------------------------------------------------------------------
-    */
-
     public function eligibilities(): HasMany
     {
-        return $this->hasMany(
-            PaymentItemEligibility::class
-        );
+        return $this->hasMany(PaymentItemEligibility::class);
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | VIOLATIONS
-    |--------------------------------------------------------------------------
-    */
 
     public function violations(): HasMany
     {
-        return $this->hasMany(
-            Violation::class
-        );
+        return $this->hasMany(Violation::class);
     }
 
-
-        /*
-    |--------------------------------------------------------------------------
-    | ITEMS THAT RENEW THIS ITEM
-    |--------------------------------------------------------------------------
-    */
-
-    public function renewedBy()
+    public function renewedBy(): HasMany
     {
         return $this->hasMany(
             self::class,
             'renewal_payment_item_id'
         );
     }
-
 }

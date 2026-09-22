@@ -1260,4 +1260,82 @@ class MemberApplicationController extends Controller
                 'Renewal debit generated successfully.'
             );
     }
+
+
+
+    /*
+|--------------------------------------------------------------------------
+| GENERATE MEMBERSHIP DOCUMENTS MANUALLY
+|--------------------------------------------------------------------------
+|
+| Used only for memberships that were manually inserted into the
+| database and therefore do not have the normal payment records.
+|
+*/
+
+public function generateMembershipDocumentsManually(
+    $id,
+    DocumentGenerationService $documentGenerationService
+) {
+    try {
+
+        /*
+        |--------------------------------------------------------------------------
+        | LOAD MEMBERSHIP
+        |--------------------------------------------------------------------------
+        */
+
+        $membership = Membership::with([
+            'user',
+            'membershipCategory',
+        ])->findOrFail($id);
+
+        /*
+        |--------------------------------------------------------------------------
+        | GENERATE DOCUMENTS
+        |--------------------------------------------------------------------------
+        */
+
+        $generatedDocuments =
+            $documentGenerationService
+                ->generateMembershipDocumentsManually(
+                    $membership
+                );
+
+        return redirect()
+            ->back()
+            ->with(
+                'success',
+                count($generatedDocuments) .
+                    ' membership document(s) generated successfully for ' .
+                    ($membership->membership_number ?? 'this membership') .
+                    '.'
+            );
+
+    } catch (\Throwable $e) {
+
+        Log::error(
+            'Manual membership document generation failed.',
+            [
+                'membership_id' =>
+                    $id,
+
+                'error' =>
+                    $e->getMessage(),
+
+                'trace' =>
+                    $e->getTraceAsString(),
+            ]
+        );
+
+        return redirect()
+            ->back()
+            ->with(
+                'error',
+                'Document generation failed: ' .
+                    $e->getMessage()
+            );
+    }
 }
+}
+

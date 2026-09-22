@@ -7,6 +7,7 @@ use App\Models\GeneratedDocument;
 use App\Models\MemberProfile;
 use App\Models\Membership;
 use App\Models\MembershipCategory;
+use App\Models\OperationalRightsDocument;
 use App\Models\Payment;
 use App\Models\Transaction;
 use Carbon\Carbon;
@@ -59,12 +60,6 @@ class DocumentGenerationService
                 );
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | VERIFY CREDIT → DEBIT
-            |--------------------------------------------------------------------------
-            */
-
             if (!$creditTransaction->debit_transaction_id) {
                 throw new RuntimeException(
                     'Credit transaction is not linked to a debit transaction.'
@@ -112,15 +107,9 @@ class DocumentGenerationService
                 );
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | LOAD PAYMENT
-            |--------------------------------------------------------------------------
-            */
-
             $payment->loadMissing([
                 'user',
-                'paymentItem.document',
+                'paymentItem',
                 'membershipCategory',
                 'membershipCategoryFee',
                 'memberFee',
@@ -136,58 +125,14 @@ class DocumentGenerationService
 
             $paymentItem = $payment->paymentItem;
 
-            /*
-            |--------------------------------------------------------------------------
-            | RESOLVE DOCUMENT
-            |--------------------------------------------------------------------------
-            */
-
-            $document = null;
-
-            if ($paymentItem) {
-                $document = $paymentItem->document;
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | LEGACY MEMBERSHIP DOCUMENT FALLBACK
-            |--------------------------------------------------------------------------
-            */
-
-            if (
-                !$document &&
-                $payment->membership_category_id
-            ) {
-                $category = MembershipCategory::find(
-                    $payment->membership_category_id
-                );
-
-                if ($category) {
-                    $document = $category->document;
-                }
-            }
-
-            if (!$document) {
+            if (!$paymentItem) {
                 throw new RuntimeException(
-                    'No document is attached to this payment.'
+                    'Payment item could not be found.'
                 );
             }
-
-            if (!$document->is_active) {
-                throw new RuntimeException(
-                    'The selected document is currently inactive.'
-                );
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | CREDIT PAYMENT ITEM SECURITY
-            |--------------------------------------------------------------------------
-            */
 
             if (
                 $creditTransaction->payment_item_id &&
-                $paymentItem &&
                 (int) $creditTransaction->payment_item_id !==
                 (int) $paymentItem->id
             ) {
@@ -196,11 +141,29 @@ class DocumentGenerationService
                 );
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | PREVENT DUPLICATE GENERATION
-            |--------------------------------------------------------------------------
-            */
+            $document = $paymentItem->documents()
+                ->where(
+                    'documents.is_active',
+                    true
+                )
+                ->where(
+                    'payment_item_documents.generate_after_payment',
+                    true
+                )
+                ->orderBy(
+                    'payment_item_documents.is_primary',
+                    'desc'
+                )
+                ->orderBy(
+                    'documents.id'
+                )
+                ->first();
+
+            if (!$document) {
+                throw new RuntimeException(
+                    'No active document is configured for this payment item.'
+                );
+            }
 
             $existing = GeneratedDocument::where(
                 'user_id',
@@ -220,51 +183,21 @@ class DocumentGenerationService
                 return $existing;
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | DOCUMENT NUMBER
-            |--------------------------------------------------------------------------
-            */
-
             $documentNumber = $this->generateDocumentNumber(
                 $document,
                 $payment
             );
 
-            /*
-            |--------------------------------------------------------------------------
-            | TRACKING CODE
-            |--------------------------------------------------------------------------
-            */
-
             $trackingCode = $this->generateTrackingCode();
-
-            /*
-            |--------------------------------------------------------------------------
-            | ISSUED DATE
-            |--------------------------------------------------------------------------
-            */
 
             $issuedAt = $payment->paid_at
                 ? Carbon::parse($payment->paid_at)
                 : now();
 
-            /*
-            |--------------------------------------------------------------------------
-            | EXPIRY
-            |--------------------------------------------------------------------------
-            */
-
             $expiresAt = $this->calculateDocumentExpiry(
                 $document,
                 $issuedAt
             );
-
-            /*
-            |--------------------------------------------------------------------------
-            | CURRENT MEMBERSHIP
-            |--------------------------------------------------------------------------
-            */
 
             $membership = Membership::where(
                 'user_id',
@@ -273,22 +206,10 @@ class DocumentGenerationService
                 ->latest('id')
                 ->first();
 
-            /*
-            |--------------------------------------------------------------------------
-            | PROFILE
-            |--------------------------------------------------------------------------
-            */
-
             $profile = MemberProfile::where(
                 'user_id',
                 $user->id
             )->first();
-
-            /*
-            |--------------------------------------------------------------------------
-            | FIELD VALUES
-            |--------------------------------------------------------------------------
-            */
 
             $fieldValues = $this->buildGenericFieldValues(
                 $document,
@@ -305,10 +226,23 @@ class DocumentGenerationService
             );
 
             /*
-            |--------------------------------------------------------------------------
-            | CREATE GENERATED DOCUMENT
-            |--------------------------------------------------------------------------
+                |--------------------------------------------------------------------------
+                | DEDICATED TRANSIT NUMBER
+                |--------------------------------------------------------------------------
+                |
+                | Transit passes get their own number, independent of the internal
+                | document_number. Format: TRP-<YEAR>-<STATE>-<SERIAL>
+                |
             */
+
+            $transitNo = $this->generateTransitNumber(
+                $document,
+                $documentFieldValues
+            );
+
+            if ($transitNo !== null) {
+                $fieldValues['transit_no'] = $transitNo;
+            }
 
             $generatedDocument = GeneratedDocument::create([
                 'user_id' => $user->id,
@@ -324,12 +258,6 @@ class DocumentGenerationService
                 'field_values' => $fieldValues,
             ]);
 
-            /*
-            |--------------------------------------------------------------------------
-            | HANDLE RENEWAL / REPLACEMENT
-            |--------------------------------------------------------------------------
-            */
-
             $this->handleRenewalReplacement(
                 $generatedDocument,
                 $user->id,
@@ -337,6 +265,306 @@ class DocumentGenerationService
             );
 
             return $generatedDocument;
+        });
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | GENERATE MULTIPLE DOCUMENTS FROM ONE PAYMENT
+    |--------------------------------------------------------------------------
+    */
+
+    public function generateMultiple(
+        Payment $payment,
+        Transaction $creditTransaction,
+        array $documentFieldValuesByCode = []
+    ): array {
+        return DB::transaction(function () use (
+            $payment,
+            $creditTransaction,
+            $documentFieldValuesByCode
+        ) {
+            if (
+                (int) $payment->user_id !==
+                (int) $creditTransaction->user_id
+            ) {
+                throw new RuntimeException(
+                    'Payment and credit transaction do not belong to the same user.'
+                );
+            }
+
+            if ($payment->status !== 'paid') {
+                throw new RuntimeException(
+                    'Documents cannot be generated until payment is successful.'
+                );
+            }
+
+            if ($creditTransaction->type !== 'credit') {
+                throw new RuntimeException(
+                    'The supplied transaction is not a credit transaction.'
+                );
+            }
+
+            if ($creditTransaction->status !== 'paid') {
+                throw new RuntimeException(
+                    'Credit transaction is not marked as paid.'
+                );
+            }
+
+            if (!$creditTransaction->debit_transaction_id) {
+                throw new RuntimeException(
+                    'Credit transaction is not linked to a debit transaction.'
+                );
+            }
+
+            $debitTransaction = Transaction::find(
+                $creditTransaction->debit_transaction_id
+            );
+
+            if (!$debitTransaction) {
+                throw new RuntimeException(
+                    'The debit transaction linked to this credit could not be found.'
+                );
+            }
+
+            if (
+                (int) $debitTransaction->user_id !==
+                (int) $payment->user_id
+            ) {
+                throw new RuntimeException(
+                    'Debit transaction does not belong to this payment user.'
+                );
+            }
+
+            if ($debitTransaction->type !== 'debit') {
+                throw new RuntimeException(
+                    'The transaction linked to this credit is not a debit transaction.'
+                );
+            }
+
+            if ($debitTransaction->status !== 'paid') {
+                throw new RuntimeException(
+                    'The debit transaction linked to this credit is not marked as paid.'
+                );
+            }
+
+            if (!$payment->payment_item_id) {
+                throw new RuntimeException(
+                    'This payment does not have a payment item.'
+                );
+            }
+
+            if (
+                $debitTransaction->payment_item_id &&
+                (int) $debitTransaction->payment_item_id !==
+                (int) $payment->payment_item_id
+            ) {
+                throw new RuntimeException(
+                    'Debit transaction does not belong to this payment item.'
+                );
+            }
+
+            if (
+                $creditTransaction->payment_item_id &&
+                (int) $creditTransaction->payment_item_id !==
+                (int) $payment->payment_item_id
+            ) {
+                throw new RuntimeException(
+                    'Credit transaction does not belong to this payment item.'
+                );
+            }
+
+            $payment->loadMissing([
+                'user',
+                'paymentItem.documents.fields',
+                'membershipCategory',
+                'membershipCategoryFee',
+                'memberFee',
+            ]);
+
+            $user = $payment->user;
+
+            if (!$user) {
+                throw new RuntimeException(
+                    'Payment user could not be found.'
+                );
+            }
+
+            $paymentItem = $payment->paymentItem;
+
+            if (!$paymentItem) {
+                throw new RuntimeException(
+                    'Payment item could not be found.'
+                );
+            }
+
+            $documents = $paymentItem->documents()
+                ->where(
+                    'documents.is_active',
+                    true
+                )
+                ->where(
+                    'payment_item_documents.generate_after_payment',
+                    true
+                )
+                ->orderBy(
+                    'payment_item_documents.is_primary',
+                    'desc'
+                )
+                ->orderBy(
+                    'documents.id'
+                )
+                ->get();
+
+            if ($documents->isEmpty()) {
+                throw new RuntimeException(
+                    'No active documents are configured for this payment item.'
+                );
+            }
+
+            $profile = MemberProfile::where(
+                'user_id',
+                $user->id
+            )->first();
+
+            $membership = Membership::where(
+                'user_id',
+                $user->id
+            )
+                ->latest('id')
+                ->first();
+
+            $generatedDocuments = [];
+
+            foreach ($documents as $document) {
+                $existing = GeneratedDocument::where(
+                    'user_id',
+                    $user->id
+                )
+                    ->where(
+                        'document_id',
+                        $document->id
+                    )
+                    ->where(
+                        'transaction_id',
+                        $creditTransaction->id
+                    )
+                    ->first();
+
+                if ($existing) {
+                    $generatedDocuments[] = $existing;
+
+                    continue;
+                }
+
+                $documentNumber = $this->generateDocumentNumber(
+                    $document,
+                    $payment
+                );
+
+                $trackingCode = $this->generateTrackingCode();
+
+                $issuedAt = $payment->paid_at
+                    ? Carbon::parse($payment->paid_at)
+                    : now();
+
+                $expiresAt = $this->calculateDocumentExpiry(
+                    $document,
+                    $issuedAt
+                );
+
+                $documentCode = strtoupper(
+                    trim(
+                        (string) $document->code
+                    )
+                );
+
+                $documentFieldValues = [];
+
+                if (
+                    isset(
+                        $documentFieldValuesByCode[$documentCode]
+                    ) &&
+                    is_array(
+                        $documentFieldValuesByCode[$documentCode]
+                    )
+                ) {
+                    $documentFieldValues =
+                        $documentFieldValuesByCode[$documentCode];
+                }
+
+                if (
+                    empty($documentFieldValues) &&
+                    isset(
+                        $documentFieldValuesByCode[strtolower(
+                            (string) $document->code
+                        )]
+                    ) &&
+                    is_array(
+                        $documentFieldValuesByCode[strtolower(
+                            (string) $document->code
+                        )]
+                    )
+                ) {
+                    $documentFieldValues =
+                        $documentFieldValuesByCode[strtolower(
+                            (string) $document->code
+                        )];
+                }
+
+                $fieldValues = $this->buildGenericFieldValues(
+                    $document,
+                    $user,
+                    $profile,
+                    $membership,
+                    $payment,
+                    $creditTransaction,
+                    $documentNumber,
+                    $trackingCode,
+                    $issuedAt,
+                    $expiresAt,
+                    $documentFieldValues
+                );
+
+                /*
+                |--------------------------------------------------------------------------
+                | DEDICATED TRANSIT NUMBER
+                |--------------------------------------------------------------------------
+                */
+
+                $transitNo = $this->generateTransitNumber(
+                    $document,
+                    $documentFieldValues
+                );
+
+                if ($transitNo !== null) {
+                    $fieldValues['transit_no'] = $transitNo;
+                }
+
+                $generatedDocument = GeneratedDocument::create([
+                    'user_id' => $user->id,
+                    'document_id' => $document->id,
+                    'transaction_id' => $creditTransaction->id,
+                    'document_number' => $documentNumber,
+                    'tracking_code' => $trackingCode,
+                    'issued_at' => $issuedAt->toDateString(),
+                    'expires_at' => $expiresAt
+                        ? $expiresAt->toDateString()
+                        : null,
+                    'status' => 'active',
+                    'field_values' => $fieldValues,
+                ]);
+
+                $this->handleRenewalReplacement(
+                    $generatedDocument,
+                    $user->id,
+                    $document->id
+                );
+
+                $generatedDocuments[] = $generatedDocument;
+            }
+
+            return $generatedDocuments;
         });
     }
 
@@ -382,12 +610,6 @@ class DocumentGenerationService
             );
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | LOAD CATEGORY DOCUMENTS
-        |--------------------------------------------------------------------------
-        */
-
         $documents = $category->documents()
             ->where(
                 'documents.is_active',
@@ -400,12 +622,6 @@ class DocumentGenerationService
                 'documents.id'
             )
             ->get();
-
-        /*
-        |--------------------------------------------------------------------------
-        | LEGACY FALLBACK
-        |--------------------------------------------------------------------------
-        */
 
         if (
             $documents->isEmpty() &&
@@ -436,12 +652,6 @@ class DocumentGenerationService
             );
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | FIND MEMBERSHIP PAYMENT
-        |--------------------------------------------------------------------------
-        */
-
         [
             $payment,
             $debitTransaction,
@@ -462,12 +672,6 @@ class DocumentGenerationService
             );
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | GENERATE DOCUMENTS
-        |--------------------------------------------------------------------------
-        */
-
         $generatedDocuments = [];
 
         foreach ($documents as $document) {
@@ -482,6 +686,217 @@ class DocumentGenerationService
         }
 
         return $generatedDocuments;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | GENERATE MEMBERSHIP DOCUMENTS MANUALLY
+    |--------------------------------------------------------------------------
+    */
+
+    public function generateMembershipDocumentsManually(
+        Membership $membership
+    ): array {
+        return DB::transaction(function () use ($membership) {
+            $membership->loadMissing([
+                'user',
+                'membershipCategory',
+            ]);
+
+            $user = $membership->user;
+
+            if (!$user) {
+                throw new RuntimeException(
+                    'Membership user could not be found.'
+                );
+            }
+
+            $category = $membership->membershipCategory;
+
+            if (!$category) {
+                throw new RuntimeException(
+                    'Membership category could not be determined.'
+                );
+            }
+
+            if (!$membership->membership_category_id) {
+                throw new RuntimeException(
+                    'Membership does not have a membership category.'
+                );
+            }
+
+            if (!$category->status) {
+                throw new RuntimeException(
+                    'The membership category is inactive.'
+                );
+            }
+
+            $documents = $category->documents()
+                ->where(
+                    'documents.is_active',
+                    true
+                )
+                ->where(
+                    'membership_category_documents.status',
+                    1
+                )
+                ->orderBy(
+                    'membership_category_documents.sort_order'
+                )
+                ->orderBy(
+                    'documents.id'
+                )
+                ->get();
+
+            if (
+                $documents->isEmpty() &&
+                $category->document_id
+            ) {
+                $legacyDocument = Document::with('fields')
+                    ->where(
+                        'id',
+                        $category->document_id
+                    )
+                    ->where(
+                        'is_active',
+                        true
+                    )
+                    ->first();
+
+                if ($legacyDocument) {
+                    $documents = collect([
+                        $legacyDocument,
+                    ]);
+                }
+            }
+
+            if ($documents->isEmpty()) {
+                throw new RuntimeException(
+                    'No active documents are configured for membership category: ' .
+                        $category->name
+                );
+            }
+
+            $profile = MemberProfile::where(
+                'user_id',
+                $membership->user_id
+            )->first();
+
+            $manualPayment = new Payment();
+
+            $manualPayment->user_id =
+                $membership->user_id;
+
+            $manualPayment->membership_category_id =
+                $membership->membership_category_id;
+
+            $manualPayment->payment_type =
+                'membership';
+
+            $manualPayment->status =
+                'manual';
+
+            $issuedAt = $membership->issued_at
+                ? Carbon::parse(
+                    $membership->issued_at
+                )
+                : now();
+
+            $generatedDocuments = [];
+
+            foreach ($documents as $document) {
+                $expiresAt = $membership->expires_at
+                    ? Carbon::parse(
+                        $membership->expires_at
+                    )
+                    : $this->calculateDocumentExpiry(
+                        $document,
+                        $issuedAt
+                    );
+
+                $existing = GeneratedDocument::where(
+                    'user_id',
+                    $membership->user_id
+                )
+                    ->where(
+                        'document_id',
+                        $document->id
+                    )
+                    ->where(
+                        'status',
+                        'active'
+                    )
+                    ->first();
+
+                if ($existing) {
+                    $generatedDocuments[] = $existing;
+
+                    continue;
+                }
+
+                $documentNumber = $this->generateDocumentNumber(
+                    $document,
+                    $manualPayment
+                );
+
+                $trackingCode = $this->generateTrackingCode();
+
+                $fieldValues = $this->buildMembershipFieldValues(
+                    $document,
+                    $user,
+                    $profile,
+                    $membership,
+                    $category,
+                    $manualPayment,
+                    null,
+                    null,
+                    $documentNumber,
+                    $trackingCode,
+                    $issuedAt,
+                    $expiresAt
+                );
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | DEDICATED TRANSIT NUMBER
+                |--------------------------------------------------------------------------
+                |
+                | Manual membership documents do not have submitted field values,
+                | but transit passes still need their own transit number.
+                |
+                */
+
+                $transitNo = $this->generateTransitNumber(
+                    $document,
+                    []
+                );
+
+                if ($transitNo !== null) {
+                    $fieldValues['transit_no'] = $transitNo;
+                }
+
+
+                $generatedDocument = GeneratedDocument::create([
+                    'user_id' => $membership->user_id,
+                    'document_id' => $document->id,
+                    'transaction_id' => null,
+                    'document_number' => $documentNumber,
+                    'tracking_code' => $trackingCode,
+                    'issued_at' => $issuedAt->toDateString(),
+                    'expires_at' => $expiresAt
+                        ? $expiresAt->toDateString()
+                        : null,
+                    'status' => 'active',
+                    'field_values' => $fieldValues,
+                ]);
+
+                $generatedDocuments[] =
+                    $generatedDocument;
+            }
+
+            return $generatedDocuments;
+        });
     }
 
     /*
@@ -517,12 +932,6 @@ class DocumentGenerationService
                 'Membership category could not be found.'
             );
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | VERIFY CREDIT → DEBIT
-        |--------------------------------------------------------------------------
-        */
 
         if (!$creditTransaction->debit_transaction_id) {
             throw new RuntimeException(
@@ -576,12 +985,6 @@ class DocumentGenerationService
             );
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | VERIFY DOCUMENT BELONGS TO CATEGORY
-        |--------------------------------------------------------------------------
-        */
-
         $belongsToCategory = $category->documents()
             ->where(
                 'documents.id',
@@ -614,12 +1017,6 @@ class DocumentGenerationService
             );
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | PREVENT DUPLICATE GENERATION
-        |--------------------------------------------------------------------------
-        */
-
         $existing = GeneratedDocument::where(
             'user_id',
             $user->id
@@ -638,30 +1035,12 @@ class DocumentGenerationService
             return $existing;
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | DOCUMENT NUMBER
-        |--------------------------------------------------------------------------
-        */
-
         $documentNumber = $this->generateDocumentNumber(
             $document,
             $payment
         );
 
-        /*
-        |--------------------------------------------------------------------------
-        | TRACKING CODE
-        |--------------------------------------------------------------------------
-        */
-
         $trackingCode = $this->generateTrackingCode();
-
-        /*
-        |--------------------------------------------------------------------------
-        | ISSUED DATE
-        |--------------------------------------------------------------------------
-        */
 
         $issuedAt = $membership->issued_at
             ? Carbon::parse($membership->issued_at)
@@ -671,24 +1050,12 @@ class DocumentGenerationService
                 : now()
             );
 
-        /*
-        |--------------------------------------------------------------------------
-        | EXPIRY
-        |--------------------------------------------------------------------------
-        */
-
         $expiresAt = $membership->expires_at
             ? Carbon::parse($membership->expires_at)
             : $this->calculateDocumentExpiry(
                 $document,
                 $issuedAt
             );
-
-        /*
-        |--------------------------------------------------------------------------
-        | FIELD VALUES
-        |--------------------------------------------------------------------------
-        */
 
         $fieldValues = $this->buildMembershipFieldValues(
             $document,
@@ -705,11 +1072,11 @@ class DocumentGenerationService
             $expiresAt
         );
 
-        /*
-        |--------------------------------------------------------------------------
-        | CREATE
-        |--------------------------------------------------------------------------
-        */
+        $transitNo = $this->generateTransitNumber($document, []);
+
+        if ($transitNo !== null) {
+            $fieldValues['transit_no'] = $transitNo;
+        }
 
         $generatedDocument = GeneratedDocument::create([
             'user_id' => $user->id,
@@ -724,12 +1091,6 @@ class DocumentGenerationService
             'status' => 'active',
             'field_values' => $fieldValues,
         ]);
-
-        /*
-        |--------------------------------------------------------------------------
-        | RENEWAL / REPLACEMENT
-        |--------------------------------------------------------------------------
-        */
 
         $this->handleRenewalReplacement(
             $generatedDocument,
@@ -804,12 +1165,6 @@ class DocumentGenerationService
             )
             ->get();
 
-        /*
-        |--------------------------------------------------------------------------
-        | FIND CERTIFICATE DOCUMENT
-        |--------------------------------------------------------------------------
-        */
-
         $document = $documents->first(
             function ($document) {
                 $code = strtoupper(
@@ -836,12 +1191,6 @@ class DocumentGenerationService
                     );
             }
         );
-
-        /*
-        |--------------------------------------------------------------------------
-        | LEGACY FALLBACK
-        |--------------------------------------------------------------------------
-        */
 
         if (
             !$document &&
@@ -881,12 +1230,6 @@ class DocumentGenerationService
                 'No active membership certificate is configured for this membership category.'
             );
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | PAYMENT + TRANSACTIONS
-        |--------------------------------------------------------------------------
-        */
 
         [
             $payment,
@@ -1009,12 +1352,6 @@ class DocumentGenerationService
 
         $paymentItem = $payment->paymentItem;
 
-        /*
-        |--------------------------------------------------------------------------
-        | EXACT DEBIT TRANSACTION
-        |--------------------------------------------------------------------------
-        */
-
         $paystackReference =
             $payment->paystack_reference
             ?? $payment->payment_reference
@@ -1102,6 +1439,64 @@ class DocumentGenerationService
 
             case 'document_name':
                 return $document->name;
+
+            case 'transit_no':
+                return $documentNumber; // fallback; the service will override with the real transit_no
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | AFFORESTATION SELLER
+        |--------------------------------------------------------------------------
+        */
+
+        switch ($fieldKey) {
+            case 'seller_member_name':
+                return $this->getMemberFullName(
+                    $profile,
+                    $user
+                );
+
+            case 'seller_name':
+                return $this->getMemberFullName(
+                    $profile,
+                    $user
+                );
+
+            case 'seller_membership_no':
+                return $membership?->membership_number;
+
+            case 'seller_dealing_right_no':
+                return $this->getActiveOperationalRightNumber(
+                    $user,
+                    $membership,
+                    [
+                        'charcoal_dealing_supplier',
+                        'charcoal_dealing_dealer',
+                    ]
+                );
+
+            case 'seller_phone':
+                return $profile?->phone
+                    ?? $user->phone
+                    ?? null;
+
+            case 'lifting_right_no':
+                return $this->getActiveOperationalRightNumber(
+                    $user,
+                    $membership,
+                    [
+                        'charcoal_lifting',
+                        'charcoal_lifting_rcg',
+                    ]
+                );
+
+            case 'payment_time':
+                return $payment->paid_at
+                    ? Carbon::parse(
+                        $payment->paid_at
+                    )->format('H:i:s')
+                    : null;
         }
 
         /*
@@ -1450,6 +1845,48 @@ class DocumentGenerationService
 
     /*
     |--------------------------------------------------------------------------
+    | GET ACTIVE OPERATIONAL RIGHT NUMBER
+    |--------------------------------------------------------------------------
+    */
+
+    protected function getActiveOperationalRightNumber(
+        $user,
+        ?Membership $membership,
+        array $documentTypes
+    ): ?string {
+        if (!$membership) {
+            return null;
+        }
+
+        $operationalRight = OperationalRightsDocument::where(
+            'user_id',
+            $user->id
+        )
+            ->where(
+                'membership_id',
+                $membership->id
+            )
+            ->where(
+                'status',
+                'active'
+            )
+            ->whereIn(
+                'document_type',
+                $documentTypes
+            )
+            ->whereDate(
+                'expires_at',
+                '>=',
+                now()->toDateString()
+            )
+            ->latest('id')
+            ->first();
+
+        return $operationalRight?->document_number;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | BUILD MEMBERSHIP FIELD VALUES
     |--------------------------------------------------------------------------
     */
@@ -1499,12 +1936,6 @@ class DocumentGenerationService
                     $expiresAt
                 );
             } else {
-                /*
-                |--------------------------------------------------------------------------
-                | PROFILE FIELD FALLBACK
-                |--------------------------------------------------------------------------
-                */
-
                 $value = null;
 
                 if (
@@ -1514,12 +1945,6 @@ class DocumentGenerationService
                 ) {
                     $value = $profile->{$key};
                 }
-
-                /*
-                |--------------------------------------------------------------------------
-                | DEFAULT VALUE
-                |--------------------------------------------------------------------------
-                */
 
                 if (
                     $value === null &&
@@ -1560,12 +1985,6 @@ class DocumentGenerationService
             trim($fieldKey)
         );
 
-        /*
-        |--------------------------------------------------------------------------
-        | PAYMENT RELATIONSHIPS
-        |--------------------------------------------------------------------------
-        */
-
         $payment->loadMissing([
             'paymentItem',
             'membershipCategory',
@@ -1575,22 +1994,10 @@ class DocumentGenerationService
 
         $paymentItem = $payment->paymentItem;
 
-        /*
-        |--------------------------------------------------------------------------
-        | ANNUAL MEMBERSHIP RECEIPT
-        |--------------------------------------------------------------------------
-        */
-
         $isAnnualMembershipReceipt =
             $this->isAnnualMembershipReceipt(
                 $document
             );
-
-        /*
-        |--------------------------------------------------------------------------
-        | MEMBERSHIP YEAR
-        |--------------------------------------------------------------------------
-        */
 
         $membershipYear = $this->resolveMembershipYear(
             $membership,
@@ -1601,12 +2008,6 @@ class DocumentGenerationService
 
         $membershipYearRange =
             "01 January {$membershipYear} - 31 December {$membershipYear}";
-
-        /*
-        |--------------------------------------------------------------------------
-        | ACTUAL PAYMENT DATE
-        |--------------------------------------------------------------------------
-        */
 
         $paymentDate = $payment->paid_at
             ? Carbon::parse($payment->paid_at)
@@ -1730,49 +2131,23 @@ class DocumentGenerationService
         */
 
         switch ($fieldKey) {
-
-            /*
-            |--------------------------------------------------------------------------
-            | MEMBERSHIP NUMBER
-            |--------------------------------------------------------------------------
-            */
-
             case 'membership_number':
             case 'membership_no':
                 return $membership->membership_number;
 
-            /*
-            |--------------------------------------------------------------------------
-            | MEMBERSHIP POSITION
-            |--------------------------------------------------------------------------
-            |
-            | This is populated by the independent officer appointment
-            | workflow.
-            |
-            */
+            case 'membership_id':
+                return $membership->membership_number;
 
             case 'membership_position':
             case 'position':
             case 'officer_position':
                 return $membership->membership_position;
 
-            /*
-            |--------------------------------------------------------------------------
-            | NATIONAL EXECUTIVE / NEM
-            |--------------------------------------------------------------------------
-            */
-
             case 'executive_id':
             case 'national_executive_id':
             case 'nem_code':
             case 'nem_id':
                 return $membership->executive_id;
-
-            /*
-            |--------------------------------------------------------------------------
-            | TASK FORCE
-            |--------------------------------------------------------------------------
-            */
 
             case 'taskforce_id':
                 return $membership->taskforce_id;
@@ -1786,20 +2161,8 @@ class DocumentGenerationService
             case 'taskforce_state':
                 return $membership->taskforce_state;
 
-            /*
-            |--------------------------------------------------------------------------
-            | MEMBERSHIP STATUS
-            |--------------------------------------------------------------------------
-            */
-
             case 'membership_status':
                 return $membership->status;
-
-            /*
-            |--------------------------------------------------------------------------
-            | MEMBERSHIP DATES
-            |--------------------------------------------------------------------------
-            */
 
             case 'membership_issued_at':
             case 'membership_issued_date':
@@ -1813,12 +2176,6 @@ class DocumentGenerationService
             case 'expires_at':
                 return $expiresAt;
 
-            /*
-            |--------------------------------------------------------------------------
-            | MEMBERSHIP CATEGORY
-            |--------------------------------------------------------------------------
-            */
-
             case 'membership_category':
             case 'membership_category_name':
                 return $category->name;
@@ -1829,23 +2186,10 @@ class DocumentGenerationService
             case 'category':
                 return $category->name;
 
-            /*
-            |--------------------------------------------------------------------------
-            | MEMBER TYPE
-            |--------------------------------------------------------------------------
-            */
-
             case 'member_type':
                 return $user->member_type;
 
-            /*
-            |--------------------------------------------------------------------------
-            | MEMBERSHIP YEAR
-            |--------------------------------------------------------------------------
-            */
-
             case 'membership_year':
-
                 if ($isAnnualMembershipReceipt) {
                     return $membershipYearRange;
                 }
@@ -1853,19 +2197,11 @@ class DocumentGenerationService
                 return (string) $membershipYear;
 
             case 'membership_year_number':
-
                 return (string) $membershipYear;
 
             case 'membership_year_range':
             case 'membership_period':
-
                 return $membershipYearRange;
-
-            /*
-            |--------------------------------------------------------------------------
-            | DATE JOINED
-            |--------------------------------------------------------------------------
-            */
 
             case 'date_joined':
                 return $membership->issued_at
@@ -1928,14 +2264,7 @@ class DocumentGenerationService
             case 'payment_item_name':
                 return $paymentItem?->name;
 
-            /*
-            |--------------------------------------------------------------------------
-            | PAYMENT FOR
-            |--------------------------------------------------------------------------
-            */
-
             case 'payment_for':
-
                 if ($isAnnualMembershipReceipt) {
                     return
                         'Annual membership subscription ' .
@@ -1990,13 +2319,8 @@ class DocumentGenerationService
                     ?? $payment->payment_reference
                     ?? $payment->reference;
 
-            /*
-            |--------------------------------------------------------------------------
-            | ACTUAL DATE PAYMENT WAS MADE
-            |--------------------------------------------------------------------------
-            */
-
             case 'payment_date':
+            case 'date_of_payment':
             case 'paid_at':
                 return $paymentDate;
         }
@@ -2141,16 +2465,6 @@ class DocumentGenerationService
     |--------------------------------------------------------------------------
     | RESOLVE MEMBERSHIP YEAR
     |--------------------------------------------------------------------------
-    |
-    | Priority:
-    |
-    | 1. Payment Item name
-    | 2. Payment Item code
-    | 3. Membership expiry year
-    | 4. Actual payment year
-    | 5. Membership issue year
-    | 6. Issued-at year
-    |
     */
 
     protected function resolveMembershipYear(
@@ -2159,16 +2473,6 @@ class DocumentGenerationService
         $paymentItem,
         Carbon $issuedAt
     ): int {
-        /*
-        |--------------------------------------------------------------------------
-        | PAYMENT ITEM YEAR
-        |--------------------------------------------------------------------------
-        |
-        | Example:
-        | Annual Membership Subscription 2027
-        |
-        */
-
         $sources = [
             $paymentItem?->name,
             $paymentItem?->code,
@@ -2187,23 +2491,11 @@ class DocumentGenerationService
             }
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | MEMBERSHIP EXPIRY YEAR
-        |--------------------------------------------------------------------------
-        */
-
         if ($membership->expires_at) {
             return Carbon::parse(
                 $membership->expires_at
             )->year;
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | ACTUAL PAYMENT YEAR
-        |--------------------------------------------------------------------------
-        */
 
         if ($payment->paid_at) {
             return Carbon::parse(
@@ -2211,23 +2503,11 @@ class DocumentGenerationService
             )->year;
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | MEMBERSHIP ISSUE YEAR
-        |--------------------------------------------------------------------------
-        */
-
         if ($membership->issued_at) {
             return Carbon::parse(
                 $membership->issued_at
             )->year;
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | FALLBACK
-        |--------------------------------------------------------------------------
-        */
 
         return $issuedAt->year;
     }
@@ -2241,12 +2521,6 @@ class DocumentGenerationService
     protected function findMembershipPaymentTransactions(
         Membership $membership
     ): array {
-        /*
-        |--------------------------------------------------------------------------
-        | MEMBERSHIP PAYMENT
-        |--------------------------------------------------------------------------
-        */
-
         $payment = Payment::where(
             'user_id',
             $membership->user_id
@@ -2265,12 +2539,6 @@ class DocumentGenerationService
             )
             ->latest('id')
             ->first();
-
-        /*
-        |--------------------------------------------------------------------------
-        | RENEWAL FALLBACK
-        |--------------------------------------------------------------------------
-        */
 
         if (!$payment) {
             $payment = Payment::where(
@@ -2301,12 +2569,6 @@ class DocumentGenerationService
             ];
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | FIND DEBIT
-        |--------------------------------------------------------------------------
-        */
-
         $paystackReference =
             $payment->paystack_reference
             ?? $payment->payment_reference
@@ -2334,12 +2596,6 @@ class DocumentGenerationService
                 ->latest('id')
                 ->first();
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | FALLBACK DEBIT BY PAYMENT ITEM
-        |--------------------------------------------------------------------------
-        */
 
         if (
             !$debitTransaction &&
@@ -2372,12 +2628,6 @@ class DocumentGenerationService
                 null,
             ];
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | FIND CREDIT
-        |--------------------------------------------------------------------------
-        */
 
         $creditTransaction = Transaction::where(
             'user_id',
@@ -2449,6 +2699,116 @@ class DocumentGenerationService
                 Str::random(20)
             );
     }
+
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | GENERATE TRANSIT NUMBER
+    |--------------------------------------------------------------------------
+    |
+    | Transit passes get their own human-readable number, independent
+    | of the internal document_number. Format:
+    |
+    |     TRP-<YEAR>-<STATE_CODE>-<SERIAL>
+    |
+    | Example: TRP-2026-LAG-000123
+    |
+    | Only documents whose code is NACPDEAN-CHARCOAL-TRANSIT-PASS
+    | receive a value. All other documents return null.
+    |
+    */
+
+    protected function generateTransitNumber(
+        Document $document,
+        array $documentFieldValues = []
+    ): ?string {
+        if (
+            strtoupper(trim((string) $document->code))
+            !== 'NACPDEAN-CHARCOAL-TRANSIT-PASS'
+        ) {
+            return null;
+        }
+
+        $year = (int) now()->format('Y');
+
+        /*
+        |--------------------------------------------------------------------------
+        | STATE CODE
+        |--------------------------------------------------------------------------
+        |
+        | Pulled from the submitted document field values first
+        | (the member enters their state during the payment flow),
+        | then from the profile, then defaulted to "NG".
+        |
+        */
+
+        $stateRaw = $documentFieldValues['state']
+            ?? $documentFieldValues['seller_state']
+            ?? 'NG';
+
+        $stateCode = strtoupper(
+            preg_replace(
+                '/[^A-Za-z]/',
+                '',
+                (string) $stateRaw
+            )
+        );
+
+        $stateCode = substr($stateCode, 0, 3);
+
+        if ($stateCode === '') {
+            $stateCode = 'NG';
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | SERIAL
+        |--------------------------------------------------------------------------
+        |
+        | Count existing transit passes generated this year.
+        | Serial is zero-padded to 6 digits and checked for
+        | uniqueness across all documents that already store
+        | a transit_no in field_values.
+        |
+        */
+
+        $existingSerialCount = GeneratedDocument::query()
+            ->whereYear('created_at', $year)
+            ->whereHas('document', function ($query) {
+                $query->where(
+                    'code',
+                    'NACPDEAN-CHARCOAL-TRANSIT-PASS'
+                );
+            })
+            ->count();
+
+        $serial = $existingSerialCount + 1;
+
+        do {
+            $transitNo = sprintf(
+                'TRP-%d-%s-%06d',
+                $year,
+                $stateCode,
+                $serial
+            );
+
+            $exists = GeneratedDocument::query()
+                ->whereJsonContains(
+                    'field_values->transit_no',
+                    $transitNo
+                )
+                ->exists();
+
+            if ($exists) {
+                $serial++;
+            }
+        } while ($exists);
+
+        return $transitNo;
+    }
+
+
 
     /*
     |--------------------------------------------------------------------------
@@ -2635,44 +2995,12 @@ class DocumentGenerationService
     |--------------------------------------------------------------------------
     | REGENERATE MEMBERSHIP DOCUMENTS AFTER OFFICER APPOINTMENT
     |--------------------------------------------------------------------------
-    |
-    | This method is ONLY for the independent officer appointment
-    | workflow.
-    |
-    | It does NOT:
-    |
-    | - create a new payment
-    | - create a new membership
-    | - modify the member approval workflow
-    |
-    | It creates new versions of the configured membership documents
-    | using the CURRENT membership information.
-    |
-    | Therefore, after an officer appointment:
-    |
-    | membership_number
-    | membership_position
-    | executive_id
-    | taskforce_id
-    | taskforce_position
-    | taskforce_level
-    | taskforce_state
-    |
-    | are captured into the new document field_values.
-    |
     */
 
     public function regenerateMembershipDocumentsForOfficerAppointment(
         Membership $membership
     ): array {
         return DB::transaction(function () use ($membership) {
-
-            /*
-            |--------------------------------------------------------------------------
-            | LOAD CURRENT MEMBERSHIP
-            |--------------------------------------------------------------------------
-            */
-
             $membership->loadMissing([
                 'user',
                 'membershipCategory',
@@ -2686,35 +3014,17 @@ class DocumentGenerationService
                 );
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | MEMBERSHIP MUST BE ACTIVE
-            |--------------------------------------------------------------------------
-            */
-
             if ($membership->status !== 'active') {
                 throw new RuntimeException(
                     'Only active memberships can regenerate documents.'
                 );
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | MEMBERSHIP NUMBER
-            |--------------------------------------------------------------------------
-            */
-
             if (!$membership->membership_number) {
                 throw new RuntimeException(
                     'Membership number has not been generated.'
                 );
             }
-
-            /*
-            |--------------------------------------------------------------------------
-            | MEMBERSHIP CATEGORY
-            |--------------------------------------------------------------------------
-            */
 
             $category = $membership->membershipCategory;
 
@@ -2730,12 +3040,6 @@ class DocumentGenerationService
                 );
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | LOAD CATEGORY DOCUMENTS
-            |--------------------------------------------------------------------------
-            */
-
             $documents = $category->documents()
                 ->where(
                     'documents.is_active',
@@ -2748,12 +3052,6 @@ class DocumentGenerationService
                     'documents.id'
                 )
                 ->get();
-
-            /*
-            |--------------------------------------------------------------------------
-            | LEGACY FALLBACK
-            |--------------------------------------------------------------------------
-            */
 
             if (
                 $documents->isEmpty() &&
@@ -2784,21 +3082,6 @@ class DocumentGenerationService
                 );
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | FIND ORIGINAL SUCCESSFUL MEMBERSHIP PAYMENT
-            |--------------------------------------------------------------------------
-            |
-            | IMPORTANT:
-            |
-            | We do NOT create another payment.
-            |
-            | We only retrieve the successful membership payment and
-            | its transactions so that the regenerated document retains
-            | the original payment information.
-            |
-            */
-
             [
                 $payment,
                 $debitTransaction,
@@ -2819,44 +3102,19 @@ class DocumentGenerationService
                 );
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | PROFILE
-            |--------------------------------------------------------------------------
-            */
-
             $profile = MemberProfile::where(
                 'user_id',
                 $membership->user_id
             )->first();
 
-            /*
-            |--------------------------------------------------------------------------
-            | GENERATE NEW DOCUMENT VERSIONS
-            |--------------------------------------------------------------------------
-            */
-
             $generatedDocuments = [];
 
             foreach ($documents as $document) {
-
-                /*
-                |--------------------------------------------------------------------------
-                | ISSUED DATE
-                |--------------------------------------------------------------------------
-                */
-
                 $issuedAt = $membership->issued_at
                     ? Carbon::parse(
                         $membership->issued_at
                     )
                     : now();
-
-                /*
-                |--------------------------------------------------------------------------
-                | EXPIRY
-                |--------------------------------------------------------------------------
-                */
 
                 $expiresAt = $membership->expires_at
                     ? Carbon::parse(
@@ -2867,48 +3125,14 @@ class DocumentGenerationService
                         $issuedAt
                     );
 
-                /*
-                |--------------------------------------------------------------------------
-                | NEW DOCUMENT NUMBER
-                |--------------------------------------------------------------------------
-                */
-
                 $documentNumber =
                     $this->generateDocumentNumber(
                         $document,
                         $payment
                     );
 
-                /*
-                |--------------------------------------------------------------------------
-                | NEW TRACKING CODE
-                |--------------------------------------------------------------------------
-                */
-
                 $trackingCode =
                     $this->generateTrackingCode();
-
-                /*
-                |--------------------------------------------------------------------------
-                | BUILD CURRENT FIELD VALUES
-                |--------------------------------------------------------------------------
-                |
-                | IMPORTANT:
-                |
-                | The membership object has already been updated by the
-                | officer appointment workflow before this method is called.
-                |
-                | Therefore these fields contain CURRENT values:
-                |
-                | membership_number
-                | membership_position
-                | executive_id
-                | taskforce_id
-                | taskforce_position
-                | taskforce_level
-                | taskforce_state
-                |
-                */
 
                 $fieldValues =
                     $this->buildMembershipFieldValues(
@@ -2926,57 +3150,54 @@ class DocumentGenerationService
                         $expiresAt
                     );
 
+
                 /*
-                |--------------------------------------------------------------------------
-                | CREATE NEW DOCUMENT VERSION
-                |--------------------------------------------------------------------------
-                */
+                    |--------------------------------------------------------------------------
+                    | DEDICATED TRANSIT NUMBER
+                    |--------------------------------------------------------------------------
+                    */
+
+                $transitNo = $this->generateTransitNumber(
+                    $document,
+                    []
+                );
+
+                if ($transitNo !== null) {
+                    $fieldValues['transit_no'] = $transitNo;
+                }
+
 
                 $generatedDocument =
                     GeneratedDocument::create([
                         'user_id' =>
-                            $membership->user_id,
+                        $membership->user_id,
 
                         'document_id' =>
-                            $document->id,
+                        $document->id,
 
                         'transaction_id' =>
-                            $creditTransaction->id,
+                        $creditTransaction->id,
 
                         'document_number' =>
-                            $documentNumber,
+                        $documentNumber,
 
                         'tracking_code' =>
-                            $trackingCode,
+                        $trackingCode,
 
                         'issued_at' =>
-                            $issuedAt->toDateString(),
+                        $issuedAt->toDateString(),
 
                         'expires_at' =>
-                            $expiresAt
-                                ? $expiresAt->toDateString()
-                                : null,
+                        $expiresAt
+                            ? $expiresAt->toDateString()
+                            : null,
 
                         'status' =>
-                            'active',
+                        'active',
 
                         'field_values' =>
-                            $fieldValues,
+                        $fieldValues,
                     ]);
-
-                /*
-                |--------------------------------------------------------------------------
-                | REPLACE PREVIOUS ACTIVE VERSION
-                |--------------------------------------------------------------------------
-                |
-                | IMPORTANT:
-                |
-                | The new document is created FIRST.
-                |
-                | Only after successful creation do we mark previous
-                | active documents as replaced.
-                |
-                */
 
                 GeneratedDocument::where(
                     'user_id',
@@ -2997,7 +3218,7 @@ class DocumentGenerationService
                     )
                     ->update([
                         'status' =>
-                            'replaced',
+                        'replaced',
                     ]);
 
                 $generatedDocuments[] =

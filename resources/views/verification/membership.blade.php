@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -74,6 +75,43 @@
             object-fit: contain;
 
             margin-bottom: 10px;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | ACTIVE STATUS
+        |--------------------------------------------------------------------------
+        */
+
+        .act {
+            display: block;
+
+            width: fit-content;
+
+            margin: 0 auto 10px;
+
+            padding: 6px 18px;
+
+            background: #ffffff;
+
+            color: #00a651;
+
+            border: 2px solid rgba(255, 255, 255, .9);
+
+            border-radius: 50px;
+
+            font-size: 12px;
+
+            font-weight: 900;
+
+            letter-spacing: 1.5px;
+
+            line-height: 1.2;
+
+            text-transform: uppercase;
+
+            box-shadow:
+                0 3px 8px rgba(0, 0, 0, .15);
         }
 
         .verification-header h2 {
@@ -314,6 +352,14 @@
                 padding: 20px 15px;
             }
 
+            .act {
+                font-size: 11px;
+
+                padding: 6px 15px;
+
+                letter-spacing: 1.2px;
+            }
+
             .member-detail-row {
                 display: block;
             }
@@ -373,6 +419,8 @@
                 src="{{ asset('frontend/assets/img/logo.png') }}"
                 alt="NACPDEAN Logo"
             >
+
+            <span class="act">STATUS: ACTIVE</span>
 
             <h2>
                 NACPDEAN

@@ -11,6 +11,7 @@ use App\Models\Payment;
 use App\Models\PaymentItem;
 use App\Models\Transaction;
 use App\Models\GeneratedDocument;
+use App\Models\OperationalRightsDocument;
 use App\Models\User;
 use App\Services\DocumentGenerationService;
 use Illuminate\Http\Request;
@@ -47,7 +48,45 @@ class PaymentController extends Controller
 
     public function index()
     {
-        $user = Auth::user();
+        // $user = Auth::user();
+
+        /*
+    |--------------------------------------------------------------------------
+    | ADMIN PAYING ON BEHALF OF A MEMBER
+    |--------------------------------------------------------------------------
+    |
+    | If the admin initiated the payment from the admin panel, we swap
+    | the "effective user" to the member. The admin remains authenticated,
+    | but everything below uses $user = the member.
+    |
+    */
+
+        $payingOnBehalfOf = null;
+        $effectiveUser    = Auth::user();
+
+        if (
+            Auth::user()->role === 'admin' &&
+            session()->has('admin_paying_for_member_id')
+        ) {
+            $memberId = (int) session('admin_paying_for_member_id');
+
+            $member = User::where('id', $memberId)
+                ->where('role', 'member')
+                ->first();
+
+            if ($member) {
+                $effectiveUser    = $member;
+                $payingOnBehalfOf = $member;
+            } else {
+                // Member gone — clear the flag
+                session()->forget([
+                    'admin_paying_for_member_id',
+                    'admin_paying_return_url',
+                ]);
+            }
+        }
+
+        $user = $effectiveUser;
 
         $profile = MemberProfile::where(
             'user_id',
@@ -176,15 +215,15 @@ class PaymentController extends Controller
                     'membership_category_id',
                     $currentCategory->id
                 )
-                    ->where(
-                        'status',
-                        true
-                    )
-                    ->where(
-                        'fee_type',
-                        $feeType
-                    )
-                    ->first();
+                ->where(
+                    'status',
+                    true
+                )
+                ->where(
+                    'fee_type',
+                    $feeType
+                )
+                ->first();
 
             if (!$membershipFee) {
                 $membershipFee =
@@ -192,15 +231,15 @@ class PaymentController extends Controller
                         'membership_category_id',
                         $currentCategory->id
                     )
-                        ->where(
-                            'status',
-                            true
-                        )
-                        ->where(
-                            'fee_type',
-                            'standard'
-                        )
-                        ->first();
+                    ->where(
+                        'status',
+                        true
+                    )
+                    ->where(
+                        'fee_type',
+                        'standard'
+                    )
+                    ->first();
             }
         }
 
@@ -247,7 +286,8 @@ class PaymentController extends Controller
                 'balance',
                 'unpaidDebits',
                 'membership',
-                'hasActiveAnnualMembership'
+                'hasActiveAnnualMembership',
+                'payingOnBehalfOf'
             )
         );
     }
@@ -280,7 +320,32 @@ class PaymentController extends Controller
             ],
         ]);
 
-        $user = Auth::user();
+        // $user = Auth::user();
+
+        /*
+    |--------------------------------------------------------------------------
+    | ADMIN PAYING ON BEHALF OF A MEMBER
+    |--------------------------------------------------------------------------
+    */
+
+        $effectiveUser = Auth::user();
+
+        if (
+            Auth::user()->role === 'admin' &&
+            session()->has('admin_paying_for_member_id')
+        ) {
+            $memberId = (int) session('admin_paying_for_member_id');
+
+            $member = User::where('id', $memberId)
+                ->where('role', 'member')
+                ->first();
+
+            if ($member) {
+                $effectiveUser = $member;
+            }
+        }
+
+        $user = $effectiveUser;
 
         /*
         |--------------------------------------------------------------------------
@@ -297,7 +362,7 @@ class PaymentController extends Controller
             return back()
                 ->withErrors([
                     'payment' =>
-                        'No unpaid payment was found for this request. Please refresh the page and try again.',
+                    'No unpaid payment was found for this request. Please refresh the page and try again.',
                 ])
                 ->withInput();
         }
@@ -491,15 +556,15 @@ class PaymentController extends Controller
                                     'membership_category_id',
                                     $membershipCategoryId
                                 )
-                                    ->where(
-                                        'status',
-                                        true
-                                    )
-                                    ->where(
-                                        'fee_type',
-                                        $feeType
-                                    )
-                                    ->first();
+                                ->where(
+                                    'status',
+                                    true
+                                )
+                                ->where(
+                                    'fee_type',
+                                    $feeType
+                                )
+                                ->first();
 
                             if (!$categoryFee) {
                                 $categoryFee =
@@ -507,15 +572,15 @@ class PaymentController extends Controller
                                         'membership_category_id',
                                         $membershipCategoryId
                                     )
-                                        ->where(
-                                            'status',
-                                            true
-                                        )
-                                        ->where(
-                                            'fee_type',
-                                            'standard'
-                                        )
-                                        ->first();
+                                    ->where(
+                                        'status',
+                                        true
+                                    )
+                                    ->where(
+                                        'fee_type',
+                                        'standard'
+                                    )
+                                    ->first();
                             }
 
                             if ($categoryFee) {
@@ -597,7 +662,7 @@ class PaymentController extends Controller
 
                     $lockedDebit->update([
                         'gateway' =>
-                            $gateway,
+                        $gateway,
                     ]);
 
                     /*
@@ -658,52 +723,52 @@ class PaymentController extends Controller
                     if (!$payment) {
                         $payment = Payment::create([
                             'user_id' =>
-                                $user->id,
+                            $user->id,
 
                             'payment_item_id' =>
-                                $paymentItem?->id,
+                            $paymentItem?->id,
 
                             'membership_category_id' =>
-                                $membershipCategoryId,
+                            $membershipCategoryId,
 
                             'membership_category_fee_id' =>
-                                $membershipCategoryFeeId,
+                            $membershipCategoryFeeId,
 
                             'member_fee_id' =>
-                                $memberFeeId,
+                            $memberFeeId,
 
                             'payment_type' =>
-                                $paymentType,
+                            $paymentType,
 
                             'fee_type' =>
-                                $feeType,
+                            $feeType,
 
                             'amount' =>
-                                $amount,
+                            $amount,
 
                             'description' =>
-                                $description,
+                            $description,
 
                             'payment_reference' =>
-                                $reference,
+                            $reference,
 
                             'paystack_reference' =>
-                                $reference,
+                            $reference,
 
                             'reference' =>
-                                $reference,
+                            $reference,
 
                             'gateway' =>
-                                'paystack',
+                            'paystack',
 
                             'gateway_transaction_id' =>
-                                null,
+                            null,
 
                             'gateway_status' =>
-                                'pending',
+                            'pending',
 
                             'status' =>
-                                'pending',
+                            'pending',
                         ]);
                     } else {
                         /*
@@ -714,73 +779,73 @@ class PaymentController extends Controller
 
                         $payment->update([
                             'user_id' =>
-                                $user->id,
+                            $user->id,
 
                             'payment_item_id' =>
-                                $paymentItem?->id,
+                            $paymentItem?->id,
 
                             'membership_category_id' =>
-                                $membershipCategoryId,
+                            $membershipCategoryId,
 
                             'membership_category_fee_id' =>
-                                $membershipCategoryFeeId,
+                            $membershipCategoryFeeId,
 
                             'member_fee_id' =>
-                                $memberFeeId,
+                            $memberFeeId,
 
                             'payment_type' =>
-                                $paymentType,
+                            $paymentType,
 
                             'fee_type' =>
-                                $feeType,
+                            $feeType,
 
                             'amount' =>
-                                $amount,
+                            $amount,
 
                             'description' =>
-                                $description,
+                            $description,
 
                             'payment_reference' =>
-                                $reference,
+                            $reference,
 
                             'paystack_reference' =>
-                                $reference,
+                            $reference,
 
                             'reference' =>
-                                $reference,
+                            $reference,
 
                             'gateway' =>
-                                'paystack',
+                            'paystack',
 
                             'gateway_transaction_id' =>
-                                null,
+                            null,
 
                             'gateway_status' =>
-                                'pending',
+                            'pending',
 
                             'status' =>
-                                'pending',
+                            'pending',
 
                             'paid_at' =>
-                                null,
+                            null,
 
                             'verified_at' =>
-                                null,
+                            null,
                         ]);
                     }
 
                     return [
                         'debit' =>
-                            $lockedDebit,
+                        $lockedDebit,
 
                         'payment' =>
-                            $payment,
+                        $payment,
 
                         'reference' =>
-                            $reference,
+                        $reference,
 
                         'amount' =>
-                            $amount,
+                        $amount,
                     ];
                 }
             );
@@ -801,26 +866,26 @@ class PaymentController extends Controller
                 'PAYMENT INITIALIZATION LOCK FAILED',
                 [
                     'user_id' =>
-                        $user->id,
+                    $user->id,
 
                     'transaction_id' =>
-                        $debit->id,
+                    $debit->id,
 
                     'error' =>
-                        $e->getMessage(),
+                    $e->getMessage(),
 
                     'file' =>
-                        $e->getFile(),
+                    $e->getFile(),
 
                     'line' =>
-                        $e->getLine(),
+                    $e->getLine(),
                 ]
             );
 
             return back()
                 ->withErrors([
                     'payment' =>
-                        $e->getMessage(),
+                    $e->getMessage(),
                 ])
                 ->withInput();
         }
@@ -905,7 +970,7 @@ class PaymentController extends Controller
 
                     $debit->update([
                         'gateway' =>
-                            $gateway,
+                        $gateway,
                     ]);
 
                     /*
@@ -916,22 +981,22 @@ class PaymentController extends Controller
 
                     $payment->update([
                         'payment_reference' =>
-                            $reference,
+                        $reference,
 
                         'paystack_reference' =>
-                            $reference,
+                        $reference,
 
                         'reference' =>
-                            $reference,
+                        $reference,
 
                         'gateway_transaction_id' =>
-                            null,
+                        null,
 
                         'gateway_status' =>
-                            'pending',
+                        'pending',
 
                         'status' =>
-                            'pending',
+                        'pending',
                     ]);
                 }
 
@@ -953,7 +1018,7 @@ class PaymentController extends Controller
                         ) . '/transaction/initialize',
                         [
                             'email' =>
-                                $user->email
+                            $user->email
                                 ?: sprintf(
                                     'member%d@%s',
                                     $user->id,
@@ -964,39 +1029,39 @@ class PaymentController extends Controller
                                 ),
 
                             'amount' =>
-                                (int) round(
-                                    $amount * 100
-                                ),
+                            (int) round(
+                                $amount * 100
+                            ),
 
                             'reference' =>
-                                $reference,
+                            $reference,
 
                             'currency' =>
-                                'NGN',
+                            'NGN',
 
                             'callback_url' =>
-                                route(
-                                    'payment.callback'
-                                ),
+                            route(
+                                'payment.callback'
+                            ),
 
                             'metadata' => [
                                 'transaction_id' =>
-                                    $debit->id,
+                                $debit->id,
 
                                 'payment_id' =>
-                                    $payment->id,
+                                $payment->id,
 
                                 'payment_item_id' =>
-                                    $debit->payment_item_id,
+                                $debit->payment_item_id,
 
                                 'payment_option' =>
-                                    $request->payment_option,
+                                $request->payment_option,
 
                                 'user_id' =>
-                                    $user->id,
+                                $user->id,
 
                                 'membership_category_id' =>
-                                    $user->membership_category_id,
+                                $user->membership_category_id,
                             ],
                         ]
                     );
@@ -1031,16 +1096,16 @@ class PaymentController extends Controller
                         'PAYSTACK DUPLICATE REFERENCE - RETRYING',
                         [
                             'transaction_id' =>
-                                $debit->id,
+                            $debit->id,
 
                             'payment_id' =>
-                                $payment->id,
+                            $payment->id,
 
                             'reference' =>
-                                $reference,
+                            $reference,
 
                             'attempt' =>
-                                $attempt,
+                            $attempt,
                         ]
                     );
 
@@ -1065,34 +1130,34 @@ class PaymentController extends Controller
                     'PAYSTACK INITIALIZATION FAILED',
                     [
                         'transaction_id' =>
-                            $debit->id,
+                        $debit->id,
 
                         'payment_id' =>
-                            $payment->id,
+                        $payment->id,
 
                         'reference' =>
-                            $reference,
+                        $reference,
 
                         'response' =>
-                            $data,
+                        $data,
                     ]
                 );
 
                 $payment->update([
                     'gateway_status' =>
-                        'failed',
+                    'failed',
 
                     'status' =>
-                        'failed',
+                    'failed',
 
                     'gateway_response' =>
-                        $data,
+                    $data,
                 ]);
 
                 return back()
                     ->withErrors([
                         'payment' =>
-                            $data['message']
+                        $data['message']
                             ?? 'Unable to initialize payment with Paystack.',
                     ])
                     ->withInput();
@@ -1111,19 +1176,19 @@ class PaymentController extends Controller
             if (!$authorizationUrl) {
                 $payment->update([
                     'gateway_status' =>
-                        'failed',
+                    'failed',
 
                     'status' =>
-                        'failed',
+                    'failed',
 
                     'gateway_response' =>
-                        $data,
+                    $data,
                 ]);
 
                 return back()
                     ->withErrors([
                         'payment' =>
-                            'Paystack did not return a payment URL.',
+                        'Paystack did not return a payment URL.',
                     ])
                     ->withInput();
             }
@@ -1136,16 +1201,16 @@ class PaymentController extends Controller
 
             $payment->update([
                 'paystack_authorization_url' =>
-                    $authorizationUrl,
+                $authorizationUrl,
 
                 'gateway_status' =>
-                    'initialized',
+                'initialized',
 
                 'gateway_response' =>
-                    $data,
+                $data,
 
                 'status' =>
-                    'pending',
+                'pending',
             ]);
 
             /*
@@ -1162,36 +1227,36 @@ class PaymentController extends Controller
                 'PAYSTACK INITIALIZATION EXCEPTION',
                 [
                     'transaction_id' =>
-                        $debit->id,
+                    $debit->id,
 
                     'payment_id' =>
-                        $payment->id,
+                    $payment->id,
 
                     'reference' =>
-                        $reference,
+                    $reference,
 
                     'error' =>
-                        $e->getMessage(),
+                    $e->getMessage(),
                 ]
             );
 
             try {
                 $payment->update([
                     'gateway_status' =>
-                        'failed',
+                    'failed',
 
                     'status' =>
-                        'failed',
+                    'failed',
                 ]);
             } catch (\Throwable $updateException) {
                 Log::error(
                     'PAYMENT FAILED STATUS UPDATE ERROR',
                     [
                         'payment_id' =>
-                            $payment->id,
+                        $payment->id,
 
                         'error' =>
-                            $updateException->getMessage(),
+                        $updateException->getMessage(),
                     ]
                 );
             }
@@ -1199,7 +1264,7 @@ class PaymentController extends Controller
             return back()
                 ->withErrors([
                     'payment' =>
-                        'An error occurred while connecting to Paystack.',
+                    'An error occurred while connecting to Paystack.',
                 ])
                 ->withInput();
         }
@@ -1415,7 +1480,7 @@ class PaymentController extends Controller
                 'MEMBERSHIP CATEGORY MISSING FROM USER',
                 [
                     'user_id' =>
-                        $userId,
+                    $userId,
                 ]
             );
 
@@ -1427,21 +1492,21 @@ class PaymentController extends Controller
                 'id',
                 $categoryId
             )
-                ->where(
-                    'status',
-                    true
-                )
-                ->first();
+            ->where(
+                'status',
+                true
+            )
+            ->first();
 
         if (!$category) {
             Log::warning(
                 'MEMBERSHIP CATEGORY NOT FOUND',
                 [
                     'user_id' =>
-                        $userId,
+                    $userId,
 
                     'membership_category_id' =>
-                        $categoryId,
+                    $categoryId,
                 ]
             );
 
@@ -1459,8 +1524,8 @@ class PaymentController extends Controller
                 'user_id',
                 $userId
             )
-                ->latest()
-                ->first();
+            ->latest()
+            ->first();
 
         /*
         |--------------------------------------------------------------------------
@@ -1487,15 +1552,15 @@ class PaymentController extends Controller
                 'membership_category_id',
                 $category->id
             )
-                ->where(
-                    'status',
-                    true
-                )
-                ->where(
-                    'fee_type',
-                    $feeType
-                )
-                ->first();
+            ->where(
+                'status',
+                true
+            )
+            ->where(
+                'fee_type',
+                $feeType
+            )
+            ->first();
 
         if (!$categoryFee) {
             $categoryFee =
@@ -1503,15 +1568,15 @@ class PaymentController extends Controller
                     'membership_category_id',
                     $category->id
                 )
-                    ->where(
-                        'status',
-                        true
-                    )
-                    ->where(
-                        'fee_type',
-                        'standard'
-                    )
-                    ->first();
+                ->where(
+                    'status',
+                    true
+                )
+                ->where(
+                    'fee_type',
+                    'standard'
+                )
+                ->first();
         }
 
         if (!$categoryFee) {
@@ -1519,13 +1584,13 @@ class PaymentController extends Controller
                 'MEMBERSHIP CATEGORY FEE NOT FOUND',
                 [
                     'user_id' =>
-                        $userId,
+                    $userId,
 
                     'membership_category_id' =>
-                        $category->id,
+                    $category->id,
 
                     'fee_type' =>
-                        $feeType,
+                    $feeType,
                 ]
             );
 
@@ -1583,10 +1648,10 @@ class PaymentController extends Controller
             'PAYSTACK CALLBACK HIT',
             [
                 'reference' =>
-                    $reference,
+                $reference,
 
                 'user_id' =>
-                    Auth::id(),
+                Auth::id(),
             ]
         );
 
@@ -1595,7 +1660,7 @@ class PaymentController extends Controller
                 ->route('payment.index')
                 ->withErrors([
                     'payment' =>
-                        'No Paystack payment reference was received.',
+                    'No Paystack payment reference was received.',
                 ]);
         }
 
@@ -1625,13 +1690,13 @@ class PaymentController extends Controller
                     'PAYSTACK VERIFY HTTP FAILED',
                     [
                         'reference' =>
-                            $reference,
+                        $reference,
 
                         'status' =>
-                            $response->status(),
+                        $response->status(),
 
                         'body' =>
-                            $response->body(),
+                        $response->body(),
                     ]
                 );
 
@@ -1639,7 +1704,7 @@ class PaymentController extends Controller
                     ->route('payment.index')
                     ->withErrors([
                         'payment' =>
-                            'Unable to verify your payment with Paystack.',
+                        'Unable to verify your payment with Paystack.',
                     ]);
             }
 
@@ -1654,7 +1719,7 @@ class PaymentController extends Controller
                     ->route('payment.index')
                     ->withErrors([
                         'payment' =>
-                            'Payment was not successful.',
+                        'Payment was not successful.',
                     ]);
             }
 
@@ -1789,13 +1854,13 @@ class PaymentController extends Controller
                     'PAYSTACK DEBIT NOT FOUND',
                     [
                         'reference' =>
-                            $reference,
+                        $reference,
 
                         'payment_id' =>
-                            $payment?->id,
+                        $payment?->id,
 
                         'paystack_transaction' =>
-                            $paystackTransaction,
+                        $paystackTransaction,
                     ]
                 );
 
@@ -1803,7 +1868,7 @@ class PaymentController extends Controller
                     ->route('payment.index')
                     ->withErrors([
                         'payment' =>
-                            'The payment transaction could not be found.',
+                        'The payment transaction could not be found.',
                     ]);
             }
 
@@ -1813,25 +1878,57 @@ class PaymentController extends Controller
             |--------------------------------------------------------------------------
             */
 
+            // if (
+            //     !Auth::check() ||
+            //     (int) $debit->user_id !==
+            //     (int) Auth::id()
+            // ) {
+            //     Log::critical(
+            //         'PAYSTACK USER MISMATCH',
+            //         [
+            //             'transaction_id' =>
+            //             $debit->id,
+
+            //             'transaction_user_id' =>
+            //             $debit->user_id,
+
+            //             'authenticated_user_id' =>
+            //             Auth::id(),
+
+            //             'reference' =>
+            //             $reference,
+            //         ]
+            //     );
+
+            //     abort(403);
+            // }
+
+            /*
+|--------------------------------------------------------------------------
+| USER SECURITY — allow admin-on-behalf
+|--------------------------------------------------------------------------
+*/
+
+            $isAdminOnBehalf =
+                Auth::check() &&
+                Auth::user()->role === 'admin' &&
+                session()->has('admin_paying_for_member_id') &&
+                (int) session('admin_paying_for_member_id') === (int) $debit->user_id;
+
             if (
-                !Auth::check() ||
-                (int) $debit->user_id !==
-                    (int) Auth::id()
+                !$isAdminOnBehalf &&
+                (
+                    !Auth::check() ||
+                    (int) $debit->user_id !== (int) Auth::id()
+                )
             ) {
                 Log::critical(
                     'PAYSTACK USER MISMATCH',
                     [
-                        'transaction_id' =>
-                            $debit->id,
-
-                        'transaction_user_id' =>
-                            $debit->user_id,
-
-                        'authenticated_user_id' =>
-                            Auth::id(),
-
-                        'reference' =>
-                            $reference,
+                        'transaction_id'      => $debit->id,
+                        'transaction_user_id' => $debit->user_id,
+                        'authenticated_user_id' => Auth::id(),
+                        'reference'           => $reference,
                     ]
                 );
 
@@ -1856,7 +1953,7 @@ class PaymentController extends Controller
                     ->route('payment.index')
                     ->withErrors([
                         'payment' =>
-                            'The payment currency could not be verified.',
+                        'The payment currency could not be verified.',
                     ]);
             }
 
@@ -1880,16 +1977,16 @@ class PaymentController extends Controller
                     'PAYSTACK AMOUNT MISMATCH',
                     [
                         'transaction_id' =>
-                            $debit->id,
+                        $debit->id,
 
                         'reference' =>
-                            $reference,
+                        $reference,
 
                         'expected_amount' =>
-                            $expectedAmount,
+                        $expectedAmount,
 
                         'paid_amount' =>
-                            $paidAmount,
+                        $paidAmount,
                     ]
                 );
 
@@ -1897,7 +1994,7 @@ class PaymentController extends Controller
                     ->route('payment.index')
                     ->withErrors([
                         'payment' =>
-                            'The payment amount could not be verified.',
+                        'The payment amount could not be verified.',
                     ]);
             }
 
@@ -1926,16 +2023,16 @@ class PaymentController extends Controller
                         Transaction::with(
                             'paymentItem'
                         )
-                            ->where(
-                                'id',
-                                $debit->id
-                            )
-                            ->where(
-                                'type',
-                                'debit'
-                            )
-                            ->lockForUpdate()
-                            ->first();
+                        ->where(
+                            'id',
+                            $debit->id
+                        )
+                        ->where(
+                            'type',
+                            'debit'
+                        )
+                        ->lockForUpdate()
+                        ->first();
 
                     if (!$lockedDebit) {
                         throw new \RuntimeException(
@@ -1954,8 +2051,8 @@ class PaymentController extends Controller
                             'reference',
                             $reference
                         )
-                            ->lockForUpdate()
-                            ->first();
+                        ->lockForUpdate()
+                        ->first();
 
                     /*
                     |--------------------------------------------------------------------------
@@ -1977,54 +2074,54 @@ class PaymentController extends Controller
 
                         $payment = Payment::create([
                             'user_id' =>
-                                $lockedDebit->user_id,
+                            $lockedDebit->user_id,
 
                             'payment_item_id' =>
-                                $lockedDebit->payment_item_id,
+                            $lockedDebit->payment_item_id,
 
                             'membership_category_id' =>
-                                $user->membership_category_id,
+                            $user->membership_category_id,
 
                             'membership_category_fee_id' =>
-                                null,
+                            null,
 
                             'member_fee_id' =>
-                                null,
+                            null,
 
                             'payment_type' =>
-                                $lockedDebit->payment_item_id
+                            $lockedDebit->payment_item_id
                                 ? 'additional'
                                 : 'membership',
 
                             'fee_type' =>
-                                'standard',
+                            'standard',
 
                             'amount' =>
-                                $lockedDebit->amount,
+                            $lockedDebit->amount,
 
                             'description' =>
-                                $lockedDebit->narration,
+                            $lockedDebit->narration,
 
                             'payment_reference' =>
-                                $reference,
+                            $reference,
 
                             'paystack_reference' =>
-                                $reference,
+                            $reference,
 
                             'reference' =>
-                                $reference,
+                            $reference,
 
                             'gateway' =>
-                                'paystack',
+                            'paystack',
 
                             'gateway_transaction_id' =>
-                                $paystackTransactionId,
+                            $paystackTransactionId,
 
                             'gateway_status' =>
-                                'success',
+                            'success',
 
                             'status' =>
-                                'pending',
+                            'pending',
                         ]);
                     }
 
@@ -2042,12 +2139,12 @@ class PaymentController extends Controller
                             'debit_transaction_id',
                             $lockedDebit->id
                         )
-                            ->where(
-                                'type',
-                                'credit'
-                            )
-                            ->lockForUpdate()
-                            ->first();
+                        ->where(
+                            'type',
+                            'credit'
+                        )
+                        ->lockForUpdate()
+                        ->first();
 
                     /*
                     |--------------------------------------------------------------------------
@@ -2057,29 +2154,29 @@ class PaymentController extends Controller
 
                     $payment->update([
                         'paystack_reference' =>
-                            $reference,
+                        $reference,
 
                         'reference' =>
-                            $reference,
+                        $reference,
 
                         'gateway_transaction_id' =>
-                            $paystackTransactionId,
+                        $paystackTransactionId,
 
                         'gateway_status' =>
-                            $paystackTransaction['status']
+                        $paystackTransaction['status']
                             ?? 'success',
 
                         'gateway_response' =>
-                            $paystackTransaction,
+                        $paystackTransaction,
 
                         'status' =>
-                            'paid',
+                        'paid',
 
                         'paid_at' =>
-                            now(),
+                        now(),
 
                         'verified_at' =>
-                            now(),
+                        now(),
                     ]);
 
                     /*
@@ -2110,10 +2207,10 @@ class PaymentController extends Controller
 
                         $lockedDebit->update([
                             'status' =>
-                                'paid',
+                            'paid',
 
                             'gateway' =>
-                                $gateway,
+                            $gateway,
                         ]);
 
                         /*
@@ -2124,29 +2221,29 @@ class PaymentController extends Controller
 
                         $existingCredit->update([
                             'status' =>
-                                'paid',
+                            'paid',
 
                             'transaction_id' =>
-                                null,
+                            null,
 
                             'gateway' => [
                                 'paystack' =>
-                                    $reference,
+                                $reference,
                             ],
                         ]);
 
                         return [
                             'debit' =>
-                                $lockedDebit,
+                            $lockedDebit,
 
                             'credit' =>
-                                $existingCredit,
+                            $existingCredit,
 
                             'payment' =>
-                                $payment,
+                            $payment,
 
                             'newly_settled' =>
-                                false,
+                            false,
                         ];
                     }
 
@@ -2175,14 +2272,14 @@ class PaymentController extends Controller
 
                         $existingCredit->update([
                             'status' =>
-                                'paid',
+                            'paid',
 
                             'transaction_id' =>
-                                null,
+                            null,
 
                             'gateway' => [
                                 'paystack' =>
-                                    $reference,
+                                $reference,
                             ],
                         ]);
 
@@ -2194,24 +2291,24 @@ class PaymentController extends Controller
 
                         $lockedDebit->update([
                             'status' =>
-                                'paid',
+                            'paid',
 
                             'gateway' =>
-                                $gateway,
+                            $gateway,
                         ]);
 
                         return [
                             'debit' =>
-                                $lockedDebit,
+                            $lockedDebit,
 
                             'credit' =>
-                                $existingCredit,
+                            $existingCredit,
 
                             'payment' =>
-                                $payment,
+                            $payment,
 
                             'newly_settled' =>
-                                false,
+                            false,
                         ];
                     }
 
@@ -2234,10 +2331,10 @@ class PaymentController extends Controller
 
                     $credit = Transaction::create([
                         'user_id' =>
-                            $lockedDebit->user_id,
+                        $lockedDebit->user_id,
 
                         'payment_item_id' =>
-                            $lockedDebit->payment_item_id,
+                        $lockedDebit->payment_item_id,
 
                         /*
                         |--------------------------------------------------------------------------
@@ -2246,20 +2343,20 @@ class PaymentController extends Controller
                         */
 
                         'debit_transaction_id' =>
-                            $lockedDebit->id,
+                        $lockedDebit->id,
 
                         'narration' =>
-                            'Payment received - ' .
+                        'Payment received - ' .
                             $lockedDebit->narration,
 
                         'type' =>
-                            'credit',
+                        'credit',
 
                         'status' =>
-                            'paid',
+                        'paid',
 
                         'amount' =>
-                            $lockedDebit->amount,
+                        $lockedDebit->amount,
 
                         /*
                         |--------------------------------------------------------------------------
@@ -2268,11 +2365,11 @@ class PaymentController extends Controller
                         */
 
                         'transaction_id' =>
-                            null,
+                        null,
 
                         'gateway' => [
                             'paystack' =>
-                                $reference,
+                            $reference,
                         ],
                     ]);
 
@@ -2294,10 +2391,10 @@ class PaymentController extends Controller
 
                     $lockedDebit->update([
                         'status' =>
-                            'paid',
+                        'paid',
 
                         'gateway' =>
-                            $gateway,
+                        $gateway,
                     ]);
 
                     /*
@@ -2313,16 +2410,16 @@ class PaymentController extends Controller
 
                     return [
                         'debit' =>
-                            $lockedDebit,
+                        $lockedDebit,
 
                         'credit' =>
-                            $credit,
+                        $credit,
 
                         'payment' =>
-                            $payment,
+                        $payment,
 
                         'newly_settled' =>
-                            true,
+                        true,
                     ];
                 }
             );
@@ -2358,31 +2455,31 @@ class PaymentController extends Controller
                     'DOCUMENT GENERATION FAILED AFTER SUCCESSFUL PAYMENT',
                     [
                         'payment_id' =>
-                            $result['payment']->id,
+                        $result['payment']->id,
 
                         'payment_item_id' =>
-                            $result['payment']->payment_item_id,
+                        $result['payment']->payment_item_id,
 
                         'credit_transaction_id' =>
-                            $result['credit']->id,
+                        $result['credit']->id,
 
                         'debit_transaction_id' =>
-                            $result['credit']->debit_transaction_id,
+                        $result['credit']->debit_transaction_id,
 
                         'user_id' =>
-                            $result['payment']->user_id,
+                        $result['payment']->user_id,
 
                         'reference' =>
-                            $reference,
+                        $reference,
 
                         'error' =>
-                            $documentException->getMessage(),
+                        $documentException->getMessage(),
 
                         'file' =>
-                            $documentException->getFile(),
+                        $documentException->getFile(),
 
                         'line' =>
-                            $documentException->getLine(),
+                        $documentException->getLine(),
                     ]
                 );
             }
@@ -2392,6 +2489,35 @@ class PaymentController extends Controller
             | SUCCESS
             |--------------------------------------------------------------------------
             */
+
+            /*
+|--------------------------------------------------------------------------
+| ADMIN ON-BEHALF RETURN
+|--------------------------------------------------------------------------
+|
+| If the payment was initiated by an admin on behalf of a member,
+| clear the session flag and send the admin back to their member list
+| instead of the member payment success page.
+|
+*/
+
+            if ($isAdminOnBehalf) {
+                $adminReturnUrl = session(
+                    'admin_paying_return_url',
+                    route('admin.member.index')
+                );
+
+                session()->forget([
+                    'admin_paying_for_member_id',
+                    'admin_paying_return_url',
+                ]);
+
+                return redirect($adminReturnUrl)
+                    ->with(
+                        'success',
+                        'Membership fee paid successfully on behalf of the member.'
+                    );
+            }
 
             if ($result['newly_settled']) {
                 return redirect()
@@ -2417,16 +2543,16 @@ class PaymentController extends Controller
                 'PAYSTACK CALLBACK EXCEPTION',
                 [
                     'reference' =>
-                        $reference,
+                    $reference,
 
                     'error' =>
-                        $e->getMessage(),
+                    $e->getMessage(),
 
                     'file' =>
-                        $e->getFile(),
+                    $e->getFile(),
 
                     'line' =>
-                        $e->getLine(),
+                    $e->getLine(),
                 ]
             );
 
@@ -2436,7 +2562,7 @@ class PaymentController extends Controller
                 )
                 ->withErrors([
                     'payment' =>
-                        'An error occurred while verifying your payment.',
+                    'An error occurred while verifying your payment.',
                 ]);
         }
     }
@@ -2469,10 +2595,10 @@ class PaymentController extends Controller
         Transaction $credit
     ): void {
         /*
-        |--------------------------------------------------------------------------
-        | BASIC VALIDATION
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | BASIC VALIDATION
+    |--------------------------------------------------------------------------
+    */
 
         if ($payment->status !== 'paid') {
             throw new \RuntimeException(
@@ -2493,10 +2619,10 @@ class PaymentController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | CREDIT → DEBIT RELATIONSHIP
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | CREDIT → DEBIT RELATIONSHIP
+    |--------------------------------------------------------------------------
+    */
 
         if (!$credit->debit_transaction_id) {
             throw new \RuntimeException(
@@ -2505,10 +2631,10 @@ class PaymentController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | LOAD DEBIT
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | LOAD DEBIT
+    |--------------------------------------------------------------------------
+    */
 
         $debit = Transaction::with(
             'paymentItem'
@@ -2530,10 +2656,10 @@ class PaymentController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | VALIDATE DEBIT
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | VALIDATE DEBIT
+    |--------------------------------------------------------------------------
+    */
 
         if (
             (int) $debit->user_id !==
@@ -2551,10 +2677,10 @@ class PaymentController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | PAYMENT ITEM MATCH
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | PAYMENT ITEM MATCH
+    |--------------------------------------------------------------------------
+    */
 
         if (
             $payment->payment_item_id !== null &&
@@ -2568,48 +2694,65 @@ class PaymentController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | LOAD PAYMENT ITEM + DOCUMENT
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | LOAD PAYMENT ITEM + ALL GENERATION DOCUMENTS
+    |--------------------------------------------------------------------------
+    */
 
         $payment->loadMissing([
-            'paymentItem.document',
+            'paymentItem.documents' => function ($query) {
+                $query
+                    ->where(
+                        'documents.is_active',
+                        true
+                    )
+                    ->wherePivot(
+                        'generate_after_payment',
+                        true
+                    )
+                    ->with([
+                        'fields' => function ($query) {
+                            $query
+                                ->orderBy('sort_order')
+                                ->orderBy('id');
+                        },
+                    ]);
+            },
         ]);
 
         /*
-        |--------------------------------------------------------------------------
-        | PAYMENT ITEM
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | PAYMENT ITEM
+    |--------------------------------------------------------------------------
+    */
 
         $paymentItem =
             $payment->paymentItem;
 
         /*
-        |--------------------------------------------------------------------------
-        | NO PAYMENT ITEM
-        |--------------------------------------------------------------------------
-        |
-        | Membership payments may not necessarily use a PaymentItem.
-        |
-        */
+    |--------------------------------------------------------------------------
+    | NO PAYMENT ITEM
+    |--------------------------------------------------------------------------
+    |
+    | Membership payments may not necessarily use a PaymentItem.
+    |
+    */
 
         if (!$paymentItem) {
             Log::info(
                 'DOCUMENT GENERATION SKIPPED - NO PAYMENT ITEM',
                 [
                     'payment_id' =>
-                        $payment->id,
+                    $payment->id,
 
                     'credit_transaction_id' =>
-                        $credit->id,
+                    $credit->id,
 
                     'debit_transaction_id' =>
-                        $credit->debit_transaction_id,
+                    $credit->debit_transaction_id,
 
                     'user_id' =>
-                        $payment->user_id,
+                    $payment->user_id,
                 ]
             );
 
@@ -2617,17 +2760,13 @@ class PaymentController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | MEMBERSHIP PAYMENT
-        |--------------------------------------------------------------------------
-        |
-        | IMPORTANT:
-        |
-        | Membership documents are NOT generated here.
-        |
-        | They are generated through the membership approval workflow.
-        |
-        */
+    |--------------------------------------------------------------------------
+    | MEMBERSHIP PAYMENT
+    |--------------------------------------------------------------------------
+    |
+    | Membership documents are handled by the membership approval workflow.
+    |
+    */
 
         if (
             $payment->payment_type ===
@@ -2637,19 +2776,19 @@ class PaymentController extends Controller
                 'MEMBERSHIP PAYMENT COMPLETED - DOCUMENT GENERATION DEFERRED',
                 [
                     'payment_id' =>
-                        $payment->id,
+                    $payment->id,
 
                     'payment_item_id' =>
-                        $paymentItem->id,
+                    $paymentItem->id,
 
                     'credit_transaction_id' =>
-                        $credit->id,
+                    $credit->id,
 
                     'debit_transaction_id' =>
-                        $credit->debit_transaction_id,
+                    $credit->debit_transaction_id,
 
                     'user_id' =>
-                        $payment->user_id,
+                    $payment->user_id,
                 ]
             );
 
@@ -2657,32 +2796,45 @@ class PaymentController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | NO DOCUMENT ATTACHED
-        |--------------------------------------------------------------------------
-        |
-        | A PaymentItem may legitimately have no document.
-        |
-        */
+    |--------------------------------------------------------------------------
+    | GENERATION DOCUMENTS
+    |--------------------------------------------------------------------------
+    */
 
-        if (!$paymentItem->document) {
+        $documents =
+            $paymentItem->documents
+            ->filter(
+                function ($document) {
+                    return $document->is_active &&
+                        (bool) $document->pivot->generate_after_payment;
+                }
+            )
+            ->values();
+
+        /*
+    |--------------------------------------------------------------------------
+    | NO DOCUMENTS
+    |--------------------------------------------------------------------------
+    */
+
+        if ($documents->isEmpty()) {
             Log::info(
-                'DOCUMENT GENERATION SKIPPED - NO DOCUMENT ATTACHED',
+                'DOCUMENT GENERATION SKIPPED - NO DOCUMENTS ATTACHED',
                 [
                     'payment_id' =>
-                        $payment->id,
+                    $payment->id,
 
                     'payment_item_id' =>
-                        $paymentItem->id,
+                    $paymentItem->id,
 
                     'credit_transaction_id' =>
-                        $credit->id,
+                    $credit->id,
 
                     'debit_transaction_id' =>
-                        $credit->debit_transaction_id,
+                    $credit->debit_transaction_id,
 
                     'user_id' =>
-                        $payment->user_id,
+                    $payment->user_id,
                 ]
             );
 
@@ -2690,65 +2842,109 @@ class PaymentController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | DOCUMENT GENERATION
-        |--------------------------------------------------------------------------
-        |
-        | IMPORTANT:
-        |
-        | We pass:
-        |
-        | 1. The exact Payment record settled by Paystack.
-        | 2. The exact CREDIT transaction created by the ledger.
-        |
-        | DocumentGenerationService is responsible for resolving:
-        |
-        | SYSTEM fields
-        | MANUAL fields
-        | Document template
-        | GeneratedDocument
-        |
-        */
+    |--------------------------------------------------------------------------
+    | MULTIPLE DOCUMENTS
+    |--------------------------------------------------------------------------
+    |
+    | Example:
+    |
+    | Afforestation Receipt
+    | +
+    | Traceability Transit Pass
+    |
+    | Both use the SAME payment.
+    | Both use the SAME credit transaction.
+    |
+    */
+
+        if ($documents->count() > 1) {
+            $generatedDocuments =
+                $this->documentGenerationService->generateMultiple(
+                    $payment,
+                    $credit,
+                    $payment->document_field_values ?? []
+                );
+
+            foreach (
+                $generatedDocuments as $generatedDocument
+            ) {
+                Log::info(
+                    'DOCUMENT GENERATED AFTER SUCCESSFUL PAYMENT',
+                    [
+                        'generated_document_id' =>
+                        $generatedDocument->id,
+
+                        'payment_id' =>
+                        $payment->id,
+
+                        'payment_item_id' =>
+                        $paymentItem->id,
+
+                        'document_id' =>
+                        $generatedDocument->document_id,
+
+                        'document_code' =>
+                        $generatedDocument->document?->code,
+
+                        'credit_transaction_id' =>
+                        $credit->id,
+
+                        'debit_transaction_id' =>
+                        $credit->debit_transaction_id,
+
+                        'user_id' =>
+                        $payment->user_id,
+                    ]
+                );
+            }
+
+            return;
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | SINGLE DOCUMENT
+    |--------------------------------------------------------------------------
+    |
+    | Existing single-document payment items continue using the existing
+    | generation method.
+    |
+    */
 
         $generatedDocument =
             $this->documentGenerationService->generate(
                 $payment,
-                $credit
+                $credit,
+                $payment->document_field_values ?? []
             );
-
-        /*
-        |--------------------------------------------------------------------------
-        | SUCCESS LOG
-        |--------------------------------------------------------------------------
-        */
 
         if ($generatedDocument) {
             Log::info(
                 'DOCUMENT GENERATED AFTER SUCCESSFUL PAYMENT',
                 [
                     'generated_document_id' =>
-                        $generatedDocument->id,
+                    $generatedDocument->id,
 
                     'payment_id' =>
-                        $payment->id,
+                    $payment->id,
 
                     'payment_item_id' =>
-                        $paymentItem->id,
+                    $paymentItem->id,
 
                     'document_id' =>
-                        $paymentItem->document->id,
+                    $generatedDocument->document_id,
 
                     'document_code' =>
-                        $paymentItem->document->code,
+                    $generatedDocument->document?->code,
 
                     'credit_transaction_id' =>
-                        $credit->id,
+                    $credit->id,
 
                     'debit_transaction_id' =>
-                        $credit->debit_transaction_id,
+                    $credit->debit_transaction_id,
 
                     'user_id' =>
-                        $payment->user_id,
+                    $payment->user_id,
                 ]
             );
         }
@@ -2770,12 +2966,12 @@ class PaymentController extends Controller
 
         return response()->json([
             'balance' =>
-                number_format(
-                    $balance,
-                    2,
-                    '.',
-                    ''
-                ),
+            number_format(
+                $balance,
+                2,
+                '.',
+                ''
+            ),
         ]);
     }
 
@@ -2848,35 +3044,43 @@ class PaymentController extends Controller
 
         if (!$credit) {
             return redirect()
-                ->route(
-                    'payment.index'
-                )
+                ->route('payment.index')
                 ->withErrors([
                     'payment' =>
-                        'No successful payment was found.',
+                    'No successful payment was found.',
                 ]);
         }
 
-        $debit =
-            $credit->debitTransaction;
+        $debit = $credit->debitTransaction;
 
-        $balance =
-            $this->getBalance(
-                $user->id
-            );
+        $balance = $this->getBalance($user->id);
+
+        /*
+    |--------------------------------------------------------------------------
+    | PROFILE STATUS
+    |--------------------------------------------------------------------------
+    |
+    | Determines which call-to-action the success page should show.
+    |
+    | No profile record  → "Complete Application Form"
+    | Has profile record → "View Your Documents"
+    |
+    */
+
+        $hasProfile = MemberProfile::query()
+            ->where('user_id', $user->id)
+            ->exists();
 
         return view(
             'member.payment.success',
             compact(
                 'credit',
                 'debit',
-                'balance'
+                'balance',
+                'hasProfile'
             )
         );
     }
-
-
-
 
 
 
@@ -2887,10 +3091,10 @@ class PaymentController extends Controller
         $user = Auth::user();
 
         /*
-        |--------------------------------------------------------------------------
-        | MEMBER CHECK
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | MEMBER CHECK
+    |--------------------------------------------------------------------------
+    */
 
         if ($user->membership_category_id === null) {
             return redirect()
@@ -2902,10 +3106,10 @@ class PaymentController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | APPROVAL
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | APPROVAL
+    |--------------------------------------------------------------------------
+    */
 
         $profile = MemberProfile::where(
             'user_id',
@@ -2929,10 +3133,10 @@ class PaymentController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | ACTIVE MEMBERSHIP
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | ACTIVE MEMBERSHIP
+    |--------------------------------------------------------------------------
+    */
 
         $membership = Membership::where(
             'user_id',
@@ -2955,32 +3159,31 @@ class PaymentController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | CATEGORY
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | CATEGORY
+    |--------------------------------------------------------------------------
+    |
+    | users.membership_category_id remains authoritative.
+    |
+    */
 
         $categoryId =
-            $user->membership_category_id;
+            (int) $user->membership_category_id;
 
         /*
-        |--------------------------------------------------------------------------
-        | PAYMENT ITEMS
-        |--------------------------------------------------------------------------
-        |
-        | STRICT MATCH ONLY.
-        |
-        | DO NOT include:
-        |
-        | membership_category_id = NULL
-        |
-        | ONLY include:
-        |
-        | payment_items.membership_category_id
-        | =
-        | users.membership_category_id
-        |
-        */
+    |--------------------------------------------------------------------------
+    | PAYMENT ITEMS
+    |--------------------------------------------------------------------------
+    |
+    | Payment item eligibility is now determined through:
+    |
+    | payment_item_categories
+    |
+    | NOT:
+    |
+    | payment_items.membership_category_id
+    |
+    */
 
         $paymentItems = PaymentItem::where(
             'is_active',
@@ -2990,13 +3193,40 @@ class PaymentController extends Controller
                 'type',
                 ['membership']
             )
-            ->whereNotNull(
-                'membership_category_id'
+            ->whereHas(
+                'membershipCategories',
+                function ($query) use ($categoryId) {
+                    $query->where(
+                        'membership_categories.id',
+                        $categoryId
+                    )
+                        ->where(
+                            'membership_categories.status',
+                            true
+                        );
+                }
             )
-            ->where(
-                'membership_category_id',
-                $categoryId
-            )
+            ->with([
+                'membershipCategories',
+                'documents' => function ($query) {
+                    $query
+                        ->where(
+                            'documents.is_active',
+                            true
+                        )
+                        ->wherePivot(
+                            'generate_after_payment',
+                            true
+                        )
+                        ->with([
+                            'fields' => function ($query) {
+                                $query
+                                    ->orderBy('sort_order')
+                                    ->orderBy('id');
+                            },
+                        ]);
+                },
+            ])
             ->orderBy(
                 'name'
             )
@@ -3012,30 +3242,85 @@ class PaymentController extends Controller
     }
 
 
-
     /**
      * Initialize an additional payment or document renewal request.
      */
     public function initializeAdditional(Request $request)
     {
+        Log::info('RAW ADDITIONAL PAYMENT REQUEST', [
+            'user_id' => Auth::id(),
+            'payment_item_id' => $request->input('payment_item_id'),
+            'document_field_values' => $request->input(
+                'document_field_values',
+                []
+            ),
+            'all_request' => $request->all(),
+        ]);
+
         $request->validate([
-            'payment_item_id' => ['required', 'integer', 'exists:payment_items,id'],
-            'transaction_id' => ['nullable', 'integer', 'exists:transactions,id'],
-            'renewal_document_id' => ['nullable', 'integer', 'exists:generated_documents,id'],
-            'document_field_values' => ['nullable', 'array'],
+            'payment_item_id' => [
+                'required',
+                'integer',
+                'exists:payment_items,id'
+            ],
+            'transaction_id' => [
+                'nullable',
+                'integer',
+                'exists:transactions,id'
+            ],
+            'renewal_document_id' => [
+                'nullable',
+                'integer',
+                'exists:generated_documents,id'
+            ],
+            'document_field_values' => [
+                'nullable',
+                'array'
+            ],
         ]);
 
         $user = Auth::user();
 
-        // 1. Check user membership eligibility
+        /*
+    |--------------------------------------------------------------------------
+    | Payment Email
+    |--------------------------------------------------------------------------
+    |
+    | Email is NOT required by the NACPDEAN application.
+    |
+    | Paystack requires an email address when initializing a transaction.
+    | If the user has an email, use it. Otherwise, generate an internal
+    | email address based on the user's ID.
+    |
+    |--------------------------------------------------------------------------
+    */
+
+        $paymentEmail = $user->email;
+
+        if (!$paymentEmail) {
+            $paymentEmail = 'user' . $user->id . '@nacpdean.org';
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | 1. Check user membership eligibility
+    |--------------------------------------------------------------------------
+    */
+
         if ($errorResponse = $this->validateUserEligibility($user)) {
             return $errorResponse;
         }
 
         $categoryId = (int) $user->membership_category_id;
 
-        // 2. Validate renewal document (if supplied)
+        /*
+    |--------------------------------------------------------------------------
+    | 2. Validate renewal document (if supplied)
+    |--------------------------------------------------------------------------
+    */
+
         $renewalDocument = null;
+
         if ($request->filled('renewal_document_id')) {
             $renewalResult = $this->validateRenewalDocument(
                 $request->renewal_document_id,
@@ -3050,7 +3335,12 @@ class PaymentController extends Controller
             $renewalDocument = $renewalResult;
         }
 
-        // 3. Verify and load the payment item
+        /*
+    |--------------------------------------------------------------------------
+    | 3. Verify and load the payment item
+    |--------------------------------------------------------------------------
+    */
+
         $paymentItem = $this->getAndVerifyPaymentItem(
             $request->payment_item_id,
             $categoryId,
@@ -3059,16 +3349,43 @@ class PaymentController extends Controller
         );
 
         if (!$paymentItem) {
-            return back()->with('error', 'The selected payment item is not available for your membership category.');
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'The selected payment item is not available for your membership category.',
+                ], 422);
+            }
+
+            return back()->with(
+                'error',
+                'The selected payment item is not available for your membership category.'
+            );
         }
 
-        // 4. Verify membership category consistency
-        if ($errorResponse = $this->verifyActiveMembershipCategory($user->id, $categoryId, $paymentItem->id)) {
+        /*
+    |--------------------------------------------------------------------------
+    | 4. Verify membership category consistency
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            $errorResponse = $this->verifyActiveMembershipCategory(
+                $user->id,
+                $categoryId,
+                $paymentItem->id
+            )
+        ) {
             return $errorResponse;
         }
 
-        // 5. Check payment item amount
+        /*
+    |--------------------------------------------------------------------------
+    | 5. Check payment item amount
+    |--------------------------------------------------------------------------
+    */
+
         $amount = (float) $paymentItem->amount;
+
         if ($amount <= 0) {
             Log::error('INVALID ADDITIONAL PAYMENT ITEM AMOUNT', [
                 'user_id' => $user->id,
@@ -3076,11 +3393,27 @@ class PaymentController extends Controller
                 'amount' => $paymentItem->amount,
             ]);
 
-            return back()->with('error', 'The selected payment item has an invalid amount.');
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'The selected payment item has an invalid amount.',
+                ], 422);
+            }
+
+            return back()->with(
+                'error',
+                'The selected payment item has an invalid amount.'
+            );
         }
 
-        // 6. Process and validate document fields
-        $submittedDocumentFieldValues = $request->input('document_field_values', []) ?? [];
+        /*
+    |--------------------------------------------------------------------------
+    | 6. Process and validate document fields
+    |--------------------------------------------------------------------------
+    */
+
+        $submittedDocumentFieldValues =
+            $request->input('document_field_values', []) ?? [];
 
         $this->logDocumentFieldInfo(
             $user->id,
@@ -3089,12 +3422,13 @@ class PaymentController extends Controller
             $submittedDocumentFieldValues
         );
 
-        $fieldValidationResult = $this->processAndValidateDocumentFields(
-            $paymentItem,
-            $submittedDocumentFieldValues,
-            $user->id,
-            $renewalDocument?->id
-        );
+        $fieldValidationResult =
+            $this->processAndValidateDocumentFields(
+                $paymentItem,
+                $submittedDocumentFieldValues,
+                $user->id,
+                $renewalDocument?->id
+            );
 
         if ($fieldValidationResult instanceof RedirectResponse) {
             return $fieldValidationResult;
@@ -3102,7 +3436,323 @@ class PaymentController extends Controller
 
         $documentFieldValues = $fieldValidationResult;
 
-        // Proceed with payment initialization pipeline using $paymentItem, $amount, $renewalDocument, and $documentFieldValues...
+        /*
+    |--------------------------------------------------------------------------
+    | 7. Generate Paystack reference
+    |--------------------------------------------------------------------------
+    */
+
+        $paystackReference = 'NACP-' . strtoupper(
+            Str::random(16)
+        );
+
+        /*
+    |--------------------------------------------------------------------------
+    | 8. Find or create the debit transaction and Payment
+    |--------------------------------------------------------------------------
+    */
+
+        $debit = null;
+        $payment = null;
+
+        DB::beginTransaction();
+
+        try {
+            if ($request->filled('transaction_id')) {
+                $debit = Transaction::query()
+                    ->where('id', $request->transaction_id)
+                    ->where('user_id', $user->id)
+                    ->where('payment_item_id', $paymentItem->id)
+                    ->where('type', 'debit')
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$debit) {
+                    DB::rollBack();
+
+                    if ($request->expectsJson()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'The selected payment transaction could not be verified.',
+                        ], 422);
+                    }
+
+                    return back()
+                        ->withInput()
+                        ->with(
+                            'error',
+                            'The selected payment transaction could not be verified.'
+                        );
+                }
+
+                if ($debit->status === 'paid') {
+                    DB::rollBack();
+
+                    if ($request->expectsJson()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'This payment transaction has already been completed.',
+                        ], 422);
+                    }
+
+                    return back()
+                        ->withInput()
+                        ->with(
+                            'error',
+                            'This payment transaction has already been completed.'
+                        );
+                }
+
+                if ((float) $debit->amount !== $amount) {
+                    DB::rollBack();
+
+                    Log::critical('ADDITIONAL PAYMENT AMOUNT MISMATCH', [
+                        'user_id' => $user->id,
+                        'payment_item_id' => $paymentItem->id,
+                        'transaction_id' => $debit->id,
+                        'transaction_amount' => $debit->amount,
+                        'payment_item_amount' => $amount,
+                    ]);
+
+                    if ($request->expectsJson()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'The payment amount could not be verified.',
+                        ], 422);
+                    }
+
+                    return back()
+                        ->withInput()
+                        ->with(
+                            'error',
+                            'The payment amount could not be verified.'
+                        );
+                }
+            } else {
+                $debit = Transaction::query()
+                    ->where('user_id', $user->id)
+                    ->where('payment_item_id', $paymentItem->id)
+                    ->where('type', 'debit')
+                    ->where('status', 'not paid')
+                    ->where('amount', $paymentItem->amount)
+                    ->latest('id')
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$debit) {
+                    $debit = Transaction::create([
+                        'user_id' => $user->id,
+                        'payment_item_id' => $paymentItem->id,
+                        'debit_transaction_id' => null,
+                        'narration' => $paymentItem->name,
+                        'type' => 'debit',
+                        'status' => 'not paid',
+                        'amount' => $paymentItem->amount,
+                        'transaction_id' => null,
+                        'gateway' => null,
+                    ]);
+                }
+            }
+
+            /*
+        |--------------------------------------------------------------------------
+        | 9. Find or create the local Payment record
+        |--------------------------------------------------------------------------
+        */
+
+            $payment = Payment::query()
+                ->where('user_id', $user->id)
+                ->where('payment_item_id', $paymentItem->id)
+                ->where('status', 'pending')
+                ->where('amount', $paymentItem->amount)
+                ->latest('id')
+                ->lockForUpdate()
+                ->first();
+
+            if (!$payment) {
+                $payment = Payment::create([
+                    'user_id' => $user->id,
+                    'payment_item_id' => $paymentItem->id,
+                    'membership_category_id' => $categoryId,
+                    'payment_type' => 'additional',
+                    'fee_type' => 'additional',
+                    'amount' => $paymentItem->amount,
+                    'description' => $paymentItem->name,
+                    'payment_reference' => $paystackReference,
+                    'reference' => $paystackReference,
+                    'document_field_values' => $documentFieldValues,
+                    'gateway' => 'paystack',
+                    'status' => 'pending',
+                    'renewal_document_id' => $renewalDocument?->id,
+                ]);
+            } else {
+                $payment->update([
+                    'membership_category_id' => $categoryId,
+                    'payment_type' => 'additional',
+                    'fee_type' => 'additional',
+                    'description' => $paymentItem->name,
+                    'payment_reference' => $paystackReference,
+                    'reference' => $paystackReference,
+                    'document_field_values' => $documentFieldValues,
+                    'renewal_document_id' => $renewalDocument?->id,
+                    'status' => 'pending',
+                ]);
+            }
+
+            /*
+        |--------------------------------------------------------------------------
+        | 10. Store Paystack reference on the debit transaction
+        |--------------------------------------------------------------------------
+        */
+
+            $debit->update([
+                'gateway' => [
+                    'provider' => 'paystack',
+                    'reference' => $paystackReference,
+                    'payment_id' => $payment->id,
+                ],
+            ]);
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            Log::error('ADDITIONAL PAYMENT PREPARATION FAILED', [
+                'user_id' => $user->id,
+                'payment_item_id' => $paymentItem->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unable to prepare this payment. Please try again.',
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
+
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    'Unable to prepare this payment. Please try again.'
+                );
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | 11. Initialize Paystack
+    |--------------------------------------------------------------------------
+    */
+
+        try {
+            $paystackSecretKey = config('services.paystack.secret_key');
+
+            if (!$paystackSecretKey) {
+                throw new \RuntimeException(
+                    'Paystack secret key is not configured.'
+                );
+            }
+
+            $callbackUrl = route('payment.callback');
+
+            $response = Http::withToken($paystackSecretKey)
+                ->acceptJson()
+                ->post(
+                    'https://api.paystack.co/transaction/initialize',
+                    [
+                        'email' => $paymentEmail,
+                        'amount' => (int) round($amount * 100),
+                        'reference' => $paystackReference,
+                        'callback_url' => $callbackUrl,
+                        'metadata' => [
+                            'payment_id' => $payment->id,
+                            'transaction_id' => $debit->id,
+                            'payment_item_id' => $paymentItem->id,
+                            'payment_option' => 'additional',
+                            'user_id' => $user->id,
+                            'membership_category_id' => $categoryId,
+                            'renewal_document_id' => $renewalDocument?->id,
+                        ],
+                    ]
+                );
+
+            if (!$response->successful()) {
+                throw new \RuntimeException(
+                    'Paystack initialization failed: ' .
+                        $response->body()
+                );
+            }
+
+            $responseData = $response->json();
+
+            if (
+                !isset($responseData['status']) ||
+                $responseData['status'] !== true ||
+                empty($responseData['data']['authorization_url'])
+            ) {
+                throw new \RuntimeException(
+                    'Paystack did not return a valid authorization URL.'
+                );
+            }
+
+            $payment->update([
+                'paystack_reference' => $paystackReference,
+                'paystack_authorization_url' =>
+                $responseData['data']['authorization_url'],
+                'gateway_status' => 'initialized',
+                'gateway_response' => $responseData,
+            ]);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Payment initialized successfully.',
+                    'authorization_url' =>
+                    $responseData['data']['authorization_url'],
+                    'reference' => $paystackReference,
+                ]);
+            }
+
+            return redirect()->away(
+                $responseData['data']['authorization_url']
+            );
+        } catch (\Throwable $e) {
+            Log::error(
+                'ADDITIONAL PAYMENT PAYSTACK INITIALIZATION FAILED',
+                [
+                    'user_id' => $user->id,
+                    'payment_id' => $payment->id,
+                    'payment_item_id' => $paymentItem->id,
+                    'transaction_id' => $debit->id,
+                    'error' => $e->getMessage(),
+                ]
+            );
+
+            $payment->update([
+                'status' => 'failed',
+                'gateway_status' => 'initialization_failed',
+                'gateway_response' => [
+                    'error' => $e->getMessage(),
+                ],
+            ]);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' =>
+                    'Unable to initialize payment with Paystack. Please try again.',
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
+
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    'Unable to initialize payment with Paystack. Please try again.'
+                );
+        }
     }
 
     /**
@@ -3210,41 +3860,102 @@ class PaymentController extends Controller
     /**
      * Retrieve and load relations for the target PaymentItem.
      */
-    protected function getAndVerifyPaymentItem(int $paymentItemId, int $categoryId, int $userId, ?int $renewalDocumentId): ?PaymentItem
-    {
-        $paymentItem = PaymentItem::where('id', $paymentItemId)
-            ->where('is_active', true)
-            ->whereNotIn('type', ['membership'])
-            ->whereNotNull('membership_category_id')
-            ->where('membership_category_id', $categoryId)
+    protected function getAndVerifyPaymentItem(
+        int $paymentItemId,
+        int $categoryId,
+        int $userId,
+        ?int $renewalDocumentId
+    ): ?PaymentItem {
+        $paymentItem = PaymentItem::query()
+            ->where(
+                'id',
+                $paymentItemId
+            )
+            ->where(
+                'is_active',
+                true
+            )
+            ->whereNotIn(
+                'type',
+                ['membership']
+            )
+            ->whereHas(
+                'membershipCategories',
+                function ($query) use ($categoryId) {
+                    $query->where(
+                        'membership_categories.id',
+                        $categoryId
+                    )
+                        ->where(
+                            'membership_categories.status',
+                            true
+                        );
+                }
+            )
+            ->with([
+                'membershipCategories',
+                'documents' => function ($query) {
+                    $query
+                        ->where(
+                            'documents.is_active',
+                            true
+                        )
+                        ->wherePivot(
+                            'generate_after_payment',
+                            true
+                        )
+                        ->with([
+                            'fields' => function ($query) {
+                                $query
+                                    ->orderBy('sort_order')
+                                    ->orderBy('id');
+                            },
+                        ]);
+                },
+            ])
             ->first();
 
         if (!$paymentItem) {
-            Log::warning('INVALID ADDITIONAL PAYMENT ITEM', [
-                'user_id' => $userId,
-                'user_membership_category_id' => $categoryId,
-                'payment_item_id' => $paymentItemId,
-                'renewal_document_id' => $renewalDocumentId,
-            ]);
+            Log::warning(
+                'INVALID ADDITIONAL PAYMENT ITEM',
+                [
+                    'user_id' =>
+                    $userId,
+
+                    'user_membership_category_id' =>
+                    $categoryId,
+
+                    'payment_item_id' =>
+                    $paymentItemId,
+
+                    'renewal_document_id' =>
+                    $renewalDocumentId,
+                ]
+            );
 
             return null;
         }
 
-        $paymentItem->load([
-            'document' => function ($query) {
-                $query->where('is_active', true)
-                    ->with([
-                        'fields' => function ($query) {
-                            $query->orderBy('sort_order')
-                                ->orderBy('id');
-                        },
-                    ]);
-            },
-        ]);
+        /*
+    |--------------------------------------------------------------------------
+    | REMOVE DOCUMENTS THAT ARE NOT ACTIVE / GENERATION ENABLED
+    |--------------------------------------------------------------------------
+    */
+
+        $paymentItem->setRelation(
+            'documents',
+            $paymentItem->documents
+                ->filter(
+                    function ($document) {
+                        return $document->is_active &&
+                            (bool) $document->pivot->generate_after_payment;
+                    }
+                )
+                ->values()
+        );
 
         return $paymentItem;
     }
-
     /**
      * Verify that active membership matches expected category ID.
      */
@@ -3272,28 +3983,81 @@ class PaymentController extends Controller
     /**
      * Log initial context for incoming manual field payloads.
      */
-    protected function logDocumentFieldInfo(int $userId, PaymentItem $paymentItem, ?int $renewalDocumentId, array $submittedValues): void
-    {
-        Log::info('ADDITIONAL PAYMENT DOCUMENT FIELD VALUES RECEIVED', [
-            'user_id' => $userId,
-            'payment_item_id' => $paymentItem->id,
-            'renewal_document_id' => $renewalDocumentId,
-            'document_id' => $paymentItem->document?->id,
-            'submitted_document_field_values' => $submittedValues,
-            'manual_fields' => $paymentItem->document
-                ? $paymentItem->document->fields
-                    ->where('is_system', false)
-                    ->map(fn ($field) => [
-                        'field_key' => $field->field_key,
-                        'label' => $field->label,
-                        'field_type' => $field->field_type,
-                        'is_required' => $field->is_required,
-                        'default_value' => $field->default_value,
-                    ])
+    protected function logDocumentFieldInfo(
+        int $userId,
+        PaymentItem $paymentItem,
+        ?int $renewalDocumentId,
+        array $submittedValues
+    ): void {
+        Log::info(
+            'ADDITIONAL PAYMENT DOCUMENT FIELD VALUES RECEIVED',
+            [
+                'user_id' =>
+                $userId,
+
+                'payment_item_id' =>
+                $paymentItem->id,
+
+                'renewal_document_id' =>
+                $renewalDocumentId,
+
+                'documents' =>
+                $paymentItem->documents
+                    ->map(
+                        function ($document) use (
+                            $submittedValues
+                        ) {
+                            return [
+                                'document_id' =>
+                                $document->id,
+
+                                'document_code' =>
+                                $document->code,
+
+                                'document_name' =>
+                                $document->name,
+
+                                'submitted_values' =>
+                                $submittedValues[$document->code] ?? [],
+
+                                'manual_fields' =>
+                                $document->fields
+                                    ->where(
+                                        'is_system',
+                                        false
+                                    )
+                                    ->map(
+                                        function ($field) {
+                                            return [
+                                                'field_key' =>
+                                                $field->field_key,
+
+                                                'label' =>
+                                                $field->label,
+
+                                                'field_type' =>
+                                                $field->field_type,
+
+                                                'is_required' =>
+                                                $field->is_required,
+
+                                                'default_value' =>
+                                                $field->default_value,
+                                            ];
+                                        }
+                                    )
+                                    ->values()
+                                    ->all(),
+                            ];
+                        }
+                    )
                     ->values()
-                    ->all()
-                : [],
-        ]);
+                    ->all(),
+
+                'submitted_document_field_values' =>
+                $submittedValues,
+            ]
+        );
     }
 
     /**
@@ -3305,80 +4069,326 @@ class PaymentController extends Controller
         int $userId,
         ?int $renewalDocumentId
     ): array|RedirectResponse {
-        if (!$paymentItem->document) {
-            return [];
-        }
+        /*
+    |--------------------------------------------------------------------------
+    | NO DOCUMENTS
+    |--------------------------------------------------------------------------
+    */
 
-        $manualFields = $paymentItem->document->fields
-            ->where('is_system', false)
-            ->values();
-
-        // System-only document check
-        if ($manualFields->isEmpty()) {
+        if ($paymentItem->documents->isEmpty()) {
             if (!empty($submittedValues)) {
-                Log::warning('SYSTEM DOCUMENT FIELDS SUBMITTED BY MEMBER', [
-                    'user_id' => $userId,
-                    'payment_item_id' => $paymentItem->id,
-                    'renewal_document_id' => $renewalDocumentId,
-                    'submitted_keys' => array_keys($submittedValues),
-                ]);
+                Log::warning(
+                    'DOCUMENT FIELDS SUBMITTED FOR PAYMENT ITEM WITHOUT DOCUMENTS',
+                    [
+                        'user_id' =>
+                        $userId,
+
+                        'payment_item_id' =>
+                        $paymentItem->id,
+
+                        'renewal_document_id' =>
+                        $renewalDocumentId,
+
+                        'submitted_values' =>
+                        $submittedValues,
+                    ]
+                );
 
                 return back()
                     ->withInput()
-                    ->with('error', 'This document does not accept manually supplied fields.');
+                    ->with(
+                        'error',
+                        'This payment does not accept document fields.'
+                    );
             }
 
             return [];
         }
 
-        // Verify key authorization
-        $allowedFieldKeys = $manualFields->pluck('field_key')->values()->all();
+        /*
+    |--------------------------------------------------------------------------
+    | NORMALIZE DOCUMENT CODES
+    |--------------------------------------------------------------------------
+    */
 
-        foreach (array_keys($submittedValues) as $submittedKey) {
-            if (!in_array($submittedKey, $allowedFieldKeys, true)) {
-                Log::warning('UNAUTHORIZED DOCUMENT FIELD SUBMITTED', [
-                    'user_id' => $userId,
-                    'payment_item_id' => $paymentItem->id,
-                    'renewal_document_id' => $renewalDocumentId,
-                    'field_key' => $submittedKey,
-                ]);
+        $documentsByCode = [];
+
+        foreach ($paymentItem->documents as $document) {
+            $documentsByCode[$document->code] = $document;
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | VERIFY DOCUMENT KEYS
+    |--------------------------------------------------------------------------
+    |
+    | Every submitted document code must belong to this payment item.
+    |
+    */
+
+        foreach (
+            array_keys($submittedValues)
+            as $submittedDocumentCode
+        ) {
+            if (
+                !isset(
+                    $documentsByCode[$submittedDocumentCode]
+                )
+            ) {
+                Log::warning(
+                    'UNAUTHORIZED DOCUMENT SUBMITTED',
+                    [
+                        'user_id' =>
+                        $userId,
+
+                        'payment_item_id' =>
+                        $paymentItem->id,
+
+                        'document_code' =>
+                        $submittedDocumentCode,
+
+                        'renewal_document_id' =>
+                        $renewalDocumentId,
+                    ]
+                );
 
                 return back()
                     ->withInput()
-                    ->with('error', 'An invalid document field was submitted.');
+                    ->with(
+                        'error',
+                        'An invalid document was submitted.'
+                    );
             }
         }
 
-        // Validate values by type
-        $documentFieldValues = [];
+        /*
+    |--------------------------------------------------------------------------
+    | VALIDATE EACH DOCUMENT
+    |--------------------------------------------------------------------------
+    */
 
-        foreach ($manualFields as $field) {
-            $fieldKey = $field->field_key;
-            $value = $submittedValues[$fieldKey] ?? null;
+        $validatedDocuments = [];
 
-            if (is_string($value) && trim($value) === '') {
-                $value = null;
-            }
+        foreach (
+            $paymentItem->documents as $document
+        ) {
+            $documentCode =
+                $document->code;
 
-            if ($field->is_required && ($value === null || $value === '')) {
+            $documentSubmittedValues =
+                $submittedValues[$documentCode] ?? [];
+
+            if (
+                !is_array(
+                    $documentSubmittedValues
+                )
+            ) {
                 return back()
                     ->withInput()
-                    ->with('error', "{$field->label} is required.");
+                    ->with(
+                        'error',
+                        "Invalid field data supplied for {$document->name}."
+                    );
             }
 
-            if ($value === null) {
+            /*
+        |--------------------------------------------------------------------------
+        | MANUAL FIELDS
+        |--------------------------------------------------------------------------
+        */
+
+            $manualFields =
+                $document->fields
+                ->where(
+                    'is_system',
+                    false
+                )
+                ->values();
+
+            /*
+        |--------------------------------------------------------------------------
+        | SYSTEM-ONLY DOCUMENT
+        |--------------------------------------------------------------------------
+        */
+
+            if ($manualFields->isEmpty()) {
+                if (
+                    !empty($documentSubmittedValues)
+                ) {
+                    Log::warning(
+                        'SYSTEM DOCUMENT FIELDS SUBMITTED BY MEMBER',
+                        [
+                            'user_id' =>
+                            $userId,
+
+                            'payment_item_id' =>
+                            $paymentItem->id,
+
+                            'document_id' =>
+                            $document->id,
+
+                            'document_code' =>
+                            $documentCode,
+
+                            'submitted_keys' =>
+                            array_keys(
+                                $documentSubmittedValues
+                            ),
+                        ]
+                    );
+
+                    return back()
+                        ->withInput()
+                        ->with(
+                            'error',
+                            "The {$document->name} document does not accept manually supplied fields."
+                        );
+                }
+
+                $validatedDocuments[$documentCode] = [];
+
                 continue;
             }
 
-            $validationError = $this->validateSingleFieldValue($field, $value);
-            if ($validationError) {
-                return back()->withInput()->with('error', $validationError);
+            /*
+        |--------------------------------------------------------------------------
+        | ALLOWED FIELD KEYS
+        |--------------------------------------------------------------------------
+        */
+
+            $allowedFieldKeys =
+                $manualFields
+                ->pluck('field_key')
+                ->values()
+                ->all();
+
+            /*
+        |--------------------------------------------------------------------------
+        | VERIFY SUBMITTED FIELD KEYS
+        |--------------------------------------------------------------------------
+        */
+
+            foreach (
+                array_keys(
+                    $documentSubmittedValues
+                ) as $submittedFieldKey
+            ) {
+                if (
+                    !in_array(
+                        $submittedFieldKey,
+                        $allowedFieldKeys,
+                        true
+                    )
+                ) {
+                    Log::warning(
+                        'UNAUTHORIZED DOCUMENT FIELD SUBMITTED',
+                        [
+                            'user_id' =>
+                            $userId,
+
+                            'payment_item_id' =>
+                            $paymentItem->id,
+
+                            'document_id' =>
+                            $document->id,
+
+                            'document_code' =>
+                            $documentCode,
+
+                            'field_key' =>
+                            $submittedFieldKey,
+                        ]
+                    );
+
+                    return back()
+                        ->withInput()
+                        ->with(
+                            'error',
+                            'An invalid document field was submitted.'
+                        );
+                }
             }
 
-            $documentFieldValues[$fieldKey] = $value;
+            /*
+        |--------------------------------------------------------------------------
+        | VALIDATE FIELDS
+        |--------------------------------------------------------------------------
+        */
+
+            $validatedFieldValues = [];
+
+            foreach (
+                $manualFields as $field
+            ) {
+                $fieldKey =
+                    $field->field_key;
+
+                $value =
+                    $documentSubmittedValues[$fieldKey] ?? null;
+
+                if (
+                    is_string($value) &&
+                    trim($value) === ''
+                ) {
+                    $value = null;
+                }
+
+                /*
+            |--------------------------------------------------------------------------
+            | REQUIRED
+            |--------------------------------------------------------------------------
+            */
+
+                if (
+                    $field->is_required &&
+                    ($value === null || $value === '')
+                ) {
+                    return back()
+                        ->withInput()
+                        ->with(
+                            'error',
+                            "{$field->label} is required for {$document->name}."
+                        );
+                }
+
+                if ($value === null) {
+                    continue;
+                }
+
+                /*
+            |--------------------------------------------------------------------------
+            | TYPE VALIDATION
+            |--------------------------------------------------------------------------
+            */
+
+                $validationError =
+                    $this->validateSingleFieldValue(
+                        $field,
+                        $value
+                    );
+
+                if ($validationError) {
+                    return back()
+                        ->withInput()
+                        ->with(
+                            'error',
+                            "{$document->name}: {$validationError}"
+                        );
+                }
+
+                $validatedFieldValues[$fieldKey] = $value;
+            }
+
+            $validatedDocuments[$documentCode] = $validatedFieldValues;
         }
 
-        return $documentFieldValues;
+        /*
+    |--------------------------------------------------------------------------
+    | RETURN DOCUMENT-CODE-KEYED DATA
+    |--------------------------------------------------------------------------
+    */
+
+        return $validatedDocuments;
     }
 
     /**
@@ -3452,5 +4462,391 @@ class PaymentController extends Controller
         }
 
         return null;
+    }
+
+
+    /**
+     * Validate required system fields that must exist before payment.
+     */
+    protected function validateRequiredSystemDocumentFields(
+        PaymentItem $paymentItem,
+        int $userId
+    ): ?RedirectResponse {
+        $documents = $paymentItem->documents()
+            ->where('documents.is_active', true)
+            ->wherePivot('generate_after_payment', true)
+            ->with([
+                'fields' => function ($query) {
+                    $query->orderBy('sort_order')
+                        ->orderBy('id');
+                },
+            ])
+            ->get();
+
+        $membership = Membership::query()
+            ->where('user_id', $userId)
+            ->where('status', 'active')
+            ->latest('id')
+            ->first();
+
+        if (!$membership) {
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    'You must have an active membership before making this payment.'
+                );
+        }
+
+        foreach ($documents as $document) {
+            $requiredSystemFields = $document->fields
+                ->where('is_system', true)
+                ->where('is_required', true);
+
+            foreach ($requiredSystemFields as $field) {
+                $fieldKey = strtolower(trim($field->field_key));
+
+                switch ($fieldKey) {
+                    case 'seller_membership_no':
+                    case 'membership_no':
+                    case 'membership_number':
+                        if (!$membership->membership_number) {
+                            return back()
+                                ->withInput()
+                                ->with(
+                                    'error',
+                                    'Your membership number is not available. Please contact the administrator.'
+                                );
+                        }
+
+                        break;
+
+                    case 'lifting_right_no':
+                        $liftingRight = OperationalRightsDocument::query()
+                            ->where('user_id', $userId)
+                            ->where('membership_id', $membership->id)
+                            ->where('status', 'active')
+                            ->whereIn('document_type', [
+                                'charcoal_lifting',
+                                'charcoal_lifting_rcg',
+                            ])
+                            ->whereDate(
+                                'expires_at',
+                                '>=',
+                                now()->toDateString()
+                            )
+                            ->latest('id')
+                            ->first();
+
+                        if (!$liftingRight) {
+                            return back()
+                                ->withInput()
+                                ->with(
+                                    'error',
+                                    'You need an active Charcoal Lifting Right before paying for this afforestation compliance receipt.'
+                                );
+                        }
+
+                        break;
+
+                    case 'seller_member_name':
+                    case 'seller_name':
+                    case 'member_name':
+                        $profile = MemberProfile::query()
+                            ->where('user_id', $userId)
+                            ->first();
+
+                        $fullName = trim(
+                            (string) (
+                                $profile?->full_name
+                                ?? $profile?->name
+                                ?? $membership->user?->name
+                            )
+                        );
+
+                        if (!$fullName) {
+                            return back()
+                                ->withInput()
+                                ->with(
+                                    'error',
+                                    'Your member name is not available. Please update your profile.'
+                                );
+                        }
+
+                        break;
+
+                    case 'seller_phone':
+                    case 'phone':
+                    case 'member_phone':
+                        $profile = MemberProfile::query()
+                            ->where('user_id', $userId)
+                            ->first();
+
+                        $phone = $profile?->phone
+                            ?? $membership->user?->phone;
+
+                        if (!$phone) {
+                            return back()
+                                ->withInput()
+                                ->with(
+                                    'error',
+                                    'Your phone number is required. Please update your profile.'
+                                );
+                        }
+
+                        break;
+
+                    /*
+                 * These values are generated after successful payment.
+                 * They do not need to exist before Paystack initialization.
+                 */
+                    case 'receipt_no':
+                    case 'receipt_number':
+                    case 'document_number':
+                    case 'transit_no':
+                    case 'tracking_code':
+                    case 'authentication_code':
+                    case 'verification_code':
+                    case 'verification_url':
+                    case 'amount_paid':
+                    case 'amount_in_figure':
+                    case 'payment_date':
+                    case 'payment_time':
+                    case 'document_id':
+                    case 'document_code':
+                    case 'document_name':
+                        break;
+                }
+            }
+        }
+
+        return null;
+    }
+
+
+
+    public function getAdditionalPaymentFields(Request $request)
+    {
+        try {
+            $user = Auth::user();
+
+            $request->validate([
+                'payment_item_id' => ['required', 'integer'],
+            ]);
+
+            $categoryId = $user->membership_category_id;
+
+            if (!$categoryId) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Your membership category could not be determined.',
+                ], 422);
+            }
+
+            $paymentItem = PaymentItem::query()
+                ->where('id', $request->payment_item_id)
+                ->where('is_active', true)
+                ->whereNotIn('type', ['membership'])
+                ->whereHas('membershipCategories', function ($query) use ($categoryId) {
+                    $query->where('membership_categories.id', $categoryId)
+                        ->where('membership_categories.status', true);
+                })
+                ->with([
+                    'membershipCategories',
+                    'documents' => function ($query) {
+                        $query->where('documents.is_active', true)
+                            ->wherePivot('generate_after_payment', true)
+                            ->with([
+                                'fields' => function ($query) {
+                                    $query->orderBy('sort_order')
+                                        ->orderBy('id');
+                                },
+                            ]);
+                    },
+                ])
+                ->first();
+
+            if (!$paymentItem) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'The selected payment item is not available for your membership category.',
+                ], 404);
+            }
+
+            $documents = $paymentItem->documents
+                ->sortBy(function ($document) {
+                    return [
+                        $document->pivot->is_primary ? 0 : 1,
+                        $document->id,
+                    ];
+                })
+                ->values();
+
+            if ($documents->isEmpty()) {
+                return response()->json([
+                    'status' => 'success',
+                    'has_document' => false,
+                    'document' => null,
+                    'documents' => [],
+                    'fields' => [],
+                    'seller' => null,
+                ]);
+            }
+
+            $documentsResponse = $documents->map(function ($document) {
+
+                $manualFields = $document->fields
+                    ->filter(function ($field) {
+                        return !$field->is_system;
+                    })
+                    ->values()
+                    ->map(function ($field) {
+                        return [
+                            'id' => $field->id,
+                            'field_key' => $field->field_key,
+                            'label' => $field->label,
+                            'field_type' => $field->field_type,
+                            'section' => $field->section,
+                            'placeholder' => $field->placeholder,
+                            'default_value' => $field->default_value,
+                            'options' => $field->options,
+                            'is_required' => (bool) $field->is_required,
+                            'is_system' => (bool) $field->is_system,
+                            'sort_order' => $field->sort_order,
+                        ];
+                    })
+                    ->values();
+
+                return [
+                    'id' => $document->id,
+                    'name' => $document->name,
+                    'code' => $document->code,
+                    'description' => $document->description,
+                    'type' => $document->type,
+                    'requires_form' => (bool) $document->requires_form,
+                    'is_primary' => (bool) $document->pivot->is_primary,
+                    'generate_after_payment' => (bool) $document->pivot->generate_after_payment,
+                    'fields' => $manualFields,
+                ];
+            })->values();
+
+            $profile = MemberProfile::where('user_id', $user->id)
+                ->latest('id')
+                ->first();
+
+            $membership = Membership::where('user_id', $user->id)
+                ->where('membership_category_id', $categoryId)
+                ->latest('id')
+                ->first();
+
+            $sellerName = null;
+
+            if ($profile) {
+                $sellerName = trim(
+                    collect([
+                        $profile->first_name ?? null,
+                        $profile->middle_name ?? null,
+                        $profile->last_name ?? null,
+                    ])->filter()->implode(' ')
+                );
+            }
+
+            if (!$sellerName) {
+                $sellerName = $user->name;
+            }
+
+            $sellerMembershipNumber = $membership?->membership_number;
+
+            $sellerPhone =
+                $profile?->phone ??
+                $user->phone ??
+                null;
+
+            $sellerDealingRightNo = null;
+
+            if ($membership) {
+                $operationalRight = OperationalRightsDocument::where('user_id', $user->id)
+                    ->where('membership_id', $membership->id)
+                    ->where('status', 'active')
+                    ->whereIn('document_type', [
+                        'charcoal_dealing_supplier',
+                        'charcoal_dealing_dealer',
+                    ])
+                    ->whereDate('expires_at', '>=', now()->toDateString())
+                    ->latest('id')
+                    ->first();
+
+                $sellerDealingRightNo =
+                    $operationalRight?->document_number;
+            }
+
+            return response()->json([
+                'status' => 'success',
+
+                'has_document' => true,
+
+                /*
+            |--------------------------------------------------------------------------
+            | Backward-compatible single document response
+            |--------------------------------------------------------------------------
+            |
+            | Existing JavaScript may still read:
+            |
+            | data.document
+            | data.fields
+            |
+            | We keep those fields pointing to the primary document.
+            |--------------------------------------------------------------------------
+            */
+
+                'document' => $documentsResponse->first(),
+
+                'fields' => $documentsResponse->first()['fields'] ?? [],
+
+                /*
+            |--------------------------------------------------------------------------
+            | New multi-document response
+            |--------------------------------------------------------------------------
+            */
+
+                'documents' => $documentsResponse,
+
+                /*
+            |--------------------------------------------------------------------------
+            | Seller/member information
+            |--------------------------------------------------------------------------
+            */
+
+                'seller' => [
+                    'name' => $sellerName ?: 'N/A',
+                    'membership_number' => $sellerMembershipNumber ?: 'N/A',
+                    'dealing_right_number' => $sellerDealingRightNo ?: 'N/A',
+                    'phone' => $sellerPhone ?: 'N/A',
+                ],
+
+                'payment_item' => [
+                    'id' => $paymentItem->id,
+                    'name' => $paymentItem->name,
+                    'code' => $paymentItem->code,
+                    'amount' => $paymentItem->amount,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+
+            Log::error(
+                'Unable to load additional payment document fields.',
+                [
+                    'user_id' => Auth::id(),
+                    'payment_item_id' => $request->payment_item_id,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]
+            );
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unable to load document information.',
+            ], 500);
+        }
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminMemberController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboard;
 use App\Http\Controllers\Member\DashboardController as MemberDashboard;
@@ -151,16 +152,21 @@ Route::middleware(['auth', 'user.role:admin'])
             });
 
 
-        Route::get('/membership-officers/create',[MembershipOfficerController::class, 'create'])->name('membership-officers.create');
+        Route::get('/membership-officers/create', [MembershipOfficerController::class, 'create'])->name('membership-officers.create');
+        Route::post('/membership-officers', [MembershipOfficerController::class, 'store'])->name('membership-officers.store');
+        Route::get('/membership-officers/{id}', [MembershipOfficerController::class, 'show'])->name('membership-officers.show');
+        Route::post('/membership-officers/{id}/approve', [MembershipOfficerController::class, 'approve'])->name('membership-officers.approve');
+        Route::post('/membership-officers/{id}/reject', [MembershipOfficerController::class, 'reject'])->name('membership-officers.reject');
+        Route::get('/memberships/{id}/generate-documents-manually', [MemberApplicationController::class, 'generateMembershipDocumentsManually'])->name('admin.memberships.generate-documents-manually');
+        Route::get('/memberships/generate-manual-documents/{start}/{end}', [MemberApplicationController::class, 'generateManualDocumentsForRange'])->name('admin.memberships.generate-documents-range');
 
-        Route::post('/membership-officers',[MembershipOfficerController::class, 'store'])->name('membership-officers.store');
 
-        Route::get('/membership-officers/{id}',[MembershipOfficerController::class, 'show'])->name('membership-officers.show');
-
-        Route::post('/membership-officers/{id}/approve',[MembershipOfficerController::class, 'approve'])->name('membership-officers.approve');
-
-        Route::post('/membership-officers/{id}/reject',[MembershipOfficerController::class, 'reject'])->name('membership-officers.reject');
-
+        Route::get('/new/members',        [AdminMemberController::class, 'index'])->name('member.index');
+        Route::get('member/create', [AdminMemberController::class, 'create'])->name('member.create');
+        Route::post('/all/members',       [AdminMemberController::class, 'store'])->name('member.store');
+        Route::get('new/members/{member}/pay', [AdminMemberController::class, 'pay'])->name('member.pay');
+        Route::get('new/members/{member}/complete-profile', [AdminMemberController::class, 'completeProfile'])
+            ->name('member.complete-profile');
     });
 
 
@@ -186,8 +192,8 @@ Route::middleware(['auth', 'user.role:member'])
         | PAYMENT
         |----------------------------------------------------------------
         */
-        Route::get('/payment', [PaymentController::class, 'index'])->name('payment.index');
-        Route::post('/payment/initialize', [PaymentController::class, 'initialize'])->name('payment.initialize');
+        // Route::get('/payment', [PaymentController::class, 'index'])->name('payment.index');
+        // Route::post('/payment/initialize', [PaymentController::class, 'initialize'])->name('payment.initialize');
         Route::get('/payment/success', [PaymentController::class, 'success'])->name('payment.success');
         Route::post('/payment/verify-existing-member', [ExistingMemberController::class, 'verify'])
             ->name('payment.verify-existing-member');
@@ -197,9 +203,9 @@ Route::middleware(['auth', 'user.role:member'])
         | PROFILE
         |----------------------------------------------------------------
         */
-        Route::get('/profile', [MemberProfileController::class, 'index'])->name('member.profile');
-        Route::put('/profile', [MemberProfileController::class, 'update'])->name('member.profile.update');
-        Route::post('/profile/submit', [MemberProfileController::class, 'submit'])->name('member.profile.submit');
+        // Route::get('/profile', [MemberProfileController::class, 'index'])->name('member.profile');
+        // Route::put('/profile', [MemberProfileController::class, 'update'])->name('member.profile.update');
+        // Route::post('/profile/submit', [MemberProfileController::class, 'submit'])->name('member.profile.submit');
         Route::get('/application-status', [MemberProfileController::class, 'applicationStatus'])
             ->name('member.application.status');
 
@@ -209,6 +215,7 @@ Route::middleware(['auth', 'user.role:member'])
         |----------------------------------------------------------------
         */
         Route::get('/membership-card', [MembershipCardController::class, 'index'])->name('membership.card');
+        Route::get('/membership-card/user/{id}', [MembershipCardController::class, 'index'])->name('membership.card');
 
         /*
         |----------------------------------------------------------------
@@ -295,6 +302,19 @@ Route::middleware(['auth', 'user.role:member'])
             ->name('membership.renewal.initialize');
         Route::get('/membership/renewal/callback', [PaymentController::class, 'membershipRenewalCallback'])
             ->name('membership.renewal.callback');
+    });
+
+
+
+Route::middleware('auth')
+    ->group(function () {
+
+        Route::get('/profile', [MemberProfileController::class, 'index'])->name('member.profile');
+        Route::put('/profile', [MemberProfileController::class, 'update'])->name('member.profile.update');
+        Route::post('/profile/submit', [MemberProfileController::class, 'submit'])->name('member.profile.submit');
+
+        Route::get('/payment', [PaymentController::class, 'index'])->name('payment.index');
+        Route::post('/payment/initialize', [PaymentController::class, 'initialize'])->name('payment.initialize');
     });
 
 
