@@ -3,15 +3,20 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Member\MembershipCardController;
 use App\Models\MembershipCategory;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Models\Membership;
+use App\Models\MembershipCard;
 use App\Services\TransactionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use App\Services\QrCodeService;
 use Illuminate\View\View;
+use Illuminate\Support\Str;
 use Throwable;
 
 class AdminMemberController extends Controller
@@ -135,7 +140,7 @@ class AdminMemberController extends Controller
     {
         $categories = MembershipCategory::query()
             ->where('status', true)
-            ->with(['fees' => fn ($q) => $q->where('status', true)])
+            ->with(['fees' => fn($q) => $q->where('status', true)])
             ->orderBy('name')
             ->get();
 
@@ -214,7 +219,7 @@ class AdminMemberController extends Controller
         $category = MembershipCategory::query()
             ->where('id', $validated['membership_category_id'])
             ->where('status', true)
-            ->with(['fees' => fn ($q) => $q->where('status', true)])
+            ->with(['fees' => fn($q) => $q->where('status', true)])
             ->first();
 
         if (!$category) {
@@ -458,5 +463,302 @@ class AdminMemberController extends Controller
         return redirect()
             ->route('member.profile')
             ->with('info', $message);
+    }
+
+
+    /**
+     * List all approved members.
+     *
+     * Approved members:
+     *   - have a member_profiles row with status = 'approved'
+     *   - have a membership_number
+     *   - have an active membership record
+     *   - have generated documents
+     */
+    public function approvedMembers(): View
+    {
+        $approvedMembers = User::query()
+            ->where('role', 'member')
+            ->whereHas('profile', function ($query) {
+                $query->where('status', 'approved');
+            })
+            ->with(['membershipCategory', 'profile'])
+            ->orderByDesc('updated_at')
+            ->get();
+
+        return view(
+            'admin.member.approved',
+            compact('approvedMembers')
+        );
+    }
+
+
+    /**
+     * Show the full membership card(s) for a member on behalf of the admin.
+     *
+     * Delegates to MembershipCardController@index — the same controller
+     * the member dashboard uses. This guarantees the card HTML is
+     * byte-for-byte identical.
+     */
+    public function viewIdCardFull(User $member, QrCodeService $qrCodeService)
+    {
+        if ($member->role !== 'member') {
+            abort(404);
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | DELEGATE TO THE MEMBER-SIDE CONTROLLER
+    |--------------------------------------------------------------------------
+    |
+    | Passing the member's user id triggers the "explicit user" branch,
+    | which loads that member's cards instead of the logged-in user's.
+    |
+    */
+
+        return app(MembershipCardController::class)
+            ->index($qrCodeService, $member->id);
+    }
+
+
+    /**
+     * Start a membership renewal on behalf of a member.
+     *
+     * Delegates to the member-side PaymentController@membershipRenewal
+     * using the shared "admin_paying_for_member_id" session flag.
+     */
+    public function renewMembership(User $member)
+    {
+        if ($member->role !== 'member') {
+            abort(404);
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | SANITY: the member must have a membership record
+    |--------------------------------------------------------------------------
+    */
+
+        $hasMembership = \App\Models\Membership::where('user_id', $member->id)->exists();
+
+        if (!$hasMembership) {
+            return redirect()
+                ->route('admin.members.show', $member->profile->id)
+                ->with('error', 'This member has no membership record to renew.');
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | SET SESSION FLAG (same one used for pay + profile)
+    |--------------------------------------------------------------------------
+    */
+
+        session([
+            'admin_paying_for_member_id' => $member->id,
+            'admin_paying_return_url'    => route('admin.members.show', $member->profile->id),
+        ]);
+
+        /*
+    |--------------------------------------------------------------------------
+    | HAND OFF TO THE MEMBER RENEWAL ROUTE
+    |--------------------------------------------------------------------------
+    */
+
+        return redirect()
+            ->route('membership.renewal');
+    }
+
+
+
+    /**
+     * Show the admin edit form for an approved member's profile.
+     *
+     * Admins can edit any field regardless of the profile status.
+     * Members themselves cannot edit an approved profile.
+     */
+    public function editProfile(User $member): View|RedirectResponse
+    {
+        if ($member->role !== 'member') {
+            abort(404);
+        }
+
+        $profile = $member->profile;
+
+        if (!$profile) {
+            return redirect()
+                ->route('admin.member.index')
+                ->with('error', 'This member does not have a profile to edit.');
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | LOAD RELATIONS
+    |--------------------------------------------------------------------------
+    */
+
+        $profile->load('membershipCategory');
+
+        $membership = \App\Models\Membership::with('membershipCategory')
+            ->where('user_id', $member->id)
+            ->latest('id')
+            ->first();
+
+        $membershipCategory = $membership?->membershipCategory
+            ?? $profile->membershipCategory;
+
+        return view(
+            'admin.member.edit-profile',
+            compact('member', 'profile', 'membership', 'membershipCategory')
+        );
+    }
+
+
+    /**
+     * Update an approved member's profile from the admin panel.
+     *
+     * Unlike the member-side update, this method does NOT check
+     * the profile status — the admin is allowed to edit any field
+     * at any time.
+     */
+    public function updateProfile(Request $request, User $member): RedirectResponse
+    {
+        if ($member->role !== 'member') {
+            abort(404);
+        }
+
+        $profile = $member->profile;
+
+        if (!$profile) {
+            return redirect()
+                ->route('admin.member.index')
+                ->with('error', 'This member does not have a profile to update.');
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | VALIDATE
+    |--------------------------------------------------------------------------
+    */
+
+        $validated = $request->validate([
+            // Personal
+            'surname'       => ['nullable', 'string', 'max:255'],
+            'first_name'    => ['nullable', 'string', 'max:255'],
+            'middle_name'   => ['nullable', 'string', 'max:255'],
+            'phone'         => ['nullable', 'string', 'max:255'],
+            'date_of_birth' => ['nullable', 'date'],
+            'gender'        => ['nullable', 'string', 'in:Male,Female'],
+            'nationality'   => ['nullable', 'string', 'max:255'],
+
+            // Residential
+            'address' => ['nullable', 'string'],
+            'city'    => ['nullable', 'string', 'max:255'],
+            'state'   => ['nullable', 'string', 'max:255'],
+            'lga'     => ['nullable', 'string', 'max:255'],
+
+            // Business
+            'business_name'                => ['nullable', 'string', 'max:255'],
+            'business_registration_number' => ['nullable', 'string', 'max:255'],
+            'business_type'                => ['nullable', 'string', 'max:255'],
+            'business_address'             => ['nullable', 'string'],
+
+            // Documents
+            'photo'                        => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'cac_certificate'              => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'cac_particulars_of_directors' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'nepc_export_license'          => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+        ]);
+
+        /*
+    |--------------------------------------------------------------------------
+    | PHOTO UPLOAD
+    |--------------------------------------------------------------------------
+    */
+
+        if ($request->hasFile('photo')) {
+
+            $uploadPath = config('filesystems.member_uploads.photo_path');
+
+            if (!file_exists($uploadPath)) {
+                mkdir($uploadPath, 0755, true);
+            }
+
+            // Delete old photo
+            if ($profile->photo) {
+                $old = $uploadPath . DIRECTORY_SEPARATOR . $profile->photo;
+                if (file_exists($old)) {
+                    @unlink($old);
+                }
+            }
+
+            $file = $request->file('photo');
+            $filename = 'member_' . $member->id . '_' . Str::random(20) . '.' . strtolower($file->getClientOriginalExtension());
+            $file->move($uploadPath, $filename);
+            $validated['photo'] = $filename;
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | DOCUMENT UPLOADS
+    |--------------------------------------------------------------------------
+    */
+
+        $basePath = config('filesystems.member_uploads.document_path');
+
+        if (!file_exists($basePath)) {
+            mkdir($basePath, 0755, true);
+        }
+
+        $documentFields = [
+            'cac_certificate' => 'cac_certificate',
+            'cac_particulars_of_directors' => 'cac_particulars_of_directors',
+            'nepc_export_license' => 'nepc_export_license',
+        ];
+
+        foreach ($documentFields as $field => $folder) {
+
+            if (!$request->hasFile($field)) {
+                continue;
+            }
+
+            $dir = $basePath . DIRECTORY_SEPARATOR . $folder;
+
+            if (!file_exists($dir)) {
+                mkdir($dir, 0755, true);
+            }
+
+            // Delete old file
+            if ($profile->{$field}) {
+                $oldFile = public_path('document/' . $profile->{$field});
+                if (file_exists($oldFile)) {
+                    @unlink($oldFile);
+                }
+            }
+
+            $file = $request->file($field);
+            $filename = 'member_' . $member->id . '_' . $folder . '_' . Str::random(20) . '.' . strtolower($file->getClientOriginalExtension());
+            $file->move($dir, $filename);
+
+            $validated[$field] = 'member_profiles/' . $folder . '/' . $filename;
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | SAVE
+    |--------------------------------------------------------------------------
+    |
+    | The admin can update ANY field. We don't touch:
+    |   - membership_category_id (determined by payment/approval)
+    |   - membership_number (assigned at approval)
+    |   - status (approved stays approved)
+    |   - rejected / submitted timestamps
+    |
+    */
+
+        $profile->update($validated);
+
+        return redirect()
+            ->route('admin.members.show', $profile->id)
+            ->with('success', 'Member profile updated successfully.');
     }
 }

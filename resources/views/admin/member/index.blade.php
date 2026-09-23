@@ -14,8 +14,8 @@
 
     <style>
         /* =========================================================
-           SCOPED STYLES — only apply inside .members-page
-        ========================================================= */
+               SCOPED STYLES — only apply inside .members-page
+            ========================================================= */
         .members-page {
             font-family: 'Inter', sans-serif;
             color: #1f2937;
@@ -176,8 +176,8 @@
         }
 
         /* =========================================================
-           BADGES
-        ========================================================= */
+               BADGES
+            ========================================================= */
         .members-page .badge {
             display: inline-block;
             padding: 5px 12px;
@@ -227,8 +227,8 @@
         }
 
         /* =========================================================
-           ACTION BUTTONS
-        ========================================================= */
+               ACTION BUTTONS
+            ========================================================= */
         .members-page .actions {
             display: flex;
             gap: 8px;
@@ -248,6 +248,20 @@
             cursor: pointer;
             transition: all 0.15s ease;
             white-space: nowrap;
+        }
+
+        .members-page .btn-approve {
+            background: linear-gradient(135deg, #059669, #10b981);
+            color: #ffffff;
+            border: 1px solid #047857;
+            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.20);
+        }
+
+        .members-page .btn-approve:hover {
+            background: linear-gradient(135deg, #047857, #059669);
+            color: #ffffff;
+            box-shadow: 0 6px 16px rgba(5, 150, 105, 0.28);
+            transform: translateY(-1px);
         }
 
         .members-page .btn-pay {
@@ -279,8 +293,8 @@
         }
 
         /* =========================================================
-           DATATABLE OVERRIDES — match brand
-        ========================================================= */
+               DATATABLE OVERRIDES — match brand
+            ========================================================= */
         .members-page .dataTables_wrapper .dataTables_length,
         .members-page .dataTables_wrapper .dataTables_filter {
             margin-bottom: 16px;
@@ -463,8 +477,7 @@
 
                                     <td>
                                         <div class="actions">
-                                            <a href="{{ route('admin.member.pay', $member->id) }}"
-                                               class="btn btn-pay">
+                                            <a href="{{ route('admin.member.pay', $member->id) }}" class="btn btn-pay">
                                                 <span class="btn-icon">💳</span>
                                                 Pay
                                             </a>
@@ -545,7 +558,7 @@
                                     <td>
                                         <div class="actions">
                                             <a href="{{ route('admin.member.complete-profile', $member->id) }}"
-                                               class="btn btn-pay">
+                                                class="btn btn-pay">
                                                 <span class="btn-icon">📝</span>
                                                 Complete Profile
                                             </a>
@@ -626,7 +639,7 @@
                                     <td>
                                         <div class="actions">
                                             <a href="{{ route('admin.member.complete-profile', $member->id) }}"
-                                               class="btn btn-pay">
+                                                class="btn btn-pay">
                                                 <span class="btn-icon">📝</span>
                                                 Continue Profile
                                             </a>
@@ -705,11 +718,24 @@
 
                                     <td>
                                         <div class="actions">
+                                            {{-- VIEW --}}
                                             <a href="{{ route('admin.members.show', $member->profile->id) }}"
-                                               class="btn btn-view">
+                                                class="btn btn-view">
                                                 <span class="btn-icon">👁</span>
                                                 View
                                             </a>
+
+                                            {{-- APPROVE --}}
+                                            <form method="POST"
+                                                action="{{ route('admin.members.approve', $member->profile->id) }}"
+                                                style="display:inline;"
+                                                onsubmit="return confirm('Approve this application?\n\nThis will:\n• Assign a membership number\n• Create the membership record\n• Generate the membership card\n• Generate all membership documents\n\nContinue?');">
+                                                @csrf
+                                                <button type="submit" class="btn btn-approve">
+                                                    <span class="btn-icon">✓</span>
+                                                    Approve
+                                                </button>
+                                            </form>
                                         </div>
                                     </td>
                                 </tr>

@@ -167,6 +167,18 @@ Route::middleware(['auth', 'user.role:admin'])
         Route::get('new/members/{member}/pay', [AdminMemberController::class, 'pay'])->name('member.pay');
         Route::get('new/members/{member}/complete-profile', [AdminMemberController::class, 'completeProfile'])
             ->name('member.complete-profile');
+        Route::get('/approved/members', [AdminMemberController::class, 'approvedMembers'])
+            ->name('member.approved');
+        Route::get('new/members/{member}/id-card', [AdminMemberController::class, 'viewIdCardFull'])
+            ->name('member.id-card');
+
+        Route::get('new/members/{member}/renew', [AdminMemberController::class, 'renewMembership'])
+            ->name('member.renew');
+
+        Route::get('approved/members/{member}/edit', [AdminMemberController::class, 'editProfile'])
+            ->name('member.edit-profile');
+        Route::put('approved/members/{member}/update', [AdminMemberController::class, 'updateProfile'])
+            ->name('member.update-profile');
     });
 
 
@@ -296,12 +308,12 @@ Route::middleware(['auth', 'user.role:member'])
         | MEMBERSHIP RENEWAL
         |----------------------------------------------------------------
         */
-        Route::get('/membership/renewal', [PaymentController::class, 'membershipRenewal'])
-            ->name('membership.renewal');
-        Route::post('/membership/renewal/initialize', [PaymentController::class, 'initializeMembershipRenewal'])
-            ->name('membership.renewal.initialize');
-        Route::get('/membership/renewal/callback', [PaymentController::class, 'membershipRenewalCallback'])
-            ->name('membership.renewal.callback');
+        // Route::get('/membership/renewal', [PaymentController::class, 'membershipRenewal'])
+        //     ->name('membership.renewal');
+        // Route::post('/membership/renewal/initialize', [PaymentController::class, 'initializeMembershipRenewal'])
+        //     ->name('membership.renewal.initialize');
+        // Route::get('/membership/renewal/callback', [PaymentController::class, 'membershipRenewalCallback'])
+        //     ->name('membership.renewal.callback');
     });
 
 
@@ -315,6 +327,18 @@ Route::middleware('auth')
 
         Route::get('/payment', [PaymentController::class, 'index'])->name('payment.index');
         Route::post('/payment/initialize', [PaymentController::class, 'initialize'])->name('payment.initialize');
+
+        /*
+        |----------------------------------------------------------------
+        | MEMBERSHIP RENEWAL
+        |----------------------------------------------------------------
+        */
+        Route::get('/membership/renewal', [PaymentController::class, 'membershipRenewal'])
+            ->name('membership.renewal');
+        Route::post('/membership/renewal/initialize', [PaymentController::class, 'initializeMembershipRenewal'])
+            ->name('membership.renewal.initialize');
+        Route::get('/membership/renewal/callback', [PaymentController::class, 'membershipRenewalCallback'])
+            ->name('membership.renewal.callback');
     });
 
 

@@ -19,7 +19,7 @@
                                 data-bs-parent="#sidenavAccordion">
                                 <nav class="sb-sidenav-menu-nested nav">
                                     <a class="nav-link" href="{{ route('admin.member.create') }}">New Applicant</a>
-                                    <a class="nav-link" href="{{ route('admin.member.index') }}">Draft Applicants</a>
+                                    <a class="nav-link" href="{{ route('admin.member.index') }}">List of Applicants</a>
                                 </nav>
                             </div>
 
@@ -27,6 +27,10 @@
                             <a class="nav-link" href="{{ route('admin.members.index') }}">
                                 <div class="sb-nav-link-icon"><i class="fas fa-users"></i></div>
                                 Members
+                            </a>
+                            <a class="nav-link" href="{{ route('admin.member.approved') }}">
+                                <div class="sb-nav-link-icon"><i class="fas fa-users"></i></div>
+                                Approved Members
                             </a>
 
                             <div class="sb-sidenav-menu-heading">Payment</div>

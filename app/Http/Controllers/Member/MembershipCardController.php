@@ -15,11 +15,29 @@ class MembershipCardController extends Controller
     {
 
 
+        // if ($id == -1) {
+        //     $user = Auth::user();
+        // } else {
+        //     $user = User::find($id);
+        //     $user = $user->role == "admin" ? $user : Auth::user();
+        // }
+
         if ($id == -1) {
+            // Show the logged-in member's own cards
             $user = Auth::user();
         } else {
+            // Explicit user requested (admin viewing on behalf, or /membership-card/user/{id})
             $user = User::find($id);
-            $user = $user->role == "admin" ? $user : Auth::user();
+
+            if (!$user) {
+                abort(404, 'Member not found.');
+            }
+
+            // Admin can only view a member's cards on their behalf.
+            // A member can only view their own cards (ignore arbitrary id).
+            if (Auth::user()->role !== 'admin') {
+                $user = Auth::user();
+            }
         }
 
         /*
