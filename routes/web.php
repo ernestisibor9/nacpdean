@@ -9,6 +9,7 @@ use App\Http\Controllers\PaymentController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ExistingMemberController;
 use App\Http\Controllers\Admin\MemberApplicationController;
+use App\Http\Controllers\Admin\BlackListedMemberController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\EmailOtpController;
@@ -179,6 +180,19 @@ Route::middleware(['auth', 'user.role:admin'])
             ->name('member.edit-profile');
         Route::put('approved/members/{member}/update', [AdminMemberController::class, 'updateProfile'])
             ->name('member.update-profile');
+
+
+        /*
+        |----------------------------------------------------------------
+        | BLACKLISTED MEMBERS
+        |----------------------------------------------------------------
+        */
+        Route::get('blacklist', [BlackListedMemberController::class, 'index'])->name('blacklist.index');
+        Route::get('blacklist/create', [BlackListedMemberController::class, 'create'])->name('blacklist.create');
+        Route::post('blacklist', [BlackListedMemberController::class, 'store'])->name('blacklist.store');
+        Route::post('blacklist/{id}/lift', [BlackListedMemberController::class, 'lift'])->name('blacklist.lift');
+        Route::delete('blacklist/{id}', [BlackListedMemberController::class, 'destroy'])->name('blacklist.destroy');
+
     });
 
 

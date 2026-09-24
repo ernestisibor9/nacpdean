@@ -3,7 +3,7 @@
                     <div class="sb-sidenav-menu">
                         <div class="nav">
                             <div class="sb-sidenav-menu-heading">Core</div>
-                            <a class="nav-link" href="index.html">
+                            <a class="nav-link" href="{{ route('admin.admin_dashboard') }}">
                                 <div class="sb-nav-link-icon"><i class="fas fa-tachometer-alt"></i></div>
                                 Dashboard
                             </a>
@@ -31,6 +31,10 @@
                             <a class="nav-link" href="{{ route('admin.member.approved') }}">
                                 <div class="sb-nav-link-icon"><i class="fas fa-users"></i></div>
                                 Approved Members
+                            </a>
+                            <a class="nav-link" href="{{ route('admin.blacklist.index') }}">
+                                <div class="sb-nav-link-icon"><i class="fas fa-users"></i></div>
+                                Blacklisted Members
                             </a>
 
                             <div class="sb-sidenav-menu-heading">Payment</div>

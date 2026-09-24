@@ -14,8 +14,8 @@
 
     <style>
         /* =========================================================
-               SCOPED STYLES — only apply inside .approved-page
-            ========================================================= */
+                   SCOPED STYLES — only apply inside .approved-page
+                ========================================================= */
         .approved-page {
             font-family: 'Inter', sans-serif;
             color: #1f2937;
@@ -415,6 +415,12 @@
                                                 style="background:#fef3c7;color:#92400e;border-color:#f59e0b;">
                                                 <span class="btn-icon">✏️</span>
                                                 Edit
+                                            </a>
+                                            <a href="{{ route('admin.blacklist.create', ['member_id' => $member->id]) }}"
+                                                class="btn btn-view"
+                                                style="background:#fee2e2;color:#991b1b;border-color:#fca5a5;">
+                                                <span class="btn-icon">🚫</span>
+                                                Blacklist
                                             </a>
                                         </div>
                                     </td>
