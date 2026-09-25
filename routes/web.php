@@ -168,8 +168,10 @@ Route::middleware(['auth', 'user.role:admin'])
         Route::get('new/members/{member}/pay', [AdminMemberController::class, 'pay'])->name('member.pay');
         Route::get('new/members/{member}/complete-profile', [AdminMemberController::class, 'completeProfile'])
             ->name('member.complete-profile');
-        Route::get('/approved/members', [AdminMemberController::class, 'approvedMembers'])
-            ->name('member.approved');
+        // Route::get('/approved/members', [AdminMemberController::class, 'approvedMembers'])
+        //     ->name('member.approved');
+        Route::match(['get', 'post'], '/approved/members', [AdminMemberController::class, 'approvedMembers'])
+    ->name('member.approved');
         Route::get('new/members/{member}/id-card', [AdminMemberController::class, 'viewIdCardFull'])
             ->name('member.id-card');
 

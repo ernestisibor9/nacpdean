@@ -475,22 +475,173 @@ class AdminMemberController extends Controller
      *   - have an active membership record
      *   - have generated documents
      */
-    public function approvedMembers(): View
-    {
-        $approvedMembers = User::query()
-            ->where('role', 'member')
-            ->whereHas('profile', function ($query) {
-                $query->where('status', 'approved');
-            })
-            ->with(['membershipCategory', 'profile'])
-            ->orderByDesc('updated_at')
-            ->get();
+    // public function approvedMembers(): View
+    // {
+    //     $approvedMembers = User::query()
+    //         ->where('role', 'member')
+    //         ->whereHas('profile', function ($query) {
+    //             $query->where('status', 'approved');
+    //         })
+    //         ->with(['membershipCategory', 'profile'])
+    //         ->orderByDesc('updated_at')
+    //         ->get();
 
-        return view(
-            'admin.member.approved',
-            compact('approvedMembers')
-        );
+    //     return view(
+    //         'admin.member.approved',
+    //         compact('approvedMembers')
+    //     );
+    // }
+
+
+    /**
+ * List all approved members.
+ *
+ * Supports optional filters (name, category, type, executive) that
+ * can be combined. If no filters are provided, all approved members
+ * are returned.
+ */
+public function approvedMembers(Request $request): View
+{
+    /*
+    |--------------------------------------------------------------------------
+    | FILTER INPUTS
+    |--------------------------------------------------------------------------
+    */
+
+    $name       = trim((string) $request->input('name', ''));
+    $categoryId = $request->input('category_id');
+    $memberType = $request->input('member_type');
+    $executive  = $request->input('executive');
+
+    /*
+    |--------------------------------------------------------------------------
+    | BASE QUERY — approved members only
+    |--------------------------------------------------------------------------
+    */
+
+    $query = User::query()
+        ->where('role', 'member')
+        ->whereHas('profile', function ($q) {
+            $q->where('status', 'approved');
+        })
+        ->with([
+            'profile',
+            'membershipCategory',
+            'membership' => function ($q) {
+                $q->latest('id');
+            },
+        ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | 1. NAME FILTER
+    |--------------------------------------------------------------------------
+    */
+
+    if ($name !== '') {
+        $query->where(function ($q) use ($name) {
+            $q->where('username', 'like', '%' . $name . '%')
+              ->orWhere('email', 'like', '%' . $name . '%')
+              ->orWhere('phone', 'like', '%' . $name . '%')
+              ->orWhereHas('profile', function ($pq) use ($name) {
+                  $pq->where('first_name', 'like', '%' . $name . '%')
+                     ->orWhere('middle_name', 'like', '%' . $name . '%')
+                     ->orWhere('surname', 'like', '%' . $name . '%')
+                     ->orWhere('business_name', 'like', '%' . $name . '%');
+              });
+        });
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | 2. CATEGORY FILTER
+    |--------------------------------------------------------------------------
+    */
+
+    if (!empty($categoryId)) {
+        $query->where('membership_category_id', $categoryId);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | 3. MEMBER TYPE FILTER
+    |--------------------------------------------------------------------------
+    */
+
+    if (!empty($memberType) && in_array($memberType, ['regular', 'affiliate'], true)) {
+        $query->where('member_type', $memberType);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | 4. EXECUTIVE FILTER
+    |--------------------------------------------------------------------------
+    */
+
+    if (!empty($executive)) {
+
+        switch ($executive) {
+
+            case 'national':
+                $query->whereHas('membership.officerAppointments', function ($q) {
+                    $q->where('appointment_type', 'national_executive')
+                      ->where('status', 'approved');
+                });
+                break;
+
+            case 'state':
+                $query->whereHas('membership.officerAppointments', function ($q) {
+                    $q->where('appointment_type', 'task_force')
+                      ->where('level', 'state')
+                      ->where('status', 'approved');
+                });
+                break;
+
+            case 'task_force':
+                $query->whereHas('membership.officerAppointments', function ($q) {
+                    $q->where('appointment_type', 'task_force')
+                      ->where('status', 'approved');
+                });
+                break;
+
+            case 'none':
+                $query->whereDoesntHave('membership.officerAppointments', function ($q) {
+                    $q->where('status', 'approved');
+                });
+                break;
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | EXECUTE
+    |--------------------------------------------------------------------------
+    */
+
+    $approvedMembers = $query->orderByDesc('updated_at')->get();
+
+    /*
+    |--------------------------------------------------------------------------
+    | SUPPORT DATA
+    |--------------------------------------------------------------------------
+    */
+
+    $categories = MembershipCategory::where('status', true)
+        ->orderBy('name')
+        ->get();
+
+    return view(
+        'admin.member.approved',
+        compact(
+            'approvedMembers',
+            'categories',
+            'name',
+            'categoryId',
+            'memberType',
+            'executive'
+        )
+    );
+}
 
 
     /**

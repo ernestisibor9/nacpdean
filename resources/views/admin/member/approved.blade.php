@@ -14,8 +14,8 @@
 
     <style>
         /* =========================================================
-                   SCOPED STYLES — only apply inside .approved-page
-                ========================================================= */
+           SCOPED STYLES — only apply inside .approved-page
+        ========================================================= */
         .approved-page {
             font-family: 'Inter', sans-serif;
             color: #1f2937;
@@ -121,6 +121,140 @@
             background: #dcfce7;
             color: #166534;
             border: 1px solid #86efac;
+        }
+
+        /* SEARCH FILTERS */
+        .approved-page .search-card {
+            background: #fff;
+            border-radius: 16px;
+            border: 1px solid #d9e5de;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
+            margin-bottom: 22px;
+            overflow: hidden;
+        }
+
+        .approved-page .search-card-header {
+            padding: 15px 22px;
+            background: #f9fbfa;
+            border-bottom: 1px solid #e5ede8;
+            font-weight: 700;
+            color: #0b3b2c;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .approved-page .search-card-header i {
+            color: #047857;
+        }
+
+        .approved-page .search-card-body {
+            padding: 22px;
+        }
+
+        .approved-page .field-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .approved-page .form-control,
+        .approved-page .form-select {
+            width: 100%;
+            border-radius: 10px;
+            border: 1px solid #d1d5db;
+            padding: 10px 14px;
+            font-size: 14px;
+            transition: all 0.15s ease;
+            background: #ffffff;
+        }
+
+        .approved-page .form-control:focus,
+        .approved-page .form-select:focus {
+            border-color: #059669;
+            box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.10);
+            outline: none;
+        }
+
+        .approved-page .btn-search {
+            background: linear-gradient(135deg, #047857, #059669);
+            color: #fff;
+            padding: 11px 22px;
+            border-radius: 10px;
+            border: none;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 6px 16px rgba(4, 120, 87, 0.20);
+            transition: all 0.15s ease;
+            text-decoration: none;
+        }
+
+        .approved-page .btn-search:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 9px 22px rgba(4, 120, 87, 0.28);
+            color: #fff;
+        }
+
+        .approved-page .btn-clear {
+            background: #f3f4f6;
+            color: #374151;
+            padding: 11px 22px;
+            border-radius: 10px;
+            border: 1px solid #e5e7eb;
+            font-weight: 700;
+            font-size: 13px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.15s ease;
+        }
+
+        .approved-page .btn-clear:hover {
+            background: #e5e7eb;
+            color: #111827;
+        }
+
+        .approved-page .active-filters {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px dashed #e5ede8;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .approved-page .active-filters-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+        }
+
+        .approved-page .filter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #ecfdf5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
         }
 
         /* TABLE */
@@ -335,7 +469,184 @@
                 <div class="alert alert-danger">{{ session('error') }}</div>
             @endif
 
-            {{-- CARD --}}
+            {{-- =========================================================
+                 SEARCH FILTERS
+            ========================================================== --}}
+            <div class="search-card">
+
+                <div class="search-card-header">
+                    <i class="fas fa-filter"></i>
+                    Search Filters
+                </div>
+
+                <div class="search-card-body">
+
+                    <form method="POST" action="{{ route('admin.member.approved') }}">
+                        @csrf
+
+                        <div class="row g-3">
+
+                            {{-- NAME --}}
+                            <div class="col-md-6 col-lg-4">
+                                <label class="field-label">
+                                    <i class="fas fa-user"></i>
+                                    Member Name / Username
+                                </label>
+                                <input type="text"
+                                       name="name"
+                                       class="form-control"
+                                       value="{{ old('name', $name ?? '') }}"
+                                       placeholder="e.g. Tolu, Isaac, Zenith Ltd">
+                            </div>
+
+                            {{-- CATEGORY --}}
+                            <div class="col-md-6 col-lg-3">
+                                <label class="field-label">
+                                    <i class="fas fa-tag"></i>
+                                    Category
+                                </label>
+                                <select name="category_id" class="form-select">
+                                    <option value="">— Any Category —</option>
+                                    @foreach ($categories as $category)
+                                        <option value="{{ $category->id }}"
+                                            {{ (string) ($categoryId ?? '') === (string) $category->id ? 'selected' : '' }}>
+                                            {{ $category->name }}
+                                            @if ($category->code)
+                                                ({{ $category->code }})
+                                            @endif
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            {{-- MEMBER TYPE --}}
+                            <div class="col-md-6 col-lg-3">
+                                <label class="field-label">
+                                    <i class="fas fa-user-tag"></i>
+                                    Member Type
+                                </label>
+                                <select name="member_type" class="form-select">
+                                    <option value="">— Any Type —</option>
+                                    <option value="regular"
+                                        {{ ($memberType ?? '') === 'regular' ? 'selected' : '' }}>
+                                        Regular Member
+                                    </option>
+                                    <option value="affiliate"
+                                        {{ ($memberType ?? '') === 'affiliate' ? 'selected' : '' }}>
+                                        Affiliate Member
+                                    </option>
+                                </select>
+                            </div>
+
+                            {{-- EXECUTIVE --}}
+                            <div class="col-md-6 col-lg-2">
+                                <label class="field-label">
+                                    <i class="fas fa-crown"></i>
+                                    Executive
+                                </label>
+                                <select name="executive" class="form-select">
+                                    <option value="">— Any —</option>
+                                    <option value="national"
+                                        {{ ($executive ?? '') === 'national' ? 'selected' : '' }}>
+                                        National Executive
+                                    </option>
+                                    <option value="state"
+                                        {{ ($executive ?? '') === 'state' ? 'selected' : '' }}>
+                                        State Executive
+                                    </option>
+                                    <option value="task_force"
+                                        {{ ($executive ?? '') === 'task_force' ? 'selected' : '' }}>
+                                        Task Force
+                                    </option>
+                                    <option value="none"
+                                        {{ ($executive ?? '') === 'none' ? 'selected' : '' }}>
+                                        No Executive Role
+                                    </option>
+                                </select>
+                            </div>
+
+                        </div>
+
+                        {{-- ACTIONS --}}
+                        <div style="display: flex; gap: 10px; margin-top: 16px;">
+
+                            <button type="submit" class="btn-search">
+                                <i class="fas fa-search"></i>
+                                Search Members
+                            </button>
+
+                            @if (
+                                ($name ?? '') !== '' ||
+                                !empty($categoryId ?? null) ||
+                                !empty($memberType ?? null) ||
+                                !empty($executive ?? null)
+                            )
+                                <a href="{{ route('admin.member.approved') }}" class="btn-clear">
+                                    <i class="fas fa-times"></i>
+                                    Clear Filters
+                                </a>
+                            @endif
+
+                        </div>
+
+                        {{-- ACTIVE FILTERS --}}
+                        @if (
+                            ($name ?? '') !== '' ||
+                            !empty($categoryId ?? null) ||
+                            !empty($memberType ?? null) ||
+                            !empty($executive ?? null)
+                        )
+                            <div class="active-filters">
+
+                                <span class="active-filters-label">
+                                    Active Filters:
+                                </span>
+
+                                @if (($name ?? '') !== '')
+                                    <span class="filter-chip">
+                                        <i class="fas fa-user"></i>
+                                        Name: "{{ $name }}"
+                                    </span>
+                                @endif
+
+                                @if (!empty($categoryId ?? null))
+                                    @php
+                                        $selectedCategory = $categories->firstWhere('id', (int) $categoryId);
+                                    @endphp
+                                    @if ($selectedCategory)
+                                        <span class="filter-chip">
+                                            <i class="fas fa-tag"></i>
+                                            Category: {{ $selectedCategory->name }}
+                                        </span>
+                                    @endif
+                                @endif
+
+                                @if (!empty($memberType ?? null))
+                                    <span class="filter-chip">
+                                        <i class="fas fa-user-tag"></i>
+                                        Type: {{ ucfirst($memberType) }}
+                                    </span>
+                                @endif
+
+                                @if (!empty($executive ?? null))
+                                    <span class="filter-chip">
+                                        <i class="fas fa-crown"></i>
+                                        Executive: {{ str_replace('_', ' ', ucfirst($executive)) }}
+                                    </span>
+                                @endif
+
+                            </div>
+                        @endif
+
+                    </form>
+
+                </div>
+
+            </div>
+
+            {{-- =========================================================
+                 APPROVED MEMBERS CARD
+            ========================================================== --}}
             <div class="card">
                 <div class="card-title">
                     Approved Members
@@ -430,7 +741,7 @@
                     </table>
                 @else
                     <div style="text-align:center; padding:60px 20px; color:#6b7280; font-size:14px;">
-                        No approved members yet.
+                        No approved members found.
                     </div>
                 @endif
             </div>
