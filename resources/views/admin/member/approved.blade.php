@@ -14,8 +14,8 @@
 
     <style>
         /* =========================================================
-           SCOPED STYLES — only apply inside .approved-page
-        ========================================================= */
+               SCOPED STYLES — only apply inside .approved-page
+            ========================================================= */
         .approved-page {
             font-family: 'Inter', sans-serif;
             color: #1f2937;
@@ -492,11 +492,8 @@
                                     <i class="fas fa-user"></i>
                                     Member Name / Username
                                 </label>
-                                <input type="text"
-                                       name="name"
-                                       class="form-control"
-                                       value="{{ old('name', $name ?? '') }}"
-                                       placeholder="e.g. Tolu, Isaac, Zenith Ltd">
+                                <input type="text" name="name" class="form-control"
+                                    value="{{ old('name', $name ?? '') }}" placeholder="e.g. Tolu, Isaac, Zenith Ltd">
                             </div>
 
                             {{-- CATEGORY --}}
@@ -527,12 +524,10 @@
                                 </label>
                                 <select name="member_type" class="form-select">
                                     <option value="">— Any Type —</option>
-                                    <option value="regular"
-                                        {{ ($memberType ?? '') === 'regular' ? 'selected' : '' }}>
+                                    <option value="regular" {{ ($memberType ?? '') === 'regular' ? 'selected' : '' }}>
                                         Regular Member
                                     </option>
-                                    <option value="affiliate"
-                                        {{ ($memberType ?? '') === 'affiliate' ? 'selected' : '' }}>
+                                    <option value="affiliate" {{ ($memberType ?? '') === 'affiliate' ? 'selected' : '' }}>
                                         Affiliate Member
                                     </option>
                                 </select>
@@ -546,20 +541,16 @@
                                 </label>
                                 <select name="executive" class="form-select">
                                     <option value="">— Any —</option>
-                                    <option value="national"
-                                        {{ ($executive ?? '') === 'national' ? 'selected' : '' }}>
+                                    <option value="national" {{ ($executive ?? '') === 'national' ? 'selected' : '' }}>
                                         National Executive
                                     </option>
-                                    <option value="state"
-                                        {{ ($executive ?? '') === 'state' ? 'selected' : '' }}>
+                                    <option value="state" {{ ($executive ?? '') === 'state' ? 'selected' : '' }}>
                                         State Executive
                                     </option>
-                                    <option value="task_force"
-                                        {{ ($executive ?? '') === 'task_force' ? 'selected' : '' }}>
+                                    <option value="task_force" {{ ($executive ?? '') === 'task_force' ? 'selected' : '' }}>
                                         Task Force
                                     </option>
-                                    <option value="none"
-                                        {{ ($executive ?? '') === 'none' ? 'selected' : '' }}>
+                                    <option value="none" {{ ($executive ?? '') === 'none' ? 'selected' : '' }}>
                                         No Executive Role
                                     </option>
                                 </select>
@@ -575,12 +566,7 @@
                                 Search Members
                             </button>
 
-                            @if (
-                                ($name ?? '') !== '' ||
-                                !empty($categoryId ?? null) ||
-                                !empty($memberType ?? null) ||
-                                !empty($executive ?? null)
-                            )
+                            @if (($name ?? '') !== '' || !empty($categoryId ?? null) || !empty($memberType ?? null) || !empty($executive ?? null))
                                 <a href="{{ route('admin.member.approved') }}" class="btn-clear">
                                     <i class="fas fa-times"></i>
                                     Clear Filters
@@ -590,12 +576,7 @@
                         </div>
 
                         {{-- ACTIVE FILTERS --}}
-                        @if (
-                            ($name ?? '') !== '' ||
-                            !empty($categoryId ?? null) ||
-                            !empty($memberType ?? null) ||
-                            !empty($executive ?? null)
-                        )
+                        @if (($name ?? '') !== '' || !empty($categoryId ?? null) || !empty($memberType ?? null) || !empty($executive ?? null))
                             <div class="active-filters">
 
                                 <span class="active-filters-label">
@@ -733,6 +714,39 @@
                                                 <span class="btn-icon">🚫</span>
                                                 Blacklist
                                             </a>
+
+                                            {{-- =========================================================
+             SUPER ADMIN ONLY — Promote / Revoke Admin
+        ========================================================== --}}
+                                            @if (auth()->user()->role === 'super_admin')
+                                                @if ($member->role === 'admin')
+                                                    {{-- Revoke admin --}}
+                                                    <form method="POST"
+                                                        action="{{ route('admin.member.revoke-admin', $member->id) }}"
+                                                        onsubmit="return confirm('Revoke admin privileges from {{ $member->username }}?');"
+                                                        style="display:inline;">
+                                                        @csrf
+                                                        <button type="submit" class="btn btn-view"
+                                                            style="background:#e0e7ff;color:#3730a3;border-color:#a5b4fc;">
+                                                            <span class="btn-icon">⬇️</span>
+                                                            Revoke Admin
+                                                        </button>
+                                                    </form>
+                                                @else
+                                                    {{-- Make admin --}}
+                                                    <form method="POST"
+                                                        action="{{ route('admin.member.make-admin', $member->id) }}"
+                                                        onsubmit="return confirm('Promote {{ $member->username }} to Admin?');"
+                                                        style="display:inline;">
+                                                        @csrf
+                                                        <button type="submit" class="btn btn-view"
+                                                            style="background:#dbeafe;color:#1e40af;border-color:#93c5fd;">
+                                                            <span class="btn-icon">⬆️</span>
+                                                            Make Admin
+                                                        </button>
+                                                    </form>
+                                                @endif
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>

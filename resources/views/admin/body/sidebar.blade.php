@@ -9,13 +9,15 @@
                             </a>
 
                             <div class="sb-sidenav-menu-heading">Applicants</div>
+
                             <a class="nav-link collapsed" href="#" data-bs-toggle="collapse"
-                                data-bs-target="#collapseLayouts" aria-expanded="false" aria-controls="collapseLayouts">
+                                data-bs-target="#collapseApplicants" aria-expanded="false"
+                                aria-controls="collapseApplicants">
                                 <div class="sb-nav-link-icon"><i class="fas fa-columns"></i></div>
                                 Create
                                 <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
                             </a>
-                            <div class="collapse" id="collapseLayouts" aria-labelledby="headingOne"
+                            <div class="collapse" id="collapseApplicants" aria-labelledby="headingApplicants"
                                 data-bs-parent="#sidenavAccordion">
                                 <nav class="sb-sidenav-menu-nested nav">
                                     <a class="nav-link" href="{{ route('admin.member.create') }}">New Applicant</a>
@@ -23,25 +25,72 @@
                                 </nav>
                             </div>
 
+
                             <div class="sb-sidenav-menu-heading">Members</div>
 
                             <a class="nav-link collapsed" href="#" data-bs-toggle="collapse"
-                                data-bs-target="#collapseLayouts" aria-expanded="false" aria-controls="collapseLayouts">
-                                <div class="sb-nav-link-icon">
-                                    <i class="fas fa-users"></i>
-                                </div>
+                                data-bs-target="#collapseMembers" aria-expanded="false" aria-controls="collapseMembers">
+                                <div class="sb-nav-link-icon"><i class="fas fa-users"></i></div>
                                 Members
-                                <div class="sb-sidenav-collapse-arrow">
-                                    <i class="fas fa-angle-down"></i>
-                                </div>
+                                <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
                             </a>
-                            <div class="collapse" id="collapseLayouts" aria-labelledby="headingOne"
+                            <div class="collapse" id="collapseMembers" aria-labelledby="headingMembers"
                                 data-bs-parent="#sidenavAccordion">
                                 <nav class="sb-sidenav-menu-nested nav">
                                     <a class="nav-link" href="{{ route('admin.member.approved') }}">Approved Members</a>
                                     <a class="nav-link" href="{{ route('admin.blacklist.index') }}">Blacklisted
                                         Members</a>
                                     <a class="nav-link" href="{{ route('admin.members.index') }}">Applicants/Members</a>
+                                </nav>
+                            </div>
+
+                            {{-- =========================================================
+                                 PENALTIES — SUPER ADMIN ONLY
+                            ========================================================== --}}
+                            @if (auth()->check() && auth()->user()->role === 'super_admin')
+                                <div class="sb-sidenav-menu-heading">Super Admin</div>
+
+                                <a class="nav-link collapsed" href="#" data-bs-toggle="collapse"
+                                    data-bs-target="#collapsePenalties" aria-expanded="false"
+                                    aria-controls="collapsePenalties">
+                                    <div class="sb-nav-link-icon"><i class="fas fa-gavel"></i></div>
+                                    Penalties
+                                    <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
+                                </a>
+                                <div class="collapse" id="collapsePenalties" aria-labelledby="headingPenalties"
+                                    data-bs-parent="#sidenavAccordion">
+                                    <nav class="sb-sidenav-menu-nested nav">
+                                        <a class="nav-link" href="{{ route('admin.penalties.index') }}">
+                                            Penalty Catalog
+                                        </a>
+                                        <a class="nav-link" href="{{ route('admin.penalties.assignments') }}">
+                                            Assigned Penalties
+                                        </a>
+                                        <a class="nav-link" href="{{ route('admin.penalties.assign.form') }}">
+                                            Assign Penalty
+                                        </a>
+                                    </nav>
+                                </div>
+                            @endif
+
+                            {{-- Task Force & Appointments --}}
+                            <a class="nav-link collapsed" href="#" data-bs-toggle="collapse"
+                                data-bs-target="#collapseAppointments" aria-expanded="false"
+                                aria-controls="collapseAppointments">
+                                <div class="sb-nav-link-icon"><i class="fas fa-shield-alt"></i></div>
+                                Appointments
+                                <div class="sb-sidenav-collapse-arrow"><i class="fas fa-angle-down"></i></div>
+                            </a>
+                            <div class="collapse" id="collapseAppointments" aria-labelledby="headingAppointments"
+                                data-bs-parent="#sidenavAccordion">
+                                <nav class="sb-sidenav-menu-nested nav">
+                                    <a class="nav-link" href="{{ route('admin.taskforce.index') }}">All Appointments</a>
+                                    <a class="nav-link"
+                                        href="{{ route('admin.taskforce.create', ['type' => 'task_force']) }}">New Task
+                                        Force</a>
+                                    <a class="nav-link"
+                                        href="{{ route('admin.taskforce.create', ['type' => 'national_executive']) }}">New
+                                        National Exec</a>
                                 </nav>
                             </div>
 

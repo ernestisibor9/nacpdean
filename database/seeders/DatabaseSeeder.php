@@ -22,7 +22,8 @@ class DatabaseSeeder extends Seeder
             //DocumentSeeder::class,
             // NationalExecutivePositionSeeder::class,
             // BlacklistedMemberSeeder::class,
-            ExecutiveBioSeeder::class,
+            //  ExecutiveBioSeeder::class,
+            PenaltySeeder::class,
         ]);
     }
 }

@@ -8,6 +8,7 @@ use App\Models\MembershipCategoryFee;
 use App\Models\MemberFee;
 use App\Models\PaymentItem;
 use App\Models\Transaction;
+use App\Models\MemberPenalty;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -109,7 +110,6 @@ class TransactionService
                         $query->whereNull(
                             'payment_item_id'
                         );
-
                     } else {
 
                         $query->where(
@@ -319,10 +319,10 @@ class TransactionService
             $narration = $renewal
 
                 ? 'Membership renewal - ' .
-                    $category->name
+                $category->name
 
                 : 'Membership payment - ' .
-                    $category->name;
+                $category->name;
 
 
             /*
@@ -680,38 +680,38 @@ class TransactionService
 |
 */
 
-public function createRenewalDebitIfExpiredAdmin(int $userId): ?Transaction
-{
-    return DB::transaction(function () use ($userId) {
+    public function createRenewalDebitIfExpiredAdmin(int $userId): ?Transaction
+    {
+        return DB::transaction(function () use ($userId) {
 
-        /*
+            /*
         |--------------------------------------------------------------------------
         | GET LATEST MEMBERSHIP
         |--------------------------------------------------------------------------
         */
 
-        $membership = Membership::where(
-            'user_id',
-            $userId
-        )
-            ->latest()
-            ->lockForUpdate()
-            ->first();
+            $membership = Membership::where(
+                'user_id',
+                $userId
+            )
+                ->latest()
+                ->lockForUpdate()
+                ->first();
 
 
-        /*
+            /*
         |--------------------------------------------------------------------------
         | NO MEMBERSHIP
         |--------------------------------------------------------------------------
         */
 
-        if (!$membership) {
+            if (!$membership) {
 
-            return null;
-        }
+                return null;
+            }
 
 
-        /*
+            /*
         |--------------------------------------------------------------------------
         | CHECK EXPIRATION
         |--------------------------------------------------------------------------
@@ -721,46 +721,46 @@ public function createRenewalDebitIfExpiredAdmin(int $userId): ?Transaction
         |
         */
 
-        if (
-            !$membership->expires_at ||
-            !today()->gt($membership->expires_at)
-        ) {
+            if (
+                !$membership->expires_at ||
+                !today()->gt($membership->expires_at)
+            ) {
 
-            return null;
-        }
+                return null;
+            }
 
 
-        /*
+            /*
         |--------------------------------------------------------------------------
         | MARK MEMBERSHIP AS EXPIRED
         |--------------------------------------------------------------------------
         */
 
-        if ($membership->status !== 'expired') {
+            if ($membership->status !== 'expired') {
 
-            $membership->update([
-                'status' => 'expired',
-            ]);
-        }
+                $membership->update([
+                    'status' => 'expired',
+                ]);
+            }
 
 
-        /*
+            /*
         |--------------------------------------------------------------------------
         | MEMBERSHIP CATEGORY
         |--------------------------------------------------------------------------
         */
 
-        $categoryId =
-            $membership->membership_category_id;
+            $categoryId =
+                $membership->membership_category_id;
 
 
-        if (!$categoryId) {
+            if (!$categoryId) {
 
-            return null;
-        }
+                return null;
+            }
 
 
-        /*
+            /*
         |--------------------------------------------------------------------------
         | CREATE MEMBERSHIP RENEWAL DEBIT
         |--------------------------------------------------------------------------
@@ -773,12 +773,71 @@ public function createRenewalDebitIfExpiredAdmin(int $userId): ?Transaction
         |
         */
 
-        return $this->createMembershipDebit(
-            $userId,
-            $categoryId,
-            true
-        );
-    });
+            return $this->createMembershipDebit(
+                $userId,
+                $categoryId,
+                true
+            );
+        });
+    }
+
+
+    /*
+|--------------------------------------------------------------------------
+| CREATE PENALTY DEBIT
+|--------------------------------------------------------------------------
+|
+| Creates the amount a member owes for one assigned MemberPenalty.
+|
+| Non-members do NOT get a debit — they are tracked manually.
+|
+*/
+
+public function createPenaltyDebit(MemberPenalty $memberPenalty): Transaction
+{
+    if (!$memberPenalty->user_id) {
+        throw new RuntimeException('Cannot create a debit for a non-member penalty.');
+    }
+
+    if ($memberPenalty->payment_status === 'paid') {
+        throw new RuntimeException('This penalty has already been paid.');
+    }
+
+    $amount = (float) $memberPenalty->amount;
+
+    if ($amount <= 0) {
+        throw new RuntimeException('Penalty amount is invalid.');
+    }
+
+    $memberPenalty->loadMissing('penalty');
+
+    $paymentItemId = $memberPenalty->penalty?->payment_item_id;
+
+    $narration = 'Penalty - ' . $memberPenalty->name;
+
+    $existing = Transaction::where('user_id', $memberPenalty->user_id)
+        ->where('type', 'debit')
+        ->where('status', 'not paid')
+        ->where('amount', $amount)
+        ->where('narration', $narration)
+        ->where(function ($q) use ($paymentItemId) {
+            $paymentItemId === null
+                ? $q->whereNull('payment_item_id')
+                : $q->where('payment_item_id', $paymentItemId);
+        })
+        ->latest()
+        ->first();
+
+    if ($existing) {
+        return $existing;
+    }
+
+    return $this->createDebit(
+        $memberPenalty->user_id,
+        $amount,
+        $narration,
+        $paymentItemId
+    );
 }
 
 

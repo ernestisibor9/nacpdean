@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ExistingMemberController;
 use App\Http\Controllers\Admin\MemberApplicationController;
 use App\Http\Controllers\Admin\BlackListedMemberController;
+use App\Http\Controllers\Admin\PenaltyController;
+use App\Http\Controllers\Admin\TaskForceController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\EmailOtpController;
@@ -24,6 +26,7 @@ use App\Http\Controllers\GeneratedDocumentController;
 use App\Http\Controllers\PublicMemberController;
 use App\Http\Controllers\Admin\DocumentFieldController;
 use App\Http\Controllers\Admin\MembershipOfficerController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -95,7 +98,7 @@ Route::post('/resend-otp', [EmailOtpController::class, 'resend'])->name('verific
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth', 'user.role:admin'])
+Route::middleware(['auth', 'user.role:admin,super_admin'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
@@ -171,7 +174,7 @@ Route::middleware(['auth', 'user.role:admin'])
         // Route::get('/approved/members', [AdminMemberController::class, 'approvedMembers'])
         //     ->name('member.approved');
         Route::match(['get', 'post'], '/approved/members', [AdminMemberController::class, 'approvedMembers'])
-    ->name('member.approved');
+            ->name('member.approved');
         Route::get('new/members/{member}/id-card', [AdminMemberController::class, 'viewIdCardFull'])
             ->name('member.id-card');
 
@@ -195,7 +198,58 @@ Route::middleware(['auth', 'user.role:admin'])
         Route::post('blacklist/{id}/lift', [BlackListedMemberController::class, 'lift'])->name('blacklist.lift');
         Route::delete('blacklist/{id}', [BlackListedMemberController::class, 'destroy'])->name('blacklist.destroy');
 
+
+        Route::post('/approved/members/{member}/make-admin', [AdminMemberController::class, 'makeAdmin'])->name('member.make-admin');
+        Route::post('/approved/members/{member}/revoke-admin', [AdminMemberController::class, 'revokeAdmin'])->name('member.revoke-admin');
+
+
+        Route::get('taskforce', [TaskForceController::class, 'index'])->name('taskforce.index');
+        Route::get('taskforce/create', [TaskForceController::class, 'create'])->name('taskforce.create');
+        Route::post('taskforce', [TaskForceController::class, 'store'])->name('taskforce.store');
+        Route::post('taskforce/{appointment}/approve', [TaskForceController::class, 'approve'])->name('taskforce.approve');
+        Route::post('taskforce/{appointment}/reject', [TaskForceController::class, 'reject'])->name('taskforce.reject');
+        Route::delete('taskforce/{appointment}', [TaskForceController::class, 'destroy'])->name('taskforce.destroy');
     });
+
+
+/*
+|--------------------------------------------------------------------------
+| SUPER ADMIN ROUTES
+|--------------------------------------------------------------------------
+|
+| These routes are only reachable by super_admin. Regular admins
+| will receive a 403, even if they guess the URL.
+|
+*/
+
+Route::middleware(['auth', 'user.role:super_admin'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+
+        /*
+        |----------------------------------------------------------------
+        | PENALTIES
+        |----------------------------------------------------------------
+        */
+        Route::prefix('penalties')->name('penalties.')->group(function () {
+
+            // Assignments — must come BEFORE /{penalty}
+            Route::get('/assignments', [PenaltyController::class, 'assignments'])->name('assignments');
+            Route::get('/assign', [PenaltyController::class, 'assignForm'])->name('assign.form');
+            Route::post('/assign', [PenaltyController::class, 'assignStore'])->name('assign.store');
+            Route::post('/assignments/{memberPenalty}/mark-paid', [PenaltyController::class, 'markPaid'])->name('mark-paid');
+
+            // Catalog CRUD
+            Route::get('/', [PenaltyController::class, 'index'])->name('index');
+            Route::get('/create', [PenaltyController::class, 'create'])->name('create');
+            Route::post('/', [PenaltyController::class, 'store'])->name('store');
+            Route::get('/{penalty}/edit', [PenaltyController::class, 'edit'])->name('edit');
+            Route::put('/{penalty}', [PenaltyController::class, 'update'])->name('update');
+            Route::delete('/{penalty}', [PenaltyController::class, 'destroy'])->name('destroy');
+        });
+    });
+
 
 
 /*

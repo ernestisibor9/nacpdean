@@ -30,7 +30,7 @@
                                 {{ number_format($draftApplicants ?? 0) }}
                             </div>
                             <div style="font-size: 12px; opacity: 0.85; margin-top: 4px;">
-                                
+
                             </div>
                         </div>
                         <div style="font-size: 28px; opacity: 0.5;">
@@ -63,7 +63,7 @@
                                 {{ number_format($expiredMembers ?? 0) }}
                             </div>
                             <div style="font-size: 12px; opacity: 0.85; margin-top: 4px;">
-                                
+
                             </div>
                         </div>
                         <div style="font-size: 28px; opacity: 0.5;">
@@ -96,7 +96,7 @@
                                 {{ number_format($approvedMembers ?? 0) }}
                             </div>
                             <div style="font-size: 12px; opacity: 0.85; margin-top: 4px;">
-                                
+
                             </div>
                         </div>
                         <div style="font-size: 28px; opacity: 0.5;">
@@ -129,7 +129,7 @@
                                 {{ number_format($blacklistedMembers ?? 0) }}
                             </div>
                             <div style="font-size: 12px; opacity: 0.85; margin-top: 4px;">
-                                
+
                             </div>
                         </div>
                         <div style="font-size: 28px; opacity: 0.5;">
@@ -178,7 +178,7 @@
     {{-- ============================================================
          DEMO TABLE (kept for reference — replace with real data later)
     ============================================================ --}}
-    <div class="card mb-4">
+    {{--  <div class="card mb-4">
         <div class="card-header">
             <i class="fas fa-table me-1"></i>
             DataTable Example
@@ -369,7 +369,7 @@
                 </tbody>
             </table>
         </div>
-    </div>
+    </div>  --}}
 </div>
 
 @endsection

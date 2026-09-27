@@ -7,6 +7,8 @@ use App\Http\Controllers\Member\MembershipCardController;
 use App\Models\MembershipCategory;
 use App\Models\Transaction;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
+
 use App\Models\Membership;
 use App\Models\MembershipCard;
 use App\Services\TransactionService;
@@ -494,154 +496,154 @@ class AdminMemberController extends Controller
 
 
     /**
- * List all approved members.
- *
- * Supports optional filters (name, category, type, executive) that
- * can be combined. If no filters are provided, all approved members
- * are returned.
- */
-public function approvedMembers(Request $request): View
-{
-    /*
+     * List all approved members.
+     *
+     * Supports optional filters (name, category, type, executive) that
+     * can be combined. If no filters are provided, all approved members
+     * are returned.
+     */
+    public function approvedMembers(Request $request): View
+    {
+        /*
     |--------------------------------------------------------------------------
     | FILTER INPUTS
     |--------------------------------------------------------------------------
     */
 
-    $name       = trim((string) $request->input('name', ''));
-    $categoryId = $request->input('category_id');
-    $memberType = $request->input('member_type');
-    $executive  = $request->input('executive');
+        $name       = trim((string) $request->input('name', ''));
+        $categoryId = $request->input('category_id');
+        $memberType = $request->input('member_type');
+        $executive  = $request->input('executive');
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | BASE QUERY — approved members only
     |--------------------------------------------------------------------------
     */
 
-    $query = User::query()
-        ->where('role', 'member')
-        ->whereHas('profile', function ($q) {
-            $q->where('status', 'approved');
-        })
-        ->with([
-            'profile',
-            'membershipCategory',
-            'membership' => function ($q) {
-                $q->latest('id');
-            },
-        ]);
+        $query = User::query()
+            ->where('role', 'member')
+            ->whereHas('profile', function ($q) {
+                $q->where('status', 'approved');
+            })
+            ->with([
+                'profile',
+                'membershipCategory',
+                'membership' => function ($q) {
+                    $q->latest('id');
+                },
+            ]);
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | 1. NAME FILTER
     |--------------------------------------------------------------------------
     */
 
-    if ($name !== '') {
-        $query->where(function ($q) use ($name) {
-            $q->where('username', 'like', '%' . $name . '%')
-              ->orWhere('email', 'like', '%' . $name . '%')
-              ->orWhere('phone', 'like', '%' . $name . '%')
-              ->orWhereHas('profile', function ($pq) use ($name) {
-                  $pq->where('first_name', 'like', '%' . $name . '%')
-                     ->orWhere('middle_name', 'like', '%' . $name . '%')
-                     ->orWhere('surname', 'like', '%' . $name . '%')
-                     ->orWhere('business_name', 'like', '%' . $name . '%');
-              });
-        });
-    }
+        if ($name !== '') {
+            $query->where(function ($q) use ($name) {
+                $q->where('username', 'like', '%' . $name . '%')
+                    ->orWhere('email', 'like', '%' . $name . '%')
+                    ->orWhere('phone', 'like', '%' . $name . '%')
+                    ->orWhereHas('profile', function ($pq) use ($name) {
+                        $pq->where('first_name', 'like', '%' . $name . '%')
+                            ->orWhere('middle_name', 'like', '%' . $name . '%')
+                            ->orWhere('surname', 'like', '%' . $name . '%')
+                            ->orWhere('business_name', 'like', '%' . $name . '%');
+                    });
+            });
+        }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | 2. CATEGORY FILTER
     |--------------------------------------------------------------------------
     */
 
-    if (!empty($categoryId)) {
-        $query->where('membership_category_id', $categoryId);
-    }
+        if (!empty($categoryId)) {
+            $query->where('membership_category_id', $categoryId);
+        }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | 3. MEMBER TYPE FILTER
     |--------------------------------------------------------------------------
     */
 
-    if (!empty($memberType) && in_array($memberType, ['regular', 'affiliate'], true)) {
-        $query->where('member_type', $memberType);
-    }
+        if (!empty($memberType) && in_array($memberType, ['regular', 'affiliate'], true)) {
+            $query->where('member_type', $memberType);
+        }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | 4. EXECUTIVE FILTER
     |--------------------------------------------------------------------------
     */
 
-    if (!empty($executive)) {
+        if (!empty($executive)) {
 
-        switch ($executive) {
+            switch ($executive) {
 
-            case 'national':
-                $query->whereHas('membership.officerAppointments', function ($q) {
-                    $q->where('appointment_type', 'national_executive')
-                      ->where('status', 'approved');
-                });
-                break;
+                case 'national':
+                    $query->whereHas('membership.officerAppointments', function ($q) {
+                        $q->where('appointment_type', 'national_executive')
+                            ->where('status', 'approved');
+                    });
+                    break;
 
-            case 'state':
-                $query->whereHas('membership.officerAppointments', function ($q) {
-                    $q->where('appointment_type', 'task_force')
-                      ->where('level', 'state')
-                      ->where('status', 'approved');
-                });
-                break;
+                case 'state':
+                    $query->whereHas('membership.officerAppointments', function ($q) {
+                        $q->where('appointment_type', 'task_force')
+                            ->where('level', 'state')
+                            ->where('status', 'approved');
+                    });
+                    break;
 
-            case 'task_force':
-                $query->whereHas('membership.officerAppointments', function ($q) {
-                    $q->where('appointment_type', 'task_force')
-                      ->where('status', 'approved');
-                });
-                break;
+                case 'task_force':
+                    $query->whereHas('membership.officerAppointments', function ($q) {
+                        $q->where('appointment_type', 'task_force')
+                            ->where('status', 'approved');
+                    });
+                    break;
 
-            case 'none':
-                $query->whereDoesntHave('membership.officerAppointments', function ($q) {
-                    $q->where('status', 'approved');
-                });
-                break;
+                case 'none':
+                    $query->whereDoesntHave('membership.officerAppointments', function ($q) {
+                        $q->where('status', 'approved');
+                    });
+                    break;
+            }
         }
-    }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | EXECUTE
     |--------------------------------------------------------------------------
     */
 
-    $approvedMembers = $query->orderByDesc('updated_at')->get();
+        $approvedMembers = $query->orderByDesc('updated_at')->get();
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | SUPPORT DATA
     |--------------------------------------------------------------------------
     */
 
-    $categories = MembershipCategory::where('status', true)
-        ->orderBy('name')
-        ->get();
+        $categories = MembershipCategory::where('status', true)
+            ->orderBy('name')
+            ->get();
 
-    return view(
-        'admin.member.approved',
-        compact(
-            'approvedMembers',
-            'categories',
-            'name',
-            'categoryId',
-            'memberType',
-            'executive'
-        )
-    );
-}
+        return view(
+            'admin.member.approved',
+            compact(
+                'approvedMembers',
+                'categories',
+                'name',
+                'categoryId',
+                'memberType',
+                'executive'
+            )
+        );
+    }
 
 
     /**
@@ -911,5 +913,75 @@ public function approvedMembers(Request $request): View
         return redirect()
             ->route('admin.members.show', $profile->id)
             ->with('success', 'Member profile updated successfully.');
+    }
+
+
+
+
+    /**
+     * Promote an approved member to admin.
+     * Only callable by super_admin (enforced by route middleware).
+     */
+    public function makeAdmin($memberId)
+    {
+        $actor = Auth::user();
+
+        // Double-check (defence in depth)
+        if ($actor->role !== 'super_admin') {
+            return back()->with('error', 'Only a Super Admin can promote members to admin.');
+        }
+
+        $member = User::findOrFail($memberId);
+
+        // Safety: cannot promote a blacklisted / inactive user
+        if ((int) $member->status !== 1) {
+            return back()->with('error', 'Cannot promote an inactive or blacklisted member.');
+        }
+
+        // Safety: do not allow re-promoting someone already admin/super_admin
+        if (in_array($member->role, ['admin', 'super_admin'], true)) {
+            return back()->with('error', 'This user is already an administrator.');
+        }
+
+        $member->role      = 'admin';
+        $member->user_type = 'admin';
+        $member->save();
+
+        return back()->with('success', "{$member->username} has been promoted to Admin.");
+    }
+
+    /**
+     * Revoke admin privileges from a user and return them to member status.
+     * Only callable by super_admin.
+     */
+    public function revokeAdmin($memberId)
+    {
+        $actor = Auth::user();
+
+        if ($actor->role !== 'super_admin') {
+            return back()->with('error', 'Only a Super Admin can revoke admin privileges.');
+        }
+
+        $member = User::findOrFail($memberId);
+
+        // Safety: never allow revoking your own super_admin account
+        if ($member->id === $actor->id) {
+            return back()->with('error', 'You cannot revoke your own admin privileges.');
+        }
+
+        // Safety: never allow revoking another super_admin
+        if ($member->role === 'super_admin') {
+            return back()->with('error', 'Super Admin accounts cannot be demoted here.');
+        }
+
+        if ($member->role !== 'admin') {
+            return back()->with('error', 'This user is not currently an admin.');
+        }
+
+        $member->role      = 'member';
+        $member->user_type = 'member';
+        $member->save();
+
+        return back()->with('success', "{$member->username}'s admin privileges have been revoked.");
     }
 }

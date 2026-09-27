@@ -92,6 +92,19 @@ class AuthenticatedSessionController extends Controller
         }
 
 
+                /*
+        |--------------------------------------------------------------------------
+        | SUPER ADMIN LOGIN
+        |--------------------------------------------------------------------------
+        */
+
+        if ($user->role === 'super_admin') {
+
+            return redirect()
+                ->route('admin.admin_dashboard');
+        }
+
+
         /*
         |--------------------------------------------------------------------------
         | ADMIN LOGIN

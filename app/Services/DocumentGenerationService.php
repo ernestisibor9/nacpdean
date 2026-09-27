@@ -1343,6 +1343,101 @@ class DocumentGenerationService
             trim($fieldKey)
         );
 
+        /*
+|--------------------------------------------------------------------------
+| PENALTY RECEIPT FIELDS
+|--------------------------------------------------------------------------
+*/
+
+if (in_array($fieldKey, [
+    'penalties_list',
+    'penalty_name',
+    'penalty_action',
+    'penalty_reference',
+    'penalty_amount',
+    'penalty_amount_in_words',
+    'purpose_of_payment',
+    'payment_mode',
+    'bank_name',
+    'member_address',
+    'member_name',
+    'membership_number',
+    'email',
+    'phone',
+    'payer_name',
+    'payer_address',
+    'receipt_no',
+], true)) {
+
+    $assignments = \App\Models\MemberPenalty::where('user_id', $user->id)
+        ->where(function ($q) use ($creditTransaction) {
+            $q->where('credit_transaction_id', $creditTransaction->id);
+
+            if ($creditTransaction->debit_transaction_id) {
+                $q->orWhere('debit_transaction_id', $creditTransaction->debit_transaction_id);
+            }
+        })
+        ->with('penalty')
+        ->get();
+
+    switch ($fieldKey) {
+
+        case 'penalties_list':
+            return $assignments->pluck('name')->filter()->values()->all();
+
+        case 'penalty_name':
+        case 'purpose_of_payment':
+            return $assignments->first()?->name
+                ?? $paymentItem?->name
+                ?? 'Penalty Payment';
+
+        case 'penalty_action':
+            return $assignments->first()?->action;
+
+        case 'penalty_reference':
+            $first = $assignments->first();
+            return $first
+                ? 'PNL-' . str_pad((string) $first->id, 6, '0', STR_PAD_LEFT)
+                : null;
+
+        case 'penalty_amount':
+            return $assignments->sum('amount') ?: $payment->amount;
+
+        case 'penalty_amount_in_words':
+            return $this->numberToWords(
+                $assignments->sum('amount') ?: $payment->amount
+            );
+
+        case 'member_address':
+        case 'payer_address':
+            return $profile?->address
+                ?? $profile?->business_address
+                ?? null;
+
+        case 'member_name':
+        case 'payer_name':
+            return $this->getMemberFullName($profile, $user);
+
+        case 'membership_number':
+            return $membership?->membership_number;
+
+        case 'email':
+            return $user->email ?? null;
+
+        case 'phone':
+            return $profile?->phone ?? $user->phone ?? null;
+
+        case 'payment_mode':
+            return 'Bank Transfer';
+
+        case 'bank_name':
+            return 'Access Bank Plc';
+
+        case 'receipt_no':
+            return $documentNumber;
+    }
+}
+
         $payment->loadMissing([
             'paymentItem',
             'membershipCategory',
@@ -2661,29 +2756,55 @@ class DocumentGenerationService
     |--------------------------------------------------------------------------
     */
 
+    // protected function generateDocumentNumber(
+    //     Document $document,
+    //     ?Payment $payment = null
+    // ): string {
+    //     $code = $document->code ?? 'DOC';
+
+    //     $code = strtoupper(
+    //         preg_replace(
+    //             '/[^A-Za-z0-9\-]/',
+    //             '',
+    //             $code
+    //         )
+    //     );
+
+    //     return
+    //         $code .
+    //         '-' .
+    //         now()->format('Y') .
+    //         '-' .
+    //         strtoupper(
+    //             Str::random(8)
+    //         );
+    // }
+
     protected function generateDocumentNumber(
-        Document $document,
-        ?Payment $payment = null
-    ): string {
-        $code = $document->code ?? 'DOC';
+    Document $document,
+    ?Payment $payment = null
+): string {
+    $rawCode = strtoupper(trim((string) $document->code));
 
-        $code = strtoupper(
-            preg_replace(
-                '/[^A-Za-z0-9\-]/',
-                '',
-                $code
-            )
-        );
+    // Sequential NACPDEAN/PNL/YYYY/NNNNNN format for penalty receipts
+    if ($rawCode === 'NACPDEAN-PENALTY-RECEIPT') {
+        $year = now()->format('Y');
 
-        return
-            $code .
-            '-' .
-            now()->format('Y') .
-            '-' .
-            strtoupper(
-                Str::random(8)
-            );
+        $count = GeneratedDocument::where('document_id', $document->id)
+            ->whereYear('created_at', $year)
+            ->count() + 1;
+
+        return sprintf('NACPDEAN/PNL/%s/%06d', $year, $count);
     }
+
+    $code = preg_replace('/[^A-Za-z0-9\-]/', '', $rawCode) ?: 'DOC';
+
+    return $code
+        . '-'
+        . now()->format('Y')
+        . '-'
+        . strtoupper(Str::random(8));
+}
 
     /*
     |--------------------------------------------------------------------------
@@ -2859,49 +2980,128 @@ class DocumentGenerationService
         );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | NUMBER TO WORDS
-    |--------------------------------------------------------------------------
-    */
+/*
+|--------------------------------------------------------------------------
+| NUMBER TO WORDS
+|--------------------------------------------------------------------------
+|
+| Converts a numeric amount to English words for the "Amount in Words"
+| field on documents. Does NOT depend on PHP's intl extension.
+|
+| Examples:
+|   100000     → "One Hundred Thousand Naira Only"
+|   250000.75  → "Two Hundred Fifty Thousand Naira and Seventy-Five Kobo Only"
+|   0          → "Zero Naira Only"
+|
+*/
 
-    public function numberToWords(
-        float|int|string $number
-    ): string {
-        $number = (float) $number;
+public function numberToWords(
+    float|int|string $number
+): string {
+    $number = (float) $number;
 
-        if ($number === 0.0) {
-            return 'Zero Naira Only';
-        }
-
-        $formatter = new \NumberFormatter(
-            'en',
-            \NumberFormatter::SPELLOUT
-        );
-
-        $naira = floor($number);
-
-        $kobo = round(
-            ($number - $naira) * 100
-        );
-
-        $result =
-            ucfirst(
-                $formatter->format($naira)
-            ) .
-            ' Naira';
-
-        if ($kobo > 0) {
-            $result .=
-                ' and ' .
-                ucfirst(
-                    $formatter->format($kobo)
-                ) .
-                ' Kobo';
-        }
-
-        return $result . ' Only';
+    if ($number === 0.0) {
+        return 'Zero Naira Only';
     }
+
+    $naira = (int) floor($number);
+    $kobo  = (int) round(($number - $naira) * 100);
+
+    $result = trim($this->spellNumber($naira)) . ' Naira';
+
+    if ($kobo > 0) {
+        $result .= ' and ' . trim($this->spellNumber($kobo)) . ' Kobo';
+    }
+
+    return ucfirst($result) . ' Only';
+}
+
+/*
+|--------------------------------------------------------------------------
+| SPELL NUMBER
+|--------------------------------------------------------------------------
+|
+| Recursively converts a non-negative integer to English words.
+| Supports 0 through 999,999,999,999 (up to ~1 trillion).
+|
+*/
+
+protected function spellNumber(int $number): string
+{
+    if ($number === 0) {
+        return 'zero';
+    }
+
+    $units = [
+        0  => 'zero',
+        1  => 'one',
+        2  => 'two',
+        3  => 'three',
+        4  => 'four',
+        5  => 'five',
+        6  => 'six',
+        7  => 'seven',
+        8  => 'eight',
+        9  => 'nine',
+        10 => 'ten',
+        11 => 'eleven',
+        12 => 'twelve',
+        13 => 'thirteen',
+        14 => 'fourteen',
+        15 => 'fifteen',
+        16 => 'sixteen',
+        17 => 'seventeen',
+        18 => 'eighteen',
+        19 => 'nineteen',
+    ];
+
+    $tens = [
+        2 => 'twenty',
+        3 => 'thirty',
+        4 => 'forty',
+        5 => 'fifty',
+        6 => 'sixty',
+        7 => 'seventy',
+        8 => 'eighty',
+        9 => 'ninety',
+    ];
+
+    $chunks = [
+        1_000_000_000 => 'billion',
+        1_000_000     => 'million',
+        1_000         => 'thousand',
+        100           => 'hundred',
+    ];
+
+    foreach ($chunks as $value => $label) {
+        if ($number >= $value) {
+
+            $count = intdiv($number, $value);
+            $rest  = $number % $value;
+
+            $head = trim($this->spellNumber($count) . ' ' . $label);
+
+            return $rest > 0
+                ? $head . ' ' . trim($this->spellNumber($rest))
+                : $head;
+        }
+    }
+
+    if ($number < 20) {
+        return $units[$number];
+    }
+
+    $tenDigit  = intdiv($number, 10);
+    $unitDigit = $number % 10;
+
+    $word = $tens[$tenDigit] ?? '';
+
+    if ($unitDigit > 0) {
+        $word .= '-' . $units[$unitDigit];
+    }
+
+    return $word;
+}
 
     /*
     |--------------------------------------------------------------------------
