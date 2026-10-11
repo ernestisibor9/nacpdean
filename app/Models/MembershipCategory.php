@@ -114,5 +114,24 @@ class MembershipCategory extends Model
     }
 
 
+    public function requiresExporterDocuments(): bool
+    {
+        $code = strtoupper(trim($this->code ?? ''));
+        $name = strtolower(trim($this->name ?? ''));
 
+        return $code === 'EXP' || str_contains($name, 'exporter');
+    }
+
+    /**
+     * Does this category require the applicant's email address?
+     *
+     * Currently only the Exporter category requires an email.
+     */
+    public function requiresEmail(): bool
+    {
+        $code = strtoupper(trim($this->code ?? ''));
+        $name = strtolower(trim($this->name ?? ''));
+
+        return $code === 'EXP' || str_contains($name, 'exporter');
+    }
 }

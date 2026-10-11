@@ -90,9 +90,32 @@
                                         Force</a>
                                     <a class="nav-link"
                                         href="{{ route('admin.taskforce.create', ['type' => 'national_executive']) }}">New
-                                        National Exec</a>
+                                        National Exec
+                                    </a>
+                                    <a class="nav-link"
+                                        href="{{ route('admin.taskforce.create', ['type' => 'state_executive']) }}">New
+                                        State Exec
+                                    </a>
+                                    <a class="nav-link"
+                                        href="{{ route('admin.taskforce.state-positions.index') }}">State Positions Catalog
+                                    </a>
                                 </nav>
                             </div>
+
+                            <a class="nav-link" href="{{ route('admin.stakeholder-files.index') }}">
+                                <div class="sb-nav-link-icon"><i class="fas fa-folder-open"></i></div>
+                                Stakeholders Data
+                            </a>
+
+                            <a class="nav-link" href="{{ route('admin.gallery.index') }}">
+                                <div class="sb-nav-link-icon"><i class="fas fa-images"></i></div>
+                                Gallery
+                            </a>
+
+                            <a class="nav-link" href="{{ route('admin.home-videos.index') }}">
+                                <div class="sb-nav-link-icon"><i class="fas fa-video"></i></div>
+                                Home Videos
+                            </a>
 
                             <a class="nav-link" href="{{ route('admin.logout') }}">
                                 <div class="sb-nav-link-icon">

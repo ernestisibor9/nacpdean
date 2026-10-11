@@ -4,7 +4,13 @@
 @section('admin')
 <div class="container py-4">
     <h2 class="fw-bold mb-4" style="color:#0b3b2c;">
-        New {{ $type === 'task_force' ? 'Task Force' : 'National Executive' }} Appointment
+        @if ($type === 'task_force')
+            New Task Force Appointment
+        @elseif ($type === 'national_executive')
+            New National Executive Appointment
+        @else
+            New State Executive Appointment
+        @endif
     </h2>
 
     @if ($errors->any())
@@ -43,24 +49,42 @@
                 </select>
             </div>
 
+
             @if ($type === 'national_executive')
 
-                {{-- Executive Position --}}
+                {{-- National Executive Position --}}
                 <div class="col-md-6">
-                    <label class="form-label fw-bold">Position</label>
+                    <label class="form-label fw-bold">National Position</label>
                     <select name="executive_id" class="form-select" required>
                         <option value="">— Select Position —</option>
                         @foreach ($positions as $p)
                             <option value="{{ $p->code }}"
-                                {{ old('executive_id') === $p->code ? 'selected' : '' }}>
+                                {{ old('executive_id') === $p->code ? 'selected' : '' }}
+                                {{ $p->status === 'occupied' ? 'disabled' : '' }}>
                                 {{ $p->position }} ({{ $p->code }})
+                                @if ($p->status === 'occupied') — OCCUPIED @endif
                             </option>
                         @endforeach
                     </select>
                 </div>
 
-                {{-- Hidden so validation passes --}}
-                {{--  <input type="hidden" name="position" value="__exec__">  --}}
+            @elseif ($type === 'state_executive')
+
+                {{-- State Executive Position --}}
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">State Position</label>
+                    <select name="executive_id" class="form-select" required>
+                        <option value="">— Select Position —</option>
+                        @foreach ($positions as $p)
+                            <option value="{{ $p->code }}"
+                                {{ old('executive_id') === $p->code ? 'selected' : '' }}
+                                {{ $p->status === 'occupied' ? 'disabled' : '' }}>
+                                {{ $p->state }} — {{ $p->position }} ({{ $p->code }})
+                                @if ($p->status === 'occupied') — OCCUPIED @endif
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
 
             @else
 

@@ -22,6 +22,7 @@ class MembershipCard extends Model
         'status',
         'replaced_card_id',
         'generated_at',
+        'appointment_id',
     ];
 
 protected $casts = [

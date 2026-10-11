@@ -5,13 +5,22 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\BlacklistedMember;
 use App\Models\MembershipOfficerAppointment;
+use App\Models\HomeVideo;
 
 class HomeController extends Controller
 {
     //
     public function Index()
     {
-        return view('frontend.index');
+        $videos = HomeVideo::where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderByDesc('id')
+            ->get();
+
+        $latestVideo = HomeVideo::where('is_active', true)
+            ->orderByDesc('id')
+            ->first();
+        return view('frontend.index', compact('videos', 'latestVideo'));
     }
 
     public function About()
@@ -44,12 +53,7 @@ class HomeController extends Controller
         return view('frontend.compliance');
     }
 
-    public function  Gallery()
-    {
-        return view('frontend.gallery');
-    }
-
-        public function  Contact()
+    public function  Contact()
     {
         return view('frontend.contact');
     }

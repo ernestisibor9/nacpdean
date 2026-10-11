@@ -234,10 +234,10 @@
 
                             <li>
 
-                                <a href="#"
-                                    class="{{ request()->routeIs('partnership') ? 'active' : '' }}">
+                                <a href="{{ route('stakeholders-data') }}"
+                                    class="{{ request()->routeIs('stakeholders-data') ? 'active' : '' }}">
 
-                                    Stakeholders Data
+                                    Stakeholders Directory
 
                                 </a>
 
@@ -365,7 +365,7 @@
                     ================================================== --}}
                     <li>
 
-                        <a href="#">
+                        <a href="{{ route('gallery') }}">
 
                             Gallery
 

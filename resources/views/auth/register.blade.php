@@ -1346,21 +1346,16 @@
                     <div class="form-group">
 
                         <label for="email" class="form-label">
-
                             Email Address
-
+                            <span id="email-required-asterisk" style="display: none; color: #dc2626;">*</span>
                         </label>
-
 
                         <input id="email" type="email" name="email" class="form-input"
                             value="{{ old('email') }}" placeholder="Enter your email address">
 
-
                         @error('email')
                             <div class="error-message">
-
                                 {{ $message }}
-
                             </div>
                         @enderror
 
@@ -1507,10 +1502,10 @@
 
     <script>
         /*
-            |--------------------------------------------------------------------------
-            | TOGGLE PASSWORD
-            |--------------------------------------------------------------------------
-            */
+                |--------------------------------------------------------------------------
+                | TOGGLE PASSWORD
+                |--------------------------------------------------------------------------
+                */
 
         function togglePassword(fieldId, button) {
 
@@ -1701,6 +1696,93 @@
             }
 
         });
+
+
+
+        /*
+|--------------------------------------------------------------------------
+| EMAIL REQUIRED FOR EXPORTERS ONLY
+|--------------------------------------------------------------------------
+|
+| When the user picks the Exporter category, the email input
+| becomes required. For every other category it is optional.
+|
+| The Exporter category is identified by data-code="EXP"
+| on the category option element.
+|
+*/
+
+document.addEventListener('DOMContentLoaded', function () {
+
+    const emailInput = document.getElementById('email');
+    const emailAsterisk = document.getElementById('email-required-asterisk');
+
+    const categoryRadios = document.querySelectorAll(
+        'input[name="membership_category_id"]'
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | UPDATE EMAIL RULE
+    |--------------------------------------------------------------------------
+    */
+
+    function updateEmailRequirement() {
+
+        const selectedRadio = document.querySelector(
+            'input[name="membership_category_id"]:checked'
+        );
+
+        if (!selectedRadio) {
+            emailInput.required = false;
+
+            if (emailAsterisk) emailAsterisk.style.display = 'none';
+
+            return;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | The category code is available on the parent label as data-code
+        | (see the data-code attribute added to category options in the Blade)
+        |--------------------------------------------------------------------------
+        */
+
+        const parentLabel = selectedRadio.closest('.category-option');
+
+        const categoryCode = parentLabel
+            ? (parentLabel.dataset.code || '').toUpperCase()
+            : '';
+
+        const requiresEmail = categoryCode === 'EXP';
+
+        emailInput.required = requiresEmail;
+
+        if (emailAsterisk) {
+            emailAsterisk.style.display = requiresEmail ? 'inline' : 'none';
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ATTACH LISTENERS
+    |--------------------------------------------------------------------------
+    */
+
+    categoryRadios.forEach(function (radio) {
+        radio.addEventListener('change', updateEmailRequirement);
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | INITIAL STATE — HANDLES old() AFTER VALIDATION ERROR
+    |--------------------------------------------------------------------------
+    */
+
+    updateEmailRequirement();
+});
+
+
     </script>
 
 

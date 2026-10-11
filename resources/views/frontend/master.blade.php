@@ -260,35 +260,89 @@
         </div>
     </div>
 
-    <div class="modal fade" id="featuredVideoModal" tabindex="-1">
-        <div class="modal-dialog modal-xl modal-dialog-centered">
-            <div class="modal-content">
+{{-- ============================================================
+     FEATURED VIDEO MODAL
+============================================================ --}}
+<div class="modal fade" id="featuredVideoModal" tabindex="-1"
+     aria-labelledby="featuredVideoModalLabel" aria-hidden="true">
 
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        Featured Video
-                    </h5>
+    <div class="modal-dialog modal-xl modal-dialog-centered">
 
-                    <button type="button" class="btn-close" data-bs-dismiss="modal">
-                    </button>
-                </div>
+        <div class="modal-content border-0 shadow-lg"
+             style="border-radius:14px;overflow:hidden;">
 
-                <div class="modal-body p-0">
+            {{-- HEADER --}}
+            <div class="modal-header"
+                 style="background: linear-gradient(135deg, #3d5416 0%, #83a133 100%);
+                        border-bottom:0; padding:16px 22px; color:#fff;">
 
-                    <div class="ratio ratio-16x9">
+                <h5 class="modal-title text-white" id="featuredVideoModalLabel">
+                    <i class="bi bi-play-circle-fill me-2"></i>
+                    {{ $latestVideo?->title ?? 'Featured Video' }}
+                </h5>
 
-                        <iframe src="https://www.youtube.com/embed/jdXBzUTXpS4" title="Featured Video" frameborder="0"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                            referrerpolicy="strict-origin-when-cross-origin" allowfullscreen>
-                        </iframe>
-
-                    </div>
-
-                </div>
+                <button type="button" class="btn-close btn-close-white"
+                        data-bs-dismiss="modal" aria-label="Close"></button>
 
             </div>
+
+            {{-- BODY --}}
+            <div class="modal-body p-0" style="background:#000;">
+
+                @if (!empty($latestVideo) && $latestVideo->isYoutube() && $latestVideo->youtubeEmbedUrl())
+
+                    {{-- YOUTUBE --}}
+                    <div class="ratio ratio-16x9">
+                        <iframe id="featuredVideoFrame"
+                            data-src="{{ $latestVideo->youtubeEmbedUrl() }}?autoplay=1&rel=0"
+                            src=""
+                            title="{{ $latestVideo->title }}"
+                            frameborder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            referrerpolicy="strict-origin-when-cross-origin"
+                            allowfullscreen>
+                        </iframe>
+                    </div>
+
+                @elseif (!empty($latestVideo) && $latestVideo->fileUrl())
+
+                    {{-- LOCAL VIDEO --}}
+                    <div class="ratio ratio-16x9">
+                        <video id="featuredVideoPlayer"
+                               src="{{ $latestVideo->fileUrl() }}"
+                               controls
+                               preload="metadata"
+                               style="background:#000;"></video>
+                    </div>
+
+                @else
+
+                    {{-- NO VIDEO --}}
+                    <div style="padding:70px 30px;text-align:center;background:#fff;">
+                        <i class="fas fa-video" style="font-size:54px;color:#cbd5d1;"></i>
+                        <h5 class="mt-3 fw-bold">No featured video yet</h5>
+                        <p class="text-muted mb-0">Please check back later.</p>
+                    </div>
+
+                @endif
+
+            </div>
+
+            {{-- CAPTION --}}
+            @if (!empty($latestVideo) && $latestVideo->description)
+                <div class="modal-footer"
+                     style="background:#fff;border-top:1px solid #eef2e0;display:block;text-align:left;">
+                    <small class="text-muted">
+                        {{ $latestVideo->description }}
+                    </small>
+                </div>
+            @endif
+
         </div>
+
     </div>
+
+</div>
 
     <div class="modal fade" id="aboutModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
@@ -420,6 +474,67 @@
                 sessionStorage.setItem("blacklistNoticeShown", "yes");
 
             }
+
+        });
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+
+            const modal = document.getElementById('featuredVideoModal');
+
+            if (!modal) return;
+
+            const iframe = document.getElementById('featuredVideoFrame');
+            const video = document.getElementById('featuredVideoPlayer');
+
+            /*
+            |--------------------------------------------------------------------------
+            | WHEN THE MODAL IS ABOUT TO OPEN (before animation)
+            |--------------------------------------------------------------------------
+            |
+            | Fires earlier than shown.bs.modal, giving the iframe time to load
+            | before the modal finishes its fade animation.
+            |
+            | We check data-src (always present) rather than iframe.src (which
+            | may be empty string OR the current page URL depending on browser).
+            |
+            */
+
+            modal.addEventListener('show.bs.modal', function() {
+
+                if (iframe && iframe.dataset.src) {
+                    iframe.src = iframe.dataset.src;
+                }
+
+                if (video) {
+                    video.currentTime = 0;
+                    video.play().catch(function() {});
+                }
+
+            });
+
+            /*
+            |--------------------------------------------------------------------------
+            | WHEN THE MODAL HAS FULLY CLOSED
+            |--------------------------------------------------------------------------
+            |
+            | Stop playback so the video doesn't keep running in the background.
+            |
+            */
+
+            modal.addEventListener('hidden.bs.modal', function() {
+
+                if (iframe) {
+                    iframe.removeAttribute('src'); // cleaner than ''
+                }
+
+                if (video) {
+                    video.pause();
+                    video.currentTime = 0;
+                }
+
+            });
 
         });
     </script>

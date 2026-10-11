@@ -1,6 +1,7 @@
 @php
 
     use App\Models\MemberProfile;
+    use App\Models\Payment;
 
     $user = auth()->user();
 
@@ -16,14 +17,26 @@
     |--------------------------------------------------------------------------
     | DETERMINE MEMBER STATUS
     |--------------------------------------------------------------------------
-    |
-    | Payment is NOT used to determine menu visibility.
-    |
-    | Menu access is determined only by the member profile status.
-    |
     */
 
     $memberStatus = $profile->status ?? 'draft';
+
+    /*
+    |--------------------------------------------------------------------------
+    | CHECK WHETHER THE MEMBER HAS PAID
+    |--------------------------------------------------------------------------
+    |
+    | Membership payment gate for the "Profile" menu.
+    | A member must have at least ONE paid membership or
+    | membership_renewal payment before they can see the
+    | Profile menu item.
+    |
+    */
+
+    $hasPaidMembership = Payment::where('user_id', $user->id)
+        ->whereIn('payment_type', ['membership', 'membership_renewal'])
+        ->where('status', 'paid')
+        ->exists();
 
 @endphp
 
@@ -46,10 +59,7 @@
                 </div>
 
 
-                {{-- =====================================================
-                    DASHBOARD
-                    ALWAYS AVAILABLE
-                ====================================================== --}}
+                {{-- DASHBOARD --}}
 
                 <a class="nav-link" href="{{ route('member.member_dashboard') }}">
 
@@ -64,16 +74,12 @@
 
                 {{-- =====================================================
                     APPLICATION / PROFILE
-                    PAYMENT DOES NOT CONTROL THIS SECTION
                 ====================================================== --}}
 
-                @if ($memberStatus === 'draft' || $memberStatus === 'submitted' || $memberStatus === 'rejected')
+                @if ($hasPaidMembership && in_array($memberStatus, ['draft', 'submitted', 'rejected'], true))
                     <div class="sb-sidenav-menu-heading">
                         Application
                     </div>
-
-
-                    {{-- PROFILE --}}
 
                     <a class="nav-link" href="{{ route('member.profile') }}">
 
@@ -84,33 +90,15 @@
                         Profile
 
                     </a>
-
-
-                    {{-- APPLICATION STATUS --}}
-
-                    {{--
-
-                    <a class="nav-link"
-                       href="{{ route('member.application.status') }}">
-
-                        <div class="sb-nav-link-icon">
-                            <i class="fas fa-file-alt"></i>
-                        </div>
-
-                        Application Status
-
-                    </a>
-
-                    --}}
                 @endif
 
 
                 {{-- =====================================================
                     APPROVED MEMBER
-                    PAYMENT DOES NOT CONTROL THIS SECTION
                 ====================================================== --}}
 
                 @if ($memberStatus === 'approved')
+
                     <div class="sb-sidenav-menu-heading">
                         Membership
                     </div>
@@ -128,44 +116,14 @@
 
                     </a>
 
-                    {{-- APPLICATION STATUS --}}
-
-                    {{--
-
-                    <a class="nav-link"
-                       href="{{ route('member.application.status') }}">
-
-                        <div class="sb-nav-link-icon">
-                            <i class="fas fa-file-alt"></i>
-                        </div>
-
-                        Application Status
-
-                    </a>
-
-                    --}}
-
 
                     {{-- =================================================
-                        FULL MEMBER SERVICES
+                        MEMBER SERVICES
                     ================================================== --}}
 
                     <div class="sb-sidenav-menu-heading">
                         Member Services
                     </div>
-
-
-                    {{-- MEMBERSHIP --}}
-
-                    <a class="nav-link" href="#">
-
-                        <div class="sb-nav-link-icon">
-                            <i class="fas fa-id-badge"></i>
-                        </div>
-
-                        Membership
-
-                    </a>
 
 
                     {{-- ID CARD --}}
@@ -181,9 +139,7 @@
                     </a>
 
 
-                    {{-- =================================================
-                        DOCUMENTS
-                    ================================================== --}}
+                    {{-- DOCUMENTS --}}
 
                     <a class="nav-link collapsed" href="#" data-bs-toggle="collapse"
                         data-bs-target="#collapseLayouts" aria-expanded="false" aria-controls="collapseLayouts">
@@ -207,16 +163,11 @@
                         <nav class="sb-sidenav-menu-nested nav">
 
                             <a class="nav-link" href="{{ route('payment.additional') }}">
-
                                 Pay Documents
-
                             </a>
 
-
                             <a class="nav-link" href="{{ route('member.documents.index') }}">
-
                                 My Documents
-
                             </a>
 
                         </nav>
@@ -224,31 +175,51 @@
                     </div>
 
 
+                    {{-- =================================================
+                        PENALTIES
+                        -------------------------------------------------
+                        Only visible when the member has an unpaid penalty.
+                        The table is guarded with Schema::hasTable() so the
+                        app runs even before any penalty has been assigned.
+                    ================================================== --}}
+
+                    @php
+                        $unpaidPenaltyCount = 0;
+
+                        if (\Illuminate\Support\Facades\Schema::hasTable('member_penalties')) {
+                            $unpaidPenaltyCount = \App\Models\MemberPenalty::where('user_id', auth()->id())
+                                ->where('payment_status', 'unpaid')
+                                ->count();
+                        }
+                    @endphp
+
+                    @if ($unpaidPenaltyCount > 0)
+                        <a class="nav-link" href="{{ route('member.penalties.index') }}">
+
+                            <div class="sb-nav-link-icon">
+                                <i class="fas fa-gavel"></i>
+                            </div>
+
+                            Penalties
+
+                            <span class="badge bg-danger ms-2">{{ $unpaidPenaltyCount }}</span>
+
+                        </a>
+                    @endif
+
+
+                    {{-- LOGOUT --}}
+
                     <a class="nav-link" href="{{ route('member.logout') }}">
+
                         <div class="sb-nav-link-icon">
                             <i class="fas fa-sign-out-alt"></i>
                         </div>
+
                         Logout
-                    </a>
-
-
-
-                    {{-- CERTIFICATES --}}
-
-                    {{--
-
-                    <a class="nav-link"
-                       href="{{ route('member.documents.index') }}">
-
-                        <div class="sb-nav-link-icon">
-                            <i class="fas fa-certificate"></i>
-                        </div>
-
-                        My Certificates
 
                     </a>
 
-                    --}}
                 @endif
 
 

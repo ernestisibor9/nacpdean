@@ -47,12 +47,35 @@ class RegisteredUserController extends Controller
         |--------------------------------------------------------------------------
         */
 
+        /*
+|--------------------------------------------------------------------------
+| PRE-RESOLVE THE SELECTED CATEGORY
+|--------------------------------------------------------------------------
+|
+| We need to know whether the chosen category requires an email
+| BEFORE building the validation rules. Otherwise we can't make
+| the email field conditionally required.
+|
+*/
+
+        $categoryId = $request->input('membership_category_id');
+
+        $selectedCategory = $categoryId
+            ? MembershipCategory::query()
+            ->where('id', $categoryId)
+            ->where('status', true)
+            ->first()
+            : null;
+
+        $emailIsRequired = $selectedCategory?->requiresEmail() ?? false;
+
+        /*
+|--------------------------------------------------------------------------
+| VALIDATE REGISTRATION
+|--------------------------------------------------------------------------
+*/
+
         $validated = $request->validate([
-            /*
-            |--------------------------------------------------------------------------
-            | MEMBER TYPE
-            |--------------------------------------------------------------------------
-            */
 
             'member_type' => [
                 'required',
@@ -60,29 +83,11 @@ class RegisteredUserController extends Controller
                 'in:regular,affiliate',
             ],
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | MEMBERSHIP CATEGORY
-            |--------------------------------------------------------------------------
-            */
-
             'membership_category_id' => [
                 'required',
                 'integer',
                 'exists:membership_categories,id',
             ],
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | USERNAME
-            |--------------------------------------------------------------------------
-            |
-            | Username is optional.
-            | If supplied, it must be unique.
-            |
-            */
 
             'username' => [
                 'nullable',
@@ -92,17 +97,6 @@ class RegisteredUserController extends Controller
                 'unique:users,username',
             ],
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | PHONE
-            |--------------------------------------------------------------------------
-            |
-            | Phone number is optional.
-            | If supplied, it must be unique.
-            |
-            */
-
             'phone' => [
                 'nullable',
                 'string',
@@ -110,31 +104,23 @@ class RegisteredUserController extends Controller
                 'unique:users,phone',
             ],
 
-
             /*
-            |--------------------------------------------------------------------------
-            | EMAIL
-            |--------------------------------------------------------------------------
-            |
-            | Email is optional.
-            | If supplied, it must be valid and unique.
-            |
-            */
+    |--------------------------------------------------------------------------
+    | EMAIL
+    |--------------------------------------------------------------------------
+    |
+    | Required ONLY when the selected category is Exporter.
+    | Optional for every other category.
+    |
+    */
 
-            'email' => [
-                'nullable',
+            'email' => array_filter([
+                $emailIsRequired ? 'required' : 'nullable',
                 'string',
                 'email',
                 'max:255',
                 'unique:users,email',
-            ],
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | PASSWORD
-            |--------------------------------------------------------------------------
-            */
+            ]),
 
             'password' => [
                 'required',
@@ -185,7 +171,7 @@ class RegisteredUserController extends Controller
                 ->withInput()
                 ->withErrors([
                     'email' =>
-                        'Please provide at least an email address, username, or phone number.',
+                    'Please provide at least an email address, username, or phone number.',
                 ]);
         }
 
@@ -204,7 +190,7 @@ class RegisteredUserController extends Controller
                 ->withInput()
                 ->withErrors([
                     'username' =>
-                        'This username is already taken.',
+                    'This username is already taken.',
                 ]);
         }
 
@@ -223,7 +209,7 @@ class RegisteredUserController extends Controller
                 ->withInput()
                 ->withErrors([
                     'email' =>
-                        'This email address is already registered.',
+                    'This email address is already registered.',
                 ]);
         }
 
@@ -242,7 +228,7 @@ class RegisteredUserController extends Controller
                 ->withInput()
                 ->withErrors([
                     'phone' =>
-                        'This phone number is already registered.',
+                    'This phone number is already registered.',
                 ]);
         }
 
@@ -275,7 +261,7 @@ class RegisteredUserController extends Controller
                 ->withInput()
                 ->withErrors([
                     'membership_category_id' =>
-                        'The selected membership category is not available.',
+                    'The selected membership category is not available.',
                 ]);
         }
 
@@ -294,7 +280,7 @@ class RegisteredUserController extends Controller
                 ->withInput()
                 ->withErrors([
                     'membership_category_id' =>
-                        'The selected membership category is not available for the selected member type.',
+                    'The selected membership category is not available for the selected member type.',
                 ]);
         }
 
@@ -316,7 +302,7 @@ class RegisteredUserController extends Controller
                 ->withInput()
                 ->withErrors([
                     'membership_category_id' =>
-                        'Affiliate members can only register under the RCG membership category.',
+                    'Affiliate members can only register under the RCG membership category.',
                 ]);
         }
 
@@ -364,10 +350,10 @@ class RegisteredUserController extends Controller
                     ),
 
                     'member_type' =>
-                        $validated['member_type'],
+                    $validated['member_type'],
 
                     'membership_category_id' =>
-                        $category->id,
+                    $category->id,
 
                     'role' => 'member',
 
@@ -392,7 +378,6 @@ class RegisteredUserController extends Controller
                     false
                 );
             });
-
         } catch (Throwable $e) {
 
             /*
@@ -414,7 +399,7 @@ class RegisteredUserController extends Controller
                 ->withInput()
                 ->withErrors([
                     'email' =>
-                        'Registration could not be completed. Please try again.',
+                    'Registration could not be completed. Please try again.',
                 ]);
         }
 

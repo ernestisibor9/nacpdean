@@ -151,6 +151,7 @@
                         @csrf
                         @method('PUT')
                         <input type="hidden" name="section" value="personal">
+                        <input type="hidden" name="effective_user_id" value="{{ $adminFillingFor->id ?? '' }}">
                 @endif
 
                 <div class="row g-3">

@@ -250,7 +250,7 @@
         writing-mode: vertical-rl;
         transform: rotate(180deg);
         font-family: Arial, Helvetica, sans-serif;
-        font-size: 20px;
+        font-size: 30px;
         font-weight: 900;
         line-height: 1;
         letter-spacing: 1px;

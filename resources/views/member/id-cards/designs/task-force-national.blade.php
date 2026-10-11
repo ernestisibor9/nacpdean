@@ -344,6 +344,9 @@
         padding: 0 !important;
         text-align: center !important;
         z-index: 5 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 30px !important;
+        font-weight: 900 !important;
     }
 
     /* --------------------------------------------------------

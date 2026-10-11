@@ -1427,11 +1427,11 @@ if (in_array($fieldKey, [
         case 'phone':
             return $profile?->phone ?? $user->phone ?? null;
 
-        case 'payment_mode':
-            return 'Bank Transfer';
+case 'payment_mode':
+    return $this->resolvePenaltyPaymentMode($payment);
 
-        case 'bank_name':
-            return 'Access Bank Plc';
+case 'bank_name':
+    return $this->resolvePenaltyPaymentInstrument($payment);
 
         case 'receipt_no':
             return $documentNumber;
@@ -3428,4 +3428,269 @@ protected function spellNumber(int $number): string
             return $generatedDocuments;
         });
     }
+
+
+
+    /*
+|--------------------------------------------------------------------------
+| RESOLVE PENALTY PAYMENT MODE
+|--------------------------------------------------------------------------
+|
+| Returns a human-readable payment method:
+|
+|   Card Payment
+|   Bank Payment
+|   Bank Transfer
+|   USSD
+|   Mobile Money
+|   QR Payment
+|   EFT / Direct Debit
+|   Online Payment (Paystack)
+|
+| Falls back to "Bank Transfer" for manual / offline payments.
+|
+*/
+
+protected function resolvePenaltyPaymentMode(Payment $payment): string
+{
+    $gateway = strtolower(trim((string) ($payment->gateway ?? '')));
+
+    if ($gateway === 'paystack' || $payment->paystack_reference) {
+
+        $channel = $this->extractPaystackChannel($payment);
+
+        switch ($channel) {
+            case 'card':
+                return 'Card Payment';
+            case 'bank':
+                return 'Bank Payment';
+            case 'bank_transfer':
+                return 'Bank Transfer';
+            case 'ussd':
+                return 'USSD';
+            case 'mobile_money':
+                return 'Mobile Money';
+            case 'qr':
+                return 'QR Payment';
+            case 'eft':
+                return 'EFT / Direct Debit';
+        }
+
+        return 'Online Payment (Paystack)';
+    }
+
+    if ($gateway !== '') {
+        return ucfirst($gateway) . ' Payment';
+    }
+
+    return 'Bank Transfer';
+}
+
+/*
+|--------------------------------------------------------------------------
+| RESOLVE PENALTY PAYMENT INSTRUMENT
+|--------------------------------------------------------------------------
+|
+| Returns a human-readable description of the exact instrument used:
+|
+|   Visa •••• 4081
+|   Mastercard •••• 1234
+|   GTBank
+|   Access Bank
+|   Paystack
+|
+| Falls back to "Access Bank Plc" for manual / offline payments.
+|
+*/
+
+protected function resolvePenaltyPaymentInstrument(Payment $payment): string
+{
+    $gateway = strtolower(trim((string) ($payment->gateway ?? '')));
+
+    if ($gateway === 'paystack' || $payment->paystack_reference) {
+
+        $channel = $this->extractPaystackChannel($payment);
+
+        /*
+        |--------------------------------------------------------------------------
+        | CARD — show brand + last 4
+        |--------------------------------------------------------------------------
+        */
+
+        if ($channel === 'card') {
+
+            $brand = $this->extractPaystackCardBrand($payment);
+            $last4 = $this->extractPaystackCardLast4($payment);
+
+            if ($brand && $last4) {
+                return $brand . ' •••• ' . $last4;
+            }
+
+            if ($brand) {
+                return $brand;
+            }
+
+            if ($last4) {
+                return 'Card •••• ' . $last4;
+            }
+
+            return 'Paystack (Card)';
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | BANK TRANSFER / BANK PAYMENT — show bank name
+        |--------------------------------------------------------------------------
+        */
+
+        if (in_array($channel, ['bank', 'bank_transfer'], true)) {
+
+            $bank = $this->extractPaystackBank($payment);
+
+            if ($bank) {
+                return $bank;
+            }
+
+            return 'Bank (via Paystack)';
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | OTHER ONLINE CHANNELS
+        |--------------------------------------------------------------------------
+        */
+
+        return 'Paystack';
+    }
+
+    if ($gateway !== '') {
+        return ucfirst($gateway);
+    }
+
+    return 'Access Bank Plc';
+}
+
+/*
+|--------------------------------------------------------------------------
+| EXTRACT PAYSTACK CHANNEL
+|--------------------------------------------------------------------------
+*/
+
+protected function extractPaystackChannel(Payment $payment): ?string
+{
+    $response = $payment->gateway_response;
+
+    if (!is_array($response)) {
+        return null;
+    }
+
+    $paths = [
+        ['channel'],
+        ['authorization', 'channel'],
+        ['data', 'channel'],
+        ['data', 'authorization', 'channel'],
+    ];
+
+    foreach ($paths as $path) {
+        $value = data_get($response, implode('.', $path));
+
+        if (is_string($value) && trim($value) !== '') {
+            return strtolower(trim($value));
+        }
+    }
+
+    return null;
+}
+
+/*
+|--------------------------------------------------------------------------
+| EXTRACT PAYSTACK CARD BRAND
+|--------------------------------------------------------------------------
+*/
+
+protected function extractPaystackCardBrand(Payment $payment): ?string
+{
+    $response = $payment->gateway_response;
+
+    if (!is_array($response)) {
+        return null;
+    }
+
+    $paths = [
+        ['authorization', 'brand'],
+        ['data', 'authorization', 'brand'],
+    ];
+
+    foreach ($paths as $path) {
+        $value = data_get($response, implode('.', $path));
+
+        if (is_string($value) && trim($value) !== '') {
+            return ucfirst(strtolower(trim($value)));
+        }
+    }
+
+    return null;
+}
+
+/*
+|--------------------------------------------------------------------------
+| EXTRACT PAYSTACK CARD LAST 4 DIGITS
+|--------------------------------------------------------------------------
+*/
+
+protected function extractPaystackCardLast4(Payment $payment): ?string
+{
+    $response = $payment->gateway_response;
+
+    if (!is_array($response)) {
+        return null;
+    }
+
+    $paths = [
+        ['authorization', 'last4'],
+        ['data', 'authorization', 'last4'],
+    ];
+
+    foreach ($paths as $path) {
+        $value = data_get($response, implode('.', $path));
+
+        if (is_string($value) && trim($value) !== '') {
+            return trim($value);
+        }
+    }
+
+    return null;
+}
+
+/*
+|--------------------------------------------------------------------------
+| EXTRACT PAYSTACK BANK NAME
+|--------------------------------------------------------------------------
+*/
+
+protected function extractPaystackBank(Payment $payment): ?string
+{
+    $response = $payment->gateway_response;
+
+    if (!is_array($response)) {
+        return null;
+    }
+
+    $paths = [
+        ['authorization', 'bank'],
+        ['data', 'authorization', 'bank'],
+    ];
+
+    foreach ($paths as $path) {
+        $value = data_get($response, implode('.', $path));
+
+        if (is_string($value) && trim($value) !== '') {
+            return trim($value);
+        }
+    }
+
+    return null;
+}
+
+
 }

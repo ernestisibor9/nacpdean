@@ -367,29 +367,29 @@ class GeneratedDocumentController extends Controller
     |
     */
 
-$documentArtwork = $this->resolveDocumentArtwork($document, true);
+        $documentArtwork = $this->resolveDocumentArtwork($document, true);
 
-$certificateBackground = null;
+        $certificateBackground = null;
 
-$certificatePath = public_path(
-    'images/certificates/regular-exporter-template.jpg'
-);
+        $certificatePath = public_path(
+            'images/certificates/regular-exporter-template.jpg'
+        );
 
-if (file_exists($certificatePath)) {
-    $certificateBackground =
-        'data:image/jpeg;base64,' .
-        base64_encode(file_get_contents($certificatePath));
-}
+        if (file_exists($certificatePath)) {
+            $certificateBackground =
+                'data:image/jpeg;base64,' .
+                base64_encode(file_get_contents($certificatePath));
+        }
 
-$html = view($template, [
-    'generatedDocument' => $generatedDocument,
-    'document' => $document,
-    'qrCode' => $qrCode,
-    'documentArtwork' => $documentArtwork,
-    'certificateBackground' => $certificateBackground,
-    'printMode' => true,
-    'downloadMode' => true,
-])->render();
+        $html = view($template, [
+            'generatedDocument' => $generatedDocument,
+            'document' => $document,
+            'qrCode' => $qrCode,
+            'documentArtwork' => $documentArtwork,
+            'certificateBackground' => $certificateBackground,
+            'printMode' => true,
+            'downloadMode' => true,
+        ])->render();
 
         /*
     |--------------------------------------------------------------------------
@@ -412,12 +412,35 @@ $html = view($template, [
 
         /*
     |--------------------------------------------------------------------------
-    | PDF Filename
+    | PDF Filename — SANITIZED
     |--------------------------------------------------------------------------
+    |
+    | document_number may contain characters that are illegal in
+    | HTTP Content-Disposition headers, e.g.:
+    |
+    |     NACPDEAN/PNL/2026/000001
+    |
+    | Symfony's HeaderUtils rejects "/" and "\" with an
+    | InvalidArgumentException. We convert any non-safe character
+    | to a hyphen. The DB value stays unchanged.
+    |
     */
 
-        $filename =
-            $generatedDocument->document_number . '.pdf';
+        $rawFilename = (string) $generatedDocument->document_number;
+
+        $safeFilename = preg_replace(
+            '/[^A-Za-z0-9._-]+/',
+            '-',
+            $rawFilename
+        );
+
+        $safeFilename = trim($safeFilename, '-_');
+
+        if ($safeFilename === '') {
+            $safeFilename = 'NACPDEAN-document-' . $generatedDocument->id;
+        }
+
+        $filename = $safeFilename . '.pdf';
 
         return $pdf->download($filename);
     }

@@ -76,7 +76,7 @@ class MemberProfileController extends Controller
     protected function isAdminOnBehalf(): bool
     {
         return Auth::check()
-            && Auth::user()->role === 'admin'
+            && in_array(Auth::user()->role, ['admin', 'super_admin'], true)
             && session()->has('admin_filling_profile_for_member_id');
     }
 
@@ -187,6 +187,20 @@ class MemberProfileController extends Controller
         */
 
         $user = $this->resolveEffectiveUser();
+
+               if (
+        Auth::check() &&
+        in_array(Auth::user()->role, ['admin', 'super_admin'], true) &&
+        !empty($adminFillingForId)
+    ) {
+        $member = User::where('id', (int) $adminFillingForId)
+            ->where('role', 'member')
+            ->first();
+
+        $user = $member ?: Auth::user();
+    } else {
+        $user = $this->resolveEffectiveUser();
+    }
 
         $profile = MemberProfile::firstOrCreate(
             [

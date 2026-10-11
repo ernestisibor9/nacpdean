@@ -3,234 +3,136 @@
 namespace App\Http\Controllers\Member;
 
 use App\Http\Controllers\Controller;
+use App\Models\Membership;
 use App\Models\MembershipCard;
 use App\Models\MembershipOfficerAppointment;
 use App\Models\User;
+use App\Services\MembershipNumberService;
 use App\Services\QrCodeService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class MembershipCardController extends Controller
 {
-    public function index(QrCodeService $qrCodeService, $id = -1)
-    {
-
-
-        // if ($id == -1) {
-        //     $user = Auth::user();
-        // } else {
-        //     $user = User::find($id);
-        //     $user = $user->role == "admin" ? $user : Auth::user();
-        // }
+    public function index(
+        QrCodeService $qrCodeService,
+        MembershipNumberService $numberService,
+        $id = -1
+    ) {
+        /*
+        |--------------------------------------------------------------------------
+        | RESOLVE USER
+        |--------------------------------------------------------------------------
+        */
 
         if ($id == -1) {
-            // Show the logged-in member's own cards
             $user = Auth::user();
         } else {
-            // Explicit user requested (admin viewing on behalf, or /membership-card/user/{id})
             $user = User::find($id);
 
             if (!$user) {
                 abort(404, 'Member not found.');
             }
 
-            // Admin can only view a member's cards on their behalf.
-            // A member can only view their own cards (ignore arbitrary id).
-            if (Auth::user()->role !== 'admin') {
+            if (!in_array(Auth::user()->role, ['admin', 'super_admin'], true)) {
                 $user = Auth::user();
             }
         }
 
         /*
         |--------------------------------------------------------------------------
-        | GET ALL ACTIVE CARDS BELONGING TO THE LOGGED-IN MEMBER
+        | BASE MEMBERSHIP
         |--------------------------------------------------------------------------
-        |
-        | A member can have more than one active card:
-        |
-        | - Membership Card
-        | - National Executive Card
-        | - Task Force Card
-        |
-        | Therefore, we load ALL active cards belonging to the
-        | currently logged-in member.
-        |
         */
 
-        $cards = MembershipCard::with([
-            'membership',
-            'profile',
-            'category',
-        ])
-            ->whereHas('profile', function ($query) use ($user) {
-                $query->where('user_id', $user->id);
-            })
+        $membership = Membership::with('membershipCategory')
+            ->where('user_id', $user->id)
+            ->latest('id')
+            ->first();
+
+        if (!$membership) {
+            return view('member.membership-card', ['cards' => collect()]);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | BASE CARD
+        |--------------------------------------------------------------------------
+        */
+
+        $baseCard = MembershipCard::with(['profile', 'category', 'membership'])
+            ->where('membership_id', $membership->id)
+            ->where('card_type', 'membership')
             ->where('status', 'active')
-            ->orderByRaw("
-                CASE card_type
-                    WHEN 'membership' THEN 1
-                    WHEN 'national_executive' THEN 2
-                    WHEN 'task_force' THEN 3
-                    ELSE 4
-                END
-            ")
+            ->latest('id')
+            ->first();
+
+        /*
+        |--------------------------------------------------------------------------
+        | APPROVED APPOINTMENTS
+        |--------------------------------------------------------------------------
+        */
+
+        $appointments = MembershipOfficerAppointment::where(
+                'membership_id',
+                $membership->id
+            )
+            ->where('status', 'approved')
             ->orderBy('id')
             ->get();
 
         /*
         |--------------------------------------------------------------------------
-        | GET MEMBERSHIP IDS FROM THE MEMBER'S CARDS
+        | BUILD RUNTIME CARDS COLLECTION
         |--------------------------------------------------------------------------
         */
 
-        $membershipIds = $cards
-            ->pluck('membership_id')
-            ->filter()
-            ->unique()
-            ->values();
+        $cards = collect();
 
-        /*
-        |--------------------------------------------------------------------------
-        | GET APPROVED TASK FORCE APPOINTMENTS
-        |--------------------------------------------------------------------------
-        |
-        | The membership_officer_appointments table is the authoritative
-        | source for Task Force information.
-        |
-        | We use:
-        |
-        | - taskforce_id
-        | - position
-        | - level
-        | - state
-        |
-        | IMPORTANT:
-        |
-        | We use groupBy() instead of keyBy().
-        |
-        | This prevents one approved Task Force appointment from
-        | overwriting another appointment belonging to the same member.
-        |
-        */
+        // ---------- BASE CARD ----------
+        if ($baseCard) {
 
-        $taskForceAppointments =
-            MembershipOfficerAppointment::where(
-                'appointment_type',
-                'task_force'
-            )
-            ->where(
-                'status',
-                'approved'
-            )
-            ->whereIn(
-                'membership_id',
-                $membershipIds
-            )
-            ->orderBy('id')
-            ->get()
-            ->groupBy('membership_id');
+            $baseCard->qr_image = $qrCodeService->generateMembershipCard(
+                $baseCard->qr_token
+            );
 
-        /*
-        |--------------------------------------------------------------------------
-        | GENERATE QR CODE + ATTACH TASK FORCE APPOINTMENTS
-        |--------------------------------------------------------------------------
-        |
-        | Every active card receives its QR image.
-        |
-        | For Task Force cards, we also attach the approved Task Force
-        | appointment records belonging to that membership.
-        |
-        */
-
-        foreach ($cards as $card) {
-
-            /*
-            |--------------------------------------------------------------------------
-            | GENERATE QR CODE
-            |--------------------------------------------------------------------------
-            |
-            | The QR token already belongs to the card.
-            |
-            | We do not change the QR token or generate a new one.
-            |
-            */
-
-            $card->qr_image =
-                $qrCodeService->generateMembershipCard(
-                    $card->qr_token
-                );
-
-            /*
-            |--------------------------------------------------------------------------
-            | TASK FORCE CARD
-            |--------------------------------------------------------------------------
-            |
-            | Task Force information must come from the approved
-            | MembershipOfficerAppointment record.
-            |
-            */
-
-            if ($card->card_type === 'task_force') {
-
-                $appointments =
-                    $taskForceAppointments->get(
-                        $card->membership_id,
-                        collect()
-                    );
-
-                /*
-                |--------------------------------------------------------------------------
-                | ATTACH ALL APPROVED APPOINTMENTS
-                |--------------------------------------------------------------------------
-                |
-                | This is a collection because one membership could
-                | potentially have more than one approved appointment.
-                |
-                */
-
-                $card->taskForceAppointments = $appointments;
-
-                /*
-                |--------------------------------------------------------------------------
-                | PRIMARY TASK FORCE APPOINTMENT
-                |--------------------------------------------------------------------------
-                |
-                | For the current card design, we can use the first
-                | approved appointment as the primary appointment.
-                |
-                | The complete collection is still available through:
-                |
-                | $card->taskForceAppointments
-                |
-                */
-
-                $card->taskForceAppointment =
-                    $appointments->first();
-            }
+            $cards->push((object) [
+                'card'           => $baseCard,
+                'appointment'    => null,
+                'card_type'      => 'membership',
+                'display_number' => $numberService->forBase($membership),
+                'qr_image'       => $baseCard->qr_image,
+            ]);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | RETURN MEMBER CARD PAGE
-        |--------------------------------------------------------------------------
-        |
-        | We continue using ONE page:
-        |
-        | member.membership-card
-        |
-        | The Blade page will determine which card design to display
-        | based on:
-        |
-        | - card_type
-        | - membership category
-        | - Task Force level
-        |
-        | The member does NOT need separate menu items.
-        |
-        */
+        // ---------- OFFICER CARDS ----------
+        foreach ($appointments as $appointment) {
 
-        return view(
-            'member.membership-card',
-            compact('cards')
-        );
+            $cardType = match ($appointment->appointment_type) {
+                'national_executive' => 'national_executive',
+                'state_executive'    => 'state_executive',
+                'task_force'         => 'task_force',
+                default              => null,
+            };
+
+            if (!$cardType) {
+                continue;
+            }
+
+            $qrImage = $baseCard?->qr_image
+                ?? $qrCodeService->generateMembershipCard(
+                    $baseCard?->qr_token ?? (string) Str::uuid()
+                );
+
+            $cards->push((object) [
+                'card'           => $baseCard,
+                'appointment'    => $appointment,
+                'card_type'      => $cardType,
+                'display_number' => $numberService->forAppointment($membership, $appointment),
+                'qr_image'       => $qrImage,
+            ]);
+        }
+
+        return view('member.membership-card', compact('cards', 'membership'));
     }
 }

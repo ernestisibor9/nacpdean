@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Member\MembershipCardController;
+use App\Models\MemberProfile;
 use App\Models\MembershipCategory;
 use App\Models\Transaction;
 use App\Models\User;
@@ -392,21 +393,9 @@ class AdminMemberController extends Controller
      */
     public function completeProfile(User $member)
     {
-        /*
-        |--------------------------------------------------------------------------
-        | SAFETY: only members
-        |--------------------------------------------------------------------------
-        */
-
         if ($member->role !== 'member') {
             abort(404);
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | SAFETY: must have paid the membership debit
-        |--------------------------------------------------------------------------
-        */
 
         $paidDebit = Transaction::where('user_id', $member->id)
             ->where('type', 'debit')
@@ -421,12 +410,6 @@ class AdminMemberController extends Controller
                 ->with('error', 'This member has not paid their membership fee yet.');
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | SAFETY: if a profile exists, only allow resuming drafts
-        |--------------------------------------------------------------------------
-        */
-
         $existingProfile = $member->profile;
 
         if (
@@ -438,33 +421,9 @@ class AdminMemberController extends Controller
                 ->with('error', 'This profile has already been submitted and cannot be edited from here.');
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Set a session flag so MemberProfileController knows
-        | the admin is filling the profile on behalf of this member.
-        |--------------------------------------------------------------------------
-        */
-
-        session([
-            'admin_filling_profile_for_member_id' => $member->id,
-            'admin_filling_profile_return_url'    => route('admin.member.index'),
-        ]);
-
-        /*
-        |--------------------------------------------------------------------------
-        | Redirect to the shared /profile route.
-        | The controller will detect the session flag and render the
-        | admin-layout Blade.
-        |--------------------------------------------------------------------------
-        */
-
-        $message = $existingProfile
-            ? "Resuming the draft profile on behalf of {$member->username}."
-            : "You are completing the profile on behalf of {$member->username}.";
-
         return redirect()
-            ->route('member.profile')
-            ->with('info', $message);
+            ->route('admin.member.edit-profile', $member->id)
+            ->with('info', "You are completing the profile on behalf of {$member->username}.");
     }
 
 
@@ -646,13 +605,6 @@ class AdminMemberController extends Controller
     }
 
 
-    /**
-     * Show the full membership card(s) for a member on behalf of the admin.
-     *
-     * Delegates to MembershipCardController@index — the same controller
-     * the member dashboard uses. This guarantees the card HTML is
-     * byte-for-byte identical.
-     */
     public function viewIdCardFull(User $member, QrCodeService $qrCodeService)
     {
         if ($member->role !== 'member') {
@@ -664,13 +616,20 @@ class AdminMemberController extends Controller
     | DELEGATE TO THE MEMBER-SIDE CONTROLLER
     |--------------------------------------------------------------------------
     |
-    | Passing the member's user id triggers the "explicit user" branch,
-    | which loads that member's cards instead of the logged-in user's.
+    | IMPORTANT:
+    | Pass both dependencies explicitly in the order the method expects:
+    |   1. QrCodeService
+    |   2. MembershipNumberService
+    |   3. $id (member's user id)
     |
     */
 
-        return app(MembershipCardController::class)
-            ->index($qrCodeService, $member->id);
+        return app(\App\Http\Controllers\Member\MembershipCardController::class)
+            ->index(
+                $qrCodeService,
+                app(\App\Services\MembershipNumberService::class),
+                $member->id
+            );
     }
 
 
@@ -724,10 +683,13 @@ class AdminMemberController extends Controller
 
 
     /**
-     * Show the admin edit form for an approved member's profile.
+     * Show the admin edit form for a member's profile.
+     *
+     * Works for BOTH:
+     *   - Paid members with NO profile yet → draft is created here
+     *   - Members with an existing profile → loaded as-is
      *
      * Admins can edit any field regardless of the profile status.
-     * Members themselves cannot edit an approved profile.
      */
     public function editProfile(User $member): View|RedirectResponse
     {
@@ -735,12 +697,42 @@ class AdminMemberController extends Controller
             abort(404);
         }
 
-        $profile = $member->profile;
+        /*
+    |--------------------------------------------------------------------------
+    | GET OR CREATE THE PROFILE
+    |--------------------------------------------------------------------------
+    |
+    | Paid members without a profile get a fresh draft here.
+    | The category is inherited from the member's user record.
+    |
+    */
 
-        if (!$profile) {
-            return redirect()
-                ->route('admin.member.index')
-                ->with('error', 'This member does not have a profile to edit.');
+        $profile = MemberProfile::firstOrCreate(
+            [
+                'user_id' => $member->id,
+            ],
+            [
+                'membership_category_id' => $member->membership_category_id,
+                'status'                 => 'draft',
+            ]
+        );
+
+        /*
+    |--------------------------------------------------------------------------
+    | BACKFILL MISSING CATEGORY
+    |--------------------------------------------------------------------------
+    |
+    | If the profile existed but its category is missing,
+    | backfill it from the user record.
+    |
+    */
+
+        if (
+            empty($profile->membership_category_id) &&
+            !empty($member->membership_category_id)
+        ) {
+            $profile->membership_category_id = $member->membership_category_id;
+            $profile->save();
         }
 
         /*
@@ -764,7 +756,6 @@ class AdminMemberController extends Controller
             compact('member', 'profile', 'membership', 'membershipCategory')
         );
     }
-
 
     /**
      * Update an approved member's profile from the admin panel.
@@ -984,4 +975,123 @@ class AdminMemberController extends Controller
 
         return back()->with('success', "{$member->username}'s admin privileges have been revoked.");
     }
+
+
+public function submitProfile(User $member): RedirectResponse
+{
+    if ($member->role !== 'member') {
+        abort(404);
+    }
+
+    $profile = $member->profile;
+
+    if (!$profile) {
+        return redirect()
+            ->route('admin.member.index')
+            ->with('error', 'This member does not have a profile to submit.');
+    }
+
+    if ($profile->status !== 'draft') {
+        return redirect()
+            ->route('admin.member.edit-profile', $member->id)
+            ->with('error', 'Only draft profiles can be submitted.');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | COLLECT MISSING FIELDS
+    |--------------------------------------------------------------------------
+    |
+    | We only push errors for the fields that are ACTUALLY empty
+    | right now. Previously the check ran on every request, which
+    | is why the same 15 errors kept appearing.
+    |
+    */
+
+    $errors = [];
+
+    $requiredFields = [
+        'surname'         => 'Surname',
+        'first_name'      => 'First name',
+        'phone'           => 'Phone number',
+        'date_of_birth'   => 'Date of birth',
+        'gender'          => 'Gender',
+        'nationality'     => 'Nationality',
+        'photo'           => 'Passport photograph',
+        'address'         => 'Residential address',
+        'city'            => 'City',
+        'state'           => 'State',
+        'lga'             => 'LGA',
+        'business_name'   => 'Business name',
+        'business_type'   => 'Business type',
+        'business_address'=> 'Business address',
+    ];
+
+    foreach ($requiredFields as $field => $label) {
+        if (empty($profile->{$field})) {
+            $errors[] = "{$label} is required.";
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | EXPORTER-ONLY DOCUMENT REQUIREMENTS
+    |--------------------------------------------------------------------------
+    */
+
+    $profile->load('membershipCategory');
+    $category = $profile->membershipCategory;
+
+    if (!$category) {
+        $errors[] = 'Membership category could not be determined.';
+    } elseif ($category->requiresExporterDocuments()) {
+
+        if (empty($profile->cac_certificate)) {
+            $errors[] = 'CAC Certificate is required for Exporters.';
+        }
+
+        if (empty($profile->cac_particulars_of_directors)) {
+            $errors[] = 'CAC Particulars of Directors is required for Exporters.';
+        }
+
+        if (empty($profile->nepc_export_license)) {
+            $errors[] = 'NEPC Export License is required for Exporters.';
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | BAIL OUT IF ANY ERRORS
+    |--------------------------------------------------------------------------
+    |
+    | Laravel flashes $errors to the session for ONE request only.
+    | Once the admin refreshes or navigates, the messages disappear.
+    |
+    */
+
+    if (!empty($errors)) {
+        return redirect()
+            ->route('admin.member.edit-profile', $member->id)
+            ->withErrors($errors)
+            ->withInput();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | SUBMIT
+    |--------------------------------------------------------------------------
+    */
+
+    $profile->update([
+        'status'           => 'submitted',
+        'submitted_at'     => now(),
+        'approved_at'      => null,
+        'rejection_reason' => null,
+        'admin_comment'    => null,
+    ]);
+
+    return redirect()
+        ->route('admin.member.index')
+        ->with('success', 'Application submitted successfully on behalf of the member.');
+}
 }

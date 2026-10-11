@@ -42,13 +42,32 @@
         $generatedDocument->document_number
     );
 
+    /*
+    |--------------------------------------------------------------------------
+    | PAYMENT DATE — prefer issued_at, fall back to field value
+    |--------------------------------------------------------------------------
+    */
+
     $paymentDate = null;
+
     if ($generatedDocument->issued_at) {
         try {
             $paymentDate = \Carbon\Carbon::parse($generatedDocument->issued_at)
                 ->format('j M Y');
         } catch (\Throwable $e) {
             $paymentDate = (string) $generatedDocument->issued_at;
+        }
+    }
+
+    if (!$paymentDate) {
+        $raw = $fields->get('payment_date');
+
+        if ($raw) {
+            try {
+                $paymentDate = \Carbon\Carbon::parse($raw)->format('j M Y');
+            } catch (\Throwable $e) {
+                $paymentDate = (string) $raw;
+            }
         }
     }
 
@@ -140,10 +159,10 @@
     */
 
     $receiptBackground = null;
-    $receiptPath = public_path('images/certificates/all-penalty-payment-receipt.jpg');
+    $receiptPath = public_path('images/certificates/all-penalty-payment-receipt.png');
 
     if (file_exists($receiptPath)) {
-        $receiptBackground = 'data:image/jpeg;base64,' . base64_encode(file_get_contents($receiptPath));
+        $receiptBackground = 'data:image/png;base64,' . base64_encode(file_get_contents($receiptPath));
     }
 @endphp
 
@@ -196,12 +215,7 @@
         |--------------------------------------------------------------------------
         |
         | Coordinates are percentages relative to the 210mm × 297mm page.
-        | Adjust each top/left/width value in small steps (0.5% at a time)
-        | after comparing the rendered output with the client's sample receipt.
-        |
-        | The client's receipt has these values in fixed positions. Below is a
-        | starting layout based on the sample receipt image you shared. Tweak to
-        | align with your exact JPG.
+        | Tune each top/left/width value in 0.2% – 0.5% steps as needed.
         |--------------------------------------------------------------------------
         */
 
@@ -210,113 +224,121 @@
             z-index: 10;
             color: #000;
             font-family: Arial, Helvetica, sans-serif;
-            font-size: 12px;
+            font-size: 11px;
             line-height: 1.2;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
-        /* Receipt No (top-left under "Receipt No:") */
+        /* RECEIPT NO — sits on the "Receipt No:" line */
         .receipt-no {
-            top: 25.5%;
-            left: 27.0%;
-            width: 25%;
+            top: 26.6%;
+            left: 29.8%;
+            width: 30%;
             font-weight: bold;
             font-size: 11px;
         }
 
-        /* Payment Date */
+        /* PAYMENT DATE — inside payment box */
         .receipt-payment-date {
-            top: 22.7%;
-            left: 66.0%;
-            width: 20%;
+            top: 27.8%;
+            left: 72.0%;
+            width: 25%;
             font-size: 11px;
         }
 
-        /* Purpose of Payment */
+        /* PURPOSE OF PAYMENT — allow wrap, tight leading */
         .receipt-purpose {
-            top: 24.0%;
-            left: 66.0%;
-            width: 28%;
+            top: 29.9%;
+            left: 72.0%;
+            width: 25%;
             font-size: 11px;
             white-space: normal;
             line-height: 1.15;
         }
 
-        /* Payer Name */
+        /* LEFT COLUMN: payer details */
         .receipt-payer-name {
-            top: 30.2%;
-            left: 27.0%;
-            width: 25%;
+            top: 30.84%;
+            left: 30.5%;
+            width: 26%;
             font-size: 11px;
         }
 
-        /* Membership No */
         .receipt-membership-no {
-            top: 32.5%;
-            left: 27.0%;
-            width: 25%;
+            top: 32.87%;
+            left: 30.5%;
+            width: 26%;
             font-size: 11px;
         }
 
-        /* Address */
         .receipt-address {
-            top: 34.8%;
-            left: 27.0%;
-            width: 25%;
+            top: 36.1%;
+            left: 30.5%;
+            width: 26%;
             font-size: 11px;
             white-space: normal;
             line-height: 1.15;
         }
 
-        /* Email */
         .receipt-email {
-            top: 39.5%;
-            left: 27.0%;
-            width: 25%;
+            top: 39.87%;
+            left: 30.5%;
+            width: 26%;
             font-size: 11px;
         }
 
-        /* Phone */
         .receipt-phone {
-            top: 41.8%;
-            left: 27.0%;
-            width: 25%;
+            top: 42.0%;
+            left: 30.5%;
+            width: 26%;
             font-size: 11px;
         }
 
-        /* Payment Mode */
+        /* RIGHT COLUMN: payment box */
         .receipt-payment-mode {
-            top: 27.7%;
-            left: 66.0%;
+            top: 33.7%;
+            left: 72.0%;
             width: 25%;
             font-size: 11px;
         }
 
-        /* Bank Name */
         .receipt-bank-name {
-            top: 29.7%;
-            left: 66.0%;
+            top: 35.9%;
+            left: 72.0%;
             width: 25%;
             font-size: 11px;
         }
 
-        /* Transaction Ref */
         .receipt-txn-ref {
-            top: 31.8%;
-            left: 66.0%;
+            top: 38.1%;
+            left: 72.0%;
             width: 25%;
             font-size: 11px;
         }
 
-        /* Amount Paid */
         .receipt-amount {
-            top: 33.9%;
-            left: 66.0%;
+            top: 40.1%;
+            left: 72.0%;
             width: 25%;
             font-size: 11px;
             font-weight: bold;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | QR CODE — sits INSIDE the RECEIPT AUTHENTICATION box
+        |--------------------------------------------------------------------------
+        */
+
+        .receipt-qr-code {
+            position: absolute;
+            z-index: 10;
+            top: 77.2%;
+            left: 33.2%;
+            width: 6.8%;
+            height: auto;
         }
 
         /*
@@ -332,7 +354,7 @@
         .receipt-penalty-row {
             position: absolute;
             z-index: 10;
-            left: 26.0%;
+            left: 30.5%;
             width: 55%;
             font-size: 11px;
             line-height: 1.2;
@@ -342,16 +364,16 @@
             text-overflow: ellipsis;
         }
 
-        /* Row 1 baseline – adjust to match the "1" row on your artwork */
-        .receipt-penalty-row-1 { top: 57.4%; }
-        .receipt-penalty-row-2 { top: 59.4%; }
-        .receipt-penalty-row-3 { top: 61.4%; }
-        .receipt-penalty-row-4 { top: 63.4%; }
-        .receipt-penalty-row-5 { top: 65.4%; }
-        .receipt-penalty-row-6 { top: 67.4%; }
-        .receipt-penalty-row-7 { top: 69.4%; }
-        .receipt-penalty-row-8 { top: 71.4%; }
-        .receipt-penalty-row-9 { top: 73.4%; }
+        /* Row baselines — tuned to sit ON each row line */
+        .receipt-penalty-row-1 { top: 59.1%; }
+        .receipt-penalty-row-2 { top: 60.9%; }
+        .receipt-penalty-row-3 { top: 62.7%; }
+        .receipt-penalty-row-4 { top: 64.5%; }
+        .receipt-penalty-row-5 { top: 66.3%; }
+        .receipt-penalty-row-6 { top: 68.1%; }
+        .receipt-penalty-row-7 { top: 69.9%; }
+        .receipt-penalty-row-8 { top: 71.7%; }
+        .receipt-penalty-row-9 { top: 73.5%; }
 
         /*
         |--------------------------------------------------------------------------
@@ -536,6 +558,13 @@
         {{-- AMOUNT --}}
         @if ($amountPaid)
             <div class="receipt-field receipt-amount">₦{{ $amountPaid }}</div>
+        @endif
+
+        {{-- QR CODE — sits inside the RECEIPT AUTHENTICATION box --}}
+        @if (!empty($qrCode))
+            <img src="{{ $qrCode }}"
+                 class="receipt-qr-code"
+                 alt="Verification QR Code">
         @endif
 
         {{-- PENALTIES TABLE --}}

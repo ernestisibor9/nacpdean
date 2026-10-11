@@ -26,6 +26,12 @@ use App\Http\Controllers\GeneratedDocumentController;
 use App\Http\Controllers\PublicMemberController;
 use App\Http\Controllers\Admin\DocumentFieldController;
 use App\Http\Controllers\Admin\MembershipOfficerController;
+use App\Http\Controllers\Member\MemberPenaltyController;
+use App\Http\Controllers\StakeholderDirectoryController;
+use App\Http\Controllers\Admin\StakeholderDirectoryController as AdminStakeholderFileController;
+use App\Http\Controllers\GalleryController;
+use App\Http\Controllers\Admin\GalleryPhotoController as AdminGalleryPhotoController;
+use App\Http\Controllers\Admin\HomeVideoController;
 
 
 /*
@@ -33,6 +39,15 @@ use App\Http\Controllers\Admin\MembershipOfficerController;
 | PUBLIC ROUTES
 |--------------------------------------------------------------------------
 */
+
+Route::get('/stakeholders-data', [StakeholderDirectoryController::class, 'index'])
+    ->name('stakeholders-data');
+
+Route::get('/stakeholders-data/{stakeholderDirectory}/view', [StakeholderDirectoryController::class, 'view'])
+    ->name('stakeholders-data.view');
+
+Route::get('/gallery', [GalleryController::class, 'index'])
+    ->name('gallery');
 
 Route::get('/exporters', [PublicMemberController::class, 'exporters'])->name('exporters');
 Route::get('/producers', [PublicMemberController::class, 'producers'])->name('producers');
@@ -49,7 +64,7 @@ Route::get('/national-executive', [HomeController::class, 'NationalExecutive'])-
 Route::get('/state-executive', [HomeController::class, 'StateExecutive'])->name('state-executive');
 Route::get('/blacklisted-members', [HomeController::class, 'BlackListed'])->name('blacklisted-members');
 Route::get('/compliance', [HomeController::class, 'Compliance'])->name('compliance');
-Route::get('/gallery', [HomeController::class, 'Gallery'])->name('gallery');
+// Route::get('/gallery', [HomeController::class, 'Gallery'])->name('gallery');
 Route::get('/contact', [HomeController::class, 'Contact'])->name('contact');
 
 
@@ -94,7 +109,7 @@ Route::post('/resend-otp', [EmailOtpController::class, 'resend'])->name('verific
 
 /*
 |--------------------------------------------------------------------------
-| ADMIN ROUTES
+| ADMIN/SUPER ADMIN ROUTES
 |--------------------------------------------------------------------------
 */
 
@@ -119,6 +134,12 @@ Route::middleware(['auth', 'user.role:admin,super_admin'])
         Route::post('/members/{id}/reject', [MemberApplicationController::class, 'reject'])->name('members.reject');
         Route::post('/members/{id}/generate-renewal-debit', [MemberApplicationController::class, 'generateRenewalDebit'])
             ->name('members.generate-renewal-debit');
+
+        Route::get('/stakeholder-files', [AdminStakeholderFileController::class, 'index'])->name('stakeholder-files.index');
+        Route::get('/stakeholder-files/create', [AdminStakeholderFileController::class, 'create'])->name('stakeholder-files.create');
+        Route::post('/stakeholder-files', [AdminStakeholderFileController::class, 'store'])->name('stakeholder-files.store');
+        Route::delete('/stakeholder-files/{stakeholderFile}', [AdminStakeholderFileController::class, 'destroy'])->name('stakeholder-files.destroy');
+        Route::post('/stakeholder-files/{stakeholderFile}/toggle', [AdminStakeholderFileController::class, 'toggle'])->name('stakeholder-files.toggle');
 
         /*
         |----------------------------------------------------------------
@@ -186,6 +207,30 @@ Route::middleware(['auth', 'user.role:admin,super_admin'])
         Route::put('approved/members/{member}/update', [AdminMemberController::class, 'updateProfile'])
             ->name('member.update-profile');
 
+        Route::post('approved/members/{member}/submit-profile', [AdminMemberController::class, 'submitProfile'])
+            ->name('member.submit-profile');
+
+        Route::get('/gallery', [AdminGalleryPhotoController::class, 'index'])->name('gallery.index');
+        Route::get('/gallery/create', [AdminGalleryPhotoController::class, 'create'])->name('gallery.create');
+        Route::post('/gallery', [AdminGalleryPhotoController::class, 'store'])->name('gallery.store');
+        Route::put('/gallery/{galleryPhoto}', [AdminGalleryPhotoController::class, 'update'])->name('gallery.update');
+
+        Route::delete('/gallery/{galleryPhoto}', [AdminGalleryPhotoController::class, 'destroy'])->name('gallery.destroy');
+        Route::post('/gallery/{galleryPhoto}/toggle', [AdminGalleryPhotoController::class, 'toggle'])->name('gallery.toggle');
+
+        /*
+|----------------------------------------------------------------
+| HOME VIDEOS
+|----------------------------------------------------------------
+*/
+
+        Route::get('/home-videos', [HomeVideoController::class, 'index'])->name('home-videos.index');
+        Route::get('/home-videos/create', [HomeVideoController::class, 'create'])->name('home-videos.create');
+        Route::post('/home-videos', [HomeVideoController::class, 'store'])->name('home-videos.store');
+        Route::put('/home-videos/{homeVideo}', [HomeVideoController::class, 'update'])->name('home-videos.update');
+        Route::delete('/home-videos/{homeVideo}', [HomeVideoController::class, 'destroy'])->name('home-videos.destroy');
+        Route::post('/home-videos/{homeVideo}/toggle', [HomeVideoController::class, 'toggle'])->name('home-videos.toggle');
+
 
         /*
         |----------------------------------------------------------------
@@ -209,6 +254,17 @@ Route::middleware(['auth', 'user.role:admin,super_admin'])
         Route::post('taskforce/{appointment}/approve', [TaskForceController::class, 'approve'])->name('taskforce.approve');
         Route::post('taskforce/{appointment}/reject', [TaskForceController::class, 'reject'])->name('taskforce.reject');
         Route::delete('taskforce/{appointment}', [TaskForceController::class, 'destroy'])->name('taskforce.destroy');
+
+
+        /*
+        |----------------------------------------------------------------
+        | STATE EXECUTIVE POSITIONS — CATALOG
+        |----------------------------------------------------------------
+        */
+        Route::get('/taskforce/state-positions', [TaskForceController::class, 'statePositionsIndex'])->name('taskforce.state-positions.index');
+        Route::post('/taskforce/state-positions', [TaskForceController::class, 'statePositionsStore'])->name('taskforce.state-positions.store');
+        Route::put('/taskforce/state-positions/{position}', [TaskForceController::class, 'statePositionsUpdate'])->name('taskforce.state-positions.update');
+        Route::delete('/taskforce/state-positions/{position}', [TaskForceController::class, 'statePositionsDestroy'])->name('taskforce.state-positions.destroy');
     });
 
 
@@ -297,7 +353,7 @@ Route::middleware(['auth', 'user.role:member'])
         |----------------------------------------------------------------
         */
         Route::get('/membership-card', [MembershipCardController::class, 'index'])->name('membership.card');
-        Route::get('/membership-card/user/{id}', [MembershipCardController::class, 'index'])->name('membership.card');
+        Route::get('/membership-card/user/{id}', [MembershipCardController::class, 'index'])->name('membership.card.user');
 
         /*
         |----------------------------------------------------------------
@@ -384,6 +440,27 @@ Route::middleware(['auth', 'user.role:member'])
         //     ->name('membership.renewal.initialize');
         // Route::get('/membership/renewal/callback', [PaymentController::class, 'membershipRenewalCallback'])
         //     ->name('membership.renewal.callback');
+
+
+        /*
+|----------------------------------------------------------------
+| MEMBER PENALTIES
+|----------------------------------------------------------------
+*/
+        Route::prefix('member/penalties')->name('member.penalties.')->group(function () {
+
+            Route::get('/', [MemberPenaltyController::class, 'index'])
+                ->name('index');
+
+            Route::post('/pay', [MemberPenaltyController::class, 'pay'])
+                ->name('pay');
+
+            Route::get('/callback', [MemberPenaltyController::class, 'callback'])
+                ->name('callback');
+
+            Route::get('/{memberPenalty}/receipt', [MemberPenaltyController::class, 'receipt'])
+                ->name('receipt');
+        });
     });
 
 

@@ -77,9 +77,6 @@
         border: none;
         font-size: 13px;
         padding: 14px 18px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
     }
 
     /* Cards */
@@ -308,20 +305,43 @@
         </span>
     </div>
 
-    {{-- ERRORS --}}
-    @if ($errors->any())
+    {{-- ============================================================
+         ERROR MESSAGES
+         ------------------------------------------------------------
+         Shows:
+         • A general session flash error (session('error'))
+         • The validation errors for the CURRENT request only
+         (flashed by the controller via ->withErrors())
+         ============================================================ --}}
+
+    @if (session('error'))
         <div class="alert alert-danger">
-            <div>
-                <strong><i class="fas fa-exclamation-triangle me-1"></i> Please fix the following:</strong>
-                <ul class="mb-0 mt-2">
-                    @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
+            <strong>
+                <i class="fas fa-exclamation-circle me-1"></i>
+                {{ session('error') }}
+            </strong>
         </div>
     @endif
 
+    @if ($errors->any())
+        <div class="alert alert-danger">
+            <strong>
+                <i class="fas fa-exclamation-triangle me-1"></i>
+                Please fix the following:
+            </strong>
+            <ul class="mb-0 mt-2">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+
+    {{-- ================================================================
+         OUTER FORM — PROFILE UPDATE
+         (This form does NOT contain the Submit Application form.)
+    ================================================================= --}}
     <form method="POST"
           action="{{ route('admin.member.update-profile', $member->id) }}"
           enctype="multipart/form-data">
@@ -541,66 +561,140 @@
                 </div>
 
 
-                {{-- DOCUMENTS --}}
+                {{-- ================================================================
+                     DOCUMENTS
+                     ----------------------------------------------------------------
+                     Shown for every category.
+
+                     • Exporters            → all three uploads are REQUIRED.
+                     • All other categories → all three uploads are OPTIONAL.
+
+                     The category check is centralized in
+                     MembershipCategory::requiresExporterDocuments().
+                ================================================================= --}}
+                @php
+                    $documentsRequired = $profile->membershipCategory?->requiresExporterDocuments() ?? false;
+                @endphp
+
                 <div class="card">
-                    <div class="card-header">
-                        <i class="fas fa-file-upload"></i> Uploaded Documents
+                    <div class="card-header d-flex align-items-center justify-content-between">
+                        <span>
+                            <i class="fas fa-file-upload"></i> Uploaded Documents
+                        </span>
+
+                        @if ($documentsRequired)
+                            <span class="badge bg-danger">Required for Exporters</span>
+                        @else
+                            <span class="badge bg-secondary">Optional</span>
+                        @endif
                     </div>
+
                     <div class="card-body">
+
+                        @if ($documentsRequired)
+                            <div class="alert alert-info mb-3" style="font-size:13px;">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Exporters must upload all three documents before the
+                                application can be submitted.
+                            </div>
+                        @else
+                            <div class="alert alert-light border mb-3" style="font-size:13px;">
+                                <i class="fas fa-info-circle me-1 text-muted"></i>
+                                These documents are <strong>optional</strong> for this
+                                membership category. Upload them only if the member has
+                                them available.
+                            </div>
+                        @endif
 
                         <div class="row g-4">
 
                             {{-- CAC CERTIFICATE --}}
                             <div class="col-md-6">
                                 <div class="doc-card">
-                                    <label><i class="fas fa-file-contract me-1"></i> CAC Certificate</label>
+                                    <label>
+                                        <i class="fas fa-file-contract me-1"></i>
+                                        CAC Certificate
+
+                                        @if ($documentsRequired && !$profile->cac_certificate)
+                                            <span class="text-danger">*</span>
+                                        @endif
+                                    </label>
+
                                     <input type="file" name="cac_certificate" class="form-control"
-                                           accept=".pdf,.jpg,.jpeg,.png">
-                                    @if ($profile->cac_certificate)
-                                        <div class="doc-current">
+                                           accept=".pdf,.jpg,.jpeg,.png"
+                                           {{ $documentsRequired && !$profile->cac_certificate ? 'required' : '' }}>
+
+                                    <div class="doc-current">
+                                        @if ($profile->cac_certificate)
                                             Current:
                                             <a href="{{ asset('document/' . $profile->cac_certificate) }}"
                                                target="_blank">View file</a>
-                                        </div>
-                                    @else
-                                        <div class="doc-current">No file uploaded.</div>
-                                    @endif
+                                        @elseif ($documentsRequired)
+                                            <span class="text-danger">Required — no file uploaded.</span>
+                                        @else
+                                            <span class="text-muted">Optional — no file uploaded.</span>
+                                        @endif
+                                    </div>
                                 </div>
                             </div>
 
-                            {{-- CAC PARTICULARS --}}
+                            {{-- CAC PARTICULARS OF DIRECTORS --}}
                             <div class="col-md-6">
                                 <div class="doc-card">
-                                    <label><i class="fas fa-users me-1"></i> CAC Particulars of Directors</label>
+                                    <label>
+                                        <i class="fas fa-users me-1"></i>
+                                        CAC Particulars of Directors
+
+                                        @if ($documentsRequired && !$profile->cac_particulars_of_directors)
+                                            <span class="text-danger">*</span>
+                                        @endif
+                                    </label>
+
                                     <input type="file" name="cac_particulars_of_directors" class="form-control"
-                                           accept=".pdf,.jpg,.jpeg,.png">
-                                    @if ($profile->cac_particulars_of_directors)
-                                        <div class="doc-current">
+                                           accept=".pdf,.jpg,.jpeg,.png"
+                                           {{ $documentsRequired && !$profile->cac_particulars_of_directors ? 'required' : '' }}>
+
+                                    <div class="doc-current">
+                                        @if ($profile->cac_particulars_of_directors)
                                             Current:
                                             <a href="{{ asset('document/' . $profile->cac_particulars_of_directors) }}"
                                                target="_blank">View file</a>
-                                        </div>
-                                    @else
-                                        <div class="doc-current">No file uploaded.</div>
-                                    @endif
+                                        @elseif ($documentsRequired)
+                                            <span class="text-danger">Required — no file uploaded.</span>
+                                        @else
+                                            <span class="text-muted">Optional — no file uploaded.</span>
+                                        @endif
+                                    </div>
                                 </div>
                             </div>
 
                             {{-- NEPC EXPORT LICENSE --}}
                             <div class="col-md-6">
                                 <div class="doc-card">
-                                    <label><i class="fas fa-ship me-1"></i> NEPC Export License</label>
+                                    <label>
+                                        <i class="fas fa-ship me-1"></i>
+                                        NEPC Export License
+
+                                        @if ($documentsRequired && !$profile->nepc_export_license)
+                                            <span class="text-danger">*</span>
+                                        @endif
+                                    </label>
+
                                     <input type="file" name="nepc_export_license" class="form-control"
-                                           accept=".pdf,.jpg,.jpeg,.png">
-                                    @if ($profile->nepc_export_license)
-                                        <div class="doc-current">
+                                           accept=".pdf,.jpg,.jpeg,.png"
+                                           {{ $documentsRequired && !$profile->nepc_export_license ? 'required' : '' }}>
+
+                                    <div class="doc-current">
+                                        @if ($profile->nepc_export_license)
                                             Current:
                                             <a href="{{ asset('document/' . $profile->nepc_export_license) }}"
                                                target="_blank">View file</a>
-                                        </div>
-                                    @else
-                                        <div class="doc-current">No file uploaded.</div>
-                                    @endif
+                                        @elseif ($documentsRequired)
+                                            <span class="text-danger">Required — no file uploaded.</span>
+                                        @else
+                                            <span class="text-muted">Optional — no file uploaded.</span>
+                                        @endif
+                                    </div>
                                 </div>
                             </div>
 
@@ -670,6 +764,42 @@
         </div>
 
     </form>
+    {{-- ================================================================
+         END OUTER FORM
+    ================================================================= --}}
+
+
+    {{-- ================================================================
+         SUBMIT APPLICATION — SEPARATE FORM (NOT NESTED)
+    ================================================================= --}}
+    @if ($profile->status === 'draft')
+        <div class="card" style="margin-top: 22px;">
+            <div class="card-header">
+                <i class="fas fa-paper-plane"></i> Submit Application
+            </div>
+            <div class="card-body">
+
+                <div class="alert alert-info mb-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Save all sections first, then click <strong>Submit Application</strong>
+                    to send the profile for review on behalf of the member.
+                </div>
+
+                <form method="POST"
+                      action="{{ route('admin.member.submit-profile', $member->id) }}">
+                    @csrf
+
+                    <button type="submit"
+                            class="btn btn-primary w-100"
+                            onclick="return confirm('Submit this application on behalf of the member?');">
+                        <i class="fas fa-paper-plane"></i>
+                        Submit Application
+                    </button>
+                </form>
+
+            </div>
+        </div>
+    @endif
 
 </div>
 

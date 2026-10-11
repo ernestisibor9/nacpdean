@@ -65,7 +65,7 @@ class PaymentController extends Controller
         $effectiveUser    = Auth::user();
 
         if (
-            Auth::user()->role === 'admin' &&
+            in_array(Auth::user()->role, ['admin', 'super_admin'], true) &&
             session()->has('admin_paying_for_member_id')
         ) {
             $memberId = (int) session('admin_paying_for_member_id');
@@ -331,7 +331,7 @@ class PaymentController extends Controller
         $effectiveUser = Auth::user();
 
         if (
-            Auth::user()->role === 'admin' &&
+            in_array(Auth::user()->role, ['admin', 'super_admin'], true)  &&
             session()->has('admin_paying_for_member_id')
         ) {
             $memberId = (int) session('admin_paying_for_member_id');
@@ -1911,7 +1911,7 @@ class PaymentController extends Controller
 
             $isAdminOnBehalf =
                 Auth::check() &&
-                Auth::user()->role === 'admin' &&
+                in_array(Auth::user()->role, ['admin', 'super_admin'], true) &&
                 session()->has('admin_paying_for_member_id') &&
                 (int) session('admin_paying_for_member_id') === (int) $debit->user_id;
 
@@ -3056,20 +3056,25 @@ class PaymentController extends Controller
         $balance = $this->getBalance($user->id);
 
         /*
-    |--------------------------------------------------------------------------
-    | PROFILE STATUS
-    |--------------------------------------------------------------------------
-    |
-    | Determines which call-to-action the success page should show.
-    |
-    | No profile record  → "Complete Application Form"
-    | Has profile record → "View Your Documents"
-    |
-    */
+|--------------------------------------------------------------------------
+| MEMBERSHIP APPROVAL STATUS
+|--------------------------------------------------------------------------
+|
+| The success page shows one of two calls-to-action:
+|
+|   Approved  → "View Your Documents"
+|   Otherwise → "Complete Application Form"
+|
+| We look at the member's profile status, not just existence.
+|
+*/
 
-        $hasProfile = MemberProfile::query()
+        $profile = MemberProfile::query()
             ->where('user_id', $user->id)
-            ->exists();
+            ->first();
+
+        $isApproved = $profile
+            && $profile->status === 'approved';
 
         return view(
             'member.payment.success',
@@ -3077,7 +3082,7 @@ class PaymentController extends Controller
                 'credit',
                 'debit',
                 'balance',
-                'hasProfile'
+                'isApproved'
             )
         );
     }
@@ -4860,39 +4865,39 @@ class PaymentController extends Controller
 */
     public function membershipRenewal(Request $request)
     {
-       // $user = Auth::user();
+        // $user = Auth::user();
 
-           /*
+        /*
     |--------------------------------------------------------------------------
     | ADMIN RENEWING ON BEHALF OF A MEMBER
     |--------------------------------------------------------------------------
     */
 
-    $payingOnBehalfOf = null;
-    $effectiveUser    = Auth::user();
+        $payingOnBehalfOf = null;
+        $effectiveUser    = Auth::user();
 
-    if (
-        Auth::user()->role === 'admin' &&
-        session()->has('admin_paying_for_member_id')
-    ) {
-        $memberId = (int) session('admin_paying_for_member_id');
+        if (
+            in_array(Auth::user()->role, ['admin', 'super_admin'], true)  &&
+            session()->has('admin_paying_for_member_id')
+        ) {
+            $memberId = (int) session('admin_paying_for_member_id');
 
-        $member = \App\Models\User::where('id', $memberId)
-            ->where('role', 'member')
-            ->first();
+            $member = \App\Models\User::where('id', $memberId)
+                ->where('role', 'member')
+                ->first();
 
-        if ($member) {
-            $effectiveUser    = $member;
-            $payingOnBehalfOf = $member;
-        } else {
-            session()->forget([
-                'admin_paying_for_member_id',
-                'admin_paying_return_url',
-            ]);
+            if ($member) {
+                $effectiveUser    = $member;
+                $payingOnBehalfOf = $member;
+            } else {
+                session()->forget([
+                    'admin_paying_for_member_id',
+                    'admin_paying_return_url',
+                ]);
+            }
         }
-    }
 
-    $user = $effectiveUser;
+        $user = $effectiveUser;
 
         $membership = Membership::with(['membershipCategory', 'profile'])
             ->where('user_id', $user->id)
@@ -4986,32 +4991,32 @@ class PaymentController extends Controller
 
     public function initializeMembershipRenewal(Request $request)
     {
-       // $user = Auth::user();
+        // $user = Auth::user();
 
-           /*
+        /*
     |--------------------------------------------------------------------------
     | ADMIN RENEWING ON BEHALF OF A MEMBER
     |--------------------------------------------------------------------------
     */
 
-    $effectiveUser = Auth::user();
+        $effectiveUser = Auth::user();
 
-    if (
-        Auth::user()->role === 'admin' &&
-        session()->has('admin_paying_for_member_id')
-    ) {
-        $memberId = (int) session('admin_paying_for_member_id');
+        if (
+            in_array(Auth::user()->role, ['admin', 'super_admin'], true)  &&
+            session()->has('admin_paying_for_member_id')
+        ) {
+            $memberId = (int) session('admin_paying_for_member_id');
 
-        $member = \App\Models\User::where('id', $memberId)
-            ->where('role', 'member')
-            ->first();
+            $member = \App\Models\User::where('id', $memberId)
+                ->where('role', 'member')
+                ->first();
 
-        if ($member) {
-            $effectiveUser = $member;
+            if ($member) {
+                $effectiveUser = $member;
+            }
         }
-    }
 
-    $user = $effectiveUser;
+        $user = $effectiveUser;
 
         $membership = Membership::with('membershipCategory')
             ->where('user_id', $user->id)
@@ -5254,41 +5259,41 @@ class PaymentController extends Controller
 | Expiry is END OF CURRENT YEAR.
 |
 */
-public function membershipRenewalCallback(
-    Request $request,
-    DocumentGenerationService $documentGenerationService
-) {
-    /*
+    public function membershipRenewalCallback(
+        Request $request,
+        DocumentGenerationService $documentGenerationService
+    ) {
+        /*
     |--------------------------------------------------------------------------
     | RESOLVE PAYMENT BY REFERENCE
     |--------------------------------------------------------------------------
     */
 
-    $reference = $request->query('reference')
-        ?? $request->input('reference');
+        $reference = $request->query('reference')
+            ?? $request->input('reference');
 
-    if (!$reference) {
-        return redirect()
-            ->route('member.member_dashboard')
-            ->with('error', 'Payment reference was not provided.');
-    }
+        if (!$reference) {
+            return redirect()
+                ->route('member.member_dashboard')
+                ->with('error', 'Payment reference was not provided.');
+        }
 
-    $payment = Payment::query()
-        ->where(function ($query) use ($reference) {
-            $query->where('reference', $reference)
-                ->orWhere('payment_reference', $reference)
-                ->orWhere('paystack_reference', $reference);
-        })
-        ->where('payment_type', 'membership_renewal')
-        ->first();
+        $payment = Payment::query()
+            ->where(function ($query) use ($reference) {
+                $query->where('reference', $reference)
+                    ->orWhere('payment_reference', $reference)
+                    ->orWhere('paystack_reference', $reference);
+            })
+            ->where('payment_type', 'membership_renewal')
+            ->first();
 
-    if (!$payment) {
-        return redirect()
-            ->route('member.member_dashboard')
-            ->with('error', 'Renewal payment could not be found.');
-    }
+        if (!$payment) {
+            return redirect()
+                ->route('member.member_dashboard')
+                ->with('error', 'Renewal payment could not be found.');
+        }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | ADMIN ON-BEHALF DETECTION
     |--------------------------------------------------------------------------
@@ -5303,192 +5308,191 @@ public function membershipRenewalCallback(
     |
     */
 
-    $isAdminOnBehalf =
-        Auth::check()
-        && Auth::user()->role === 'admin'
-        && session()->has('admin_paying_for_member_id')
-        && (int) session('admin_paying_for_member_id') === (int) $payment->user_id;
+        $isAdminOnBehalf =
+            Auth::check()
+            && in_array(Auth::user()->role, ['admin', 'super_admin'], true)
+            && session()->has('admin_paying_for_member_id')
+            && (int) session('admin_paying_for_member_id') === (int) $payment->user_id;
 
-    if ($isAdminOnBehalf) {
+        if ($isAdminOnBehalf) {
 
-        /*
+            /*
         |------------------------------------------------------------------
         | ADMIN RENEWING ON BEHALF OF A MEMBER
         |------------------------------------------------------------------
         */
 
-        $user = User::find($payment->user_id);
+            $user = User::find($payment->user_id);
 
-        if (!$user) {
-            return redirect()
-                ->route('admin.member.index')
-                ->with('error', 'The member this renewal belongs to could not be found.');
-        }
+            if (!$user) {
+                return redirect()
+                    ->route('admin.member.index')
+                    ->with('error', 'The member this renewal belongs to could not be found.');
+            }
+        } else {
 
-    } else {
-
-        /*
+            /*
         |------------------------------------------------------------------
         | MEMBER RENEWING THEIR OWN MEMBERSHIP
         |------------------------------------------------------------------
         */
 
-        $user = Auth::user();
+            $user = Auth::user();
 
-        if (!$user) {
-            return redirect()->route('login');
+            if (!$user) {
+                return redirect()->route('login');
+            }
+
+            if ((int) $payment->user_id !== (int) $user->id) {
+                abort(403);
+            }
         }
 
-        if ((int) $payment->user_id !== (int) $user->id) {
-            abort(403);
-        }
-    }
-
-    /*
+        /*
     |--------------------------------------------------------------------------
     | FIND MEMBERSHIP
     |--------------------------------------------------------------------------
     */
 
-    $membership = Membership::query()
-        ->where('user_id', $user->id)
-        ->where('membership_category_id', $payment->membership_category_id)
-        ->latest('id')
-        ->first();
+        $membership = Membership::query()
+            ->where('user_id', $user->id)
+            ->where('membership_category_id', $payment->membership_category_id)
+            ->latest('id')
+            ->first();
 
-    if (!$membership) {
-        return redirect()
-            ->route('member.member_dashboard')
-            ->with('error', 'Membership record not found.');
-    }
+        if (!$membership) {
+            return redirect()
+                ->route('member.member_dashboard')
+                ->with('error', 'Membership record not found.');
+        }
 
-    $membership->load('membershipCategory');
+        $membership->load('membershipCategory');
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | RENEWAL FEE (existing preferred, standard fallback)
     |--------------------------------------------------------------------------
     */
 
-    $membershipCategoryFee = MembershipCategoryFee::query()
-        ->where('membership_category_id', $membership->membership_category_id)
-        ->where('status', true)
-        ->whereIn('fee_type', ['existing', 'standard'])
-        ->orderByRaw("
+        $membershipCategoryFee = MembershipCategoryFee::query()
+            ->where('membership_category_id', $membership->membership_category_id)
+            ->where('status', true)
+            ->whereIn('fee_type', ['existing', 'standard'])
+            ->orderByRaw("
             CASE
                 WHEN fee_type = 'existing' THEN 1
                 WHEN fee_type = 'standard' THEN 2
                 ELSE 3
             END
         ")
-        ->first();
+            ->first();
 
-    if (!$membershipCategoryFee) {
-        return redirect()
-            ->route('member.member_dashboard')
-            ->with('error', 'The renewal fee could not be found.');
-    }
+        if (!$membershipCategoryFee) {
+            return redirect()
+                ->route('member.member_dashboard')
+                ->with('error', 'The renewal fee could not be found.');
+        }
 
-    $expectedAmount = (int) round(
-        (float) $membershipCategoryFee->amount * 100
-    );
+        $expectedAmount = (int) round(
+            (float) $membershipCategoryFee->amount * 100
+        );
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | VERIFY WITH PAYSTACK
     |--------------------------------------------------------------------------
     */
 
-    $response = Http::withToken(config('services.paystack.secret_key'))
-        ->acceptJson()
-        ->get(
-            config('services.paystack.url')
-                . '/transaction/verify/'
-                . urlencode($reference)
-        );
+        $response = Http::withToken(config('services.paystack.secret_key'))
+            ->acceptJson()
+            ->get(
+                config('services.paystack.url')
+                    . '/transaction/verify/'
+                    . urlencode($reference)
+            );
 
-    if (!$response->successful()) {
-        return redirect()
-            ->route('member.member_dashboard')
-            ->with('error', 'Unable to verify the payment with Paystack.');
-    }
+        if (!$response->successful()) {
+            return redirect()
+                ->route('member.member_dashboard')
+                ->with('error', 'Unable to verify the payment with Paystack.');
+        }
 
-    $paystackData = $response->json('data');
+        $paystackData = $response->json('data');
 
-    if (
-        !$response->json('status') ||
-        ($paystackData['status'] ?? null) !== 'success'
-    ) {
-        return redirect()
-            ->route('member.member_dashboard')
-            ->with('error', 'Payment was not successful.');
-    }
+        if (
+            !$response->json('status') ||
+            ($paystackData['status'] ?? null) !== 'success'
+        ) {
+            return redirect()
+                ->route('member.member_dashboard')
+                ->with('error', 'Payment was not successful.');
+        }
 
-    if ((int) ($paystackData['amount'] ?? 0) !== $expectedAmount) {
-        return redirect()
-            ->route('member.member_dashboard')
-            ->with('error', 'Payment amount does not match.');
-    }
+        if ((int) ($paystackData['amount'] ?? 0) !== $expectedAmount) {
+            return redirect()
+                ->route('member.member_dashboard')
+                ->with('error', 'Payment amount does not match.');
+        }
 
-    if (strtoupper($paystackData['currency'] ?? '') !== 'NGN') {
-        return redirect()
-            ->route('member.member_dashboard')
-            ->with('error', 'Payment currency mismatch.');
-    }
+        if (strtoupper($paystackData['currency'] ?? '') !== 'NGN') {
+            return redirect()
+                ->route('member.member_dashboard')
+                ->with('error', 'Payment currency mismatch.');
+        }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | FIND DEBIT
     |--------------------------------------------------------------------------
     */
 
-    $debit = Transaction::query()
-        ->where('user_id', $user->id)
-        ->whereNull('payment_item_id')
-        ->where('type', 'debit')
-        ->where('amount', $membershipCategoryFee->amount)
-        ->where(function ($query) use ($reference) {
-            $query->whereJsonContains('gateway->paystack', $reference)
-                ->orWhereNull('gateway');
-        })
-        ->latest('id')
-        ->first();
-
-    if (!$debit) {
         $debit = Transaction::query()
             ->where('user_id', $user->id)
             ->whereNull('payment_item_id')
             ->where('type', 'debit')
-            ->where('status', 'not paid')
             ->where('amount', $membershipCategoryFee->amount)
-            ->where(
-                'narration',
-                'Membership Renewal - ' . $membership->membershipCategory->name
-            )
+            ->where(function ($query) use ($reference) {
+                $query->whereJsonContains('gateway->paystack', $reference)
+                    ->orWhereNull('gateway');
+            })
             ->latest('id')
             ->first();
-    }
 
-    if (!$debit) {
-        return redirect()
-            ->route('member.member_dashboard')
-            ->with('error', 'The renewal debit could not be found.');
-    }
+        if (!$debit) {
+            $debit = Transaction::query()
+                ->where('user_id', $user->id)
+                ->whereNull('payment_item_id')
+                ->where('type', 'debit')
+                ->where('status', 'not paid')
+                ->where('amount', $membershipCategoryFee->amount)
+                ->where(
+                    'narration',
+                    'Membership Renewal - ' . $membership->membershipCategory->name
+                )
+                ->latest('id')
+                ->first();
+        }
 
-    /*
+        if (!$debit) {
+            return redirect()
+                ->route('member.member_dashboard')
+                ->with('error', 'The renewal debit could not be found.');
+        }
+
+        /*
     |--------------------------------------------------------------------------
     | USER SECURITY — allow admin on behalf
     |--------------------------------------------------------------------------
     */
 
-    if (
-        !$isAdminOnBehalf &&
-        (int) $debit->user_id !== (int) $user->id
-    ) {
-        abort(403);
-    }
+        if (
+            !$isAdminOnBehalf &&
+            (int) $debit->user_id !== (int) $user->id
+        ) {
+            abort(403);
+        }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | COMPLETE RENEWAL
     |--------------------------------------------------------------------------
@@ -5498,185 +5502,184 @@ public function membershipRenewalCallback(
     |
     */
 
-    try {
+        try {
 
-        $result = DB::transaction(function () use (
-            $user,
-            $payment,
-            $membership,
-            $membershipCategoryFee,
-            $debit,
-            $paystackData,
-            $reference,
-            $documentGenerationService
-        ) {
+            $result = DB::transaction(function () use (
+                $user,
+                $payment,
+                $membership,
+                $membershipCategoryFee,
+                $debit,
+                $paystackData,
+                $reference,
+                $documentGenerationService
+            ) {
 
-            $lockedPayment = Payment::where('id', $payment->id)
-                ->lockForUpdate()
-                ->firstOrFail();
+                $lockedPayment = Payment::where('id', $payment->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
-            $lockedDebit = Transaction::where('id', $debit->id)
-                ->lockForUpdate()
-                ->firstOrFail();
+                $lockedDebit = Transaction::where('id', $debit->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
-            $lockedMembership = Membership::where('id', $membership->id)
-                ->lockForUpdate()
-                ->firstOrFail();
+                $lockedMembership = Membership::where('id', $membership->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
-            /*
+                /*
             |------------------------------------------------------------------
             | IDEMPOTENCY
             |------------------------------------------------------------------
             */
 
-            if (
-                $lockedPayment->status === 'paid' &&
-                $lockedDebit->status === 'paid'
-            ) {
-                return [
-                    'membership' => $lockedMembership,
+                if (
+                    $lockedPayment->status === 'paid' &&
+                    $lockedDebit->status === 'paid'
+                ) {
+                    return [
+                        'membership' => $lockedMembership,
 
-                    'credit' => Transaction::where(
-                        'debit_transaction_id',
-                        $lockedDebit->id
-                    )
-                        ->where('type', 'credit')
-                        ->first(),
+                        'credit' => Transaction::where(
+                            'debit_transaction_id',
+                            $lockedDebit->id
+                        )
+                            ->where('type', 'credit')
+                            ->first(),
 
-                    'generated_certificate' => GeneratedDocument::where(
-                        'user_id',
-                        $user->id
-                    )
-                        ->where('transaction_id', $lockedDebit->id)
-                        ->latest('id')
-                        ->first(),
-                ];
-            }
+                        'generated_certificate' => GeneratedDocument::where(
+                            'user_id',
+                            $user->id
+                        )
+                            ->where('transaction_id', $lockedDebit->id)
+                            ->latest('id')
+                            ->first(),
+                    ];
+                }
 
-            $credit = Transaction::where('user_id', $user->id)
-                ->where('type', 'credit')
-                ->where(function ($query) use ($lockedDebit, $reference) {
-                    $query->where('debit_transaction_id', $lockedDebit->id)
-                        ->orWhereJsonContains('gateway->paystack', $reference);
-                })
-                ->lockForUpdate()
-                ->first();
+                $credit = Transaction::where('user_id', $user->id)
+                    ->where('type', 'credit')
+                    ->where(function ($query) use ($lockedDebit, $reference) {
+                        $query->where('debit_transaction_id', $lockedDebit->id)
+                            ->orWhereJsonContains('gateway->paystack', $reference);
+                    })
+                    ->lockForUpdate()
+                    ->first();
 
-            /*
+                /*
             |------------------------------------------------------------------
             | MARK DEBIT PAID
             |------------------------------------------------------------------
             */
 
-            $lockedDebit->update([
-                'status'         => 'paid',
-                'gateway'        => ['paystack' => $reference],
-                'transaction_id' => (string) ($paystackData['id'] ?? $reference),
-            ]);
+                $lockedDebit->update([
+                    'status'         => 'paid',
+                    'gateway'        => ['paystack' => $reference],
+                    'transaction_id' => (string) ($paystackData['id'] ?? $reference),
+                ]);
 
-            /*
+                /*
             |------------------------------------------------------------------
             | CREATE CREDIT
             |------------------------------------------------------------------
             */
 
-            if (!$credit) {
-                $credit = Transaction::create([
-                    'user_id'              => $user->id,
-                    'payment_item_id'      => null,
-                    'narration'            => 'Membership Renewal Payment - '
-                        . $lockedMembership->membership_number,
-                    'type'                 => 'credit',
-                    'status'               => 'paid',
-                    'amount'               => $membershipCategoryFee->amount,
-                    'debit_transaction_id' => $lockedDebit->id,
-                    'transaction_id'       => null,
-                    'gateway'              => ['paystack' => $reference],
-                ]);
-            }
+                if (!$credit) {
+                    $credit = Transaction::create([
+                        'user_id'              => $user->id,
+                        'payment_item_id'      => null,
+                        'narration'            => 'Membership Renewal Payment - '
+                            . $lockedMembership->membership_number,
+                        'type'                 => 'credit',
+                        'status'               => 'paid',
+                        'amount'               => $membershipCategoryFee->amount,
+                        'debit_transaction_id' => $lockedDebit->id,
+                        'transaction_id'       => null,
+                        'gateway'              => ['paystack' => $reference],
+                    ]);
+                }
 
-            /*
+                /*
             |------------------------------------------------------------------
             | MARK PAYMENT PAID
             |------------------------------------------------------------------
             */
 
-            $lockedPayment->update([
-                'status'                 => 'paid',
-                'paid_at'                => now(),
-                'verified_at'            => now(),
-                'gateway_transaction_id' => (string) ($paystackData['id'] ?? ''),
-                'gateway_status'         => $paystackData['status'] ?? 'success',
-                'gateway_response'       => $paystackData,
-            ]);
+                $lockedPayment->update([
+                    'status'                 => 'paid',
+                    'paid_at'                => now(),
+                    'verified_at'            => now(),
+                    'gateway_transaction_id' => (string) ($paystackData['id'] ?? ''),
+                    'gateway_status'         => $paystackData['status'] ?? 'success',
+                    'gateway_response'       => $paystackData,
+                ]);
 
-            /*
+                /*
             |------------------------------------------------------------------
             | RENEW MEMBERSHIP — END OF CURRENT YEAR
             |------------------------------------------------------------------
             */
 
-            $paidAt = $lockedPayment->paid_at
-                ? $lockedPayment->paid_at->copy()
-                : now();
+                $paidAt = $lockedPayment->paid_at
+                    ? $lockedPayment->paid_at->copy()
+                    : now();
 
-            $newExpiry = $paidAt->copy()->endOfYear();
+                $newExpiry = $paidAt->copy()->endOfYear();
 
-            $lockedMembership->update([
-                'status'     => 'active',
-                'issued_at'  => $paidAt->toDateString(),
-                'expires_at' => $newExpiry->toDateString(),
-            ]);
+                $lockedMembership->update([
+                    'status'     => 'active',
+                    'issued_at'  => $paidAt->toDateString(),
+                    'expires_at' => $newExpiry->toDateString(),
+                ]);
 
-            /*
+                /*
             |------------------------------------------------------------------
             | SYNC MEMBERSHIP CARD EXPIRY
             |------------------------------------------------------------------
             */
 
-            \App\Models\MembershipCard::where(
-                'membership_id',
-                $lockedMembership->id
-            )
-                ->where('status', 'active')
-                ->update([
-                    'issued_at'  => $paidAt->toDateString(),
-                    'expires_at' => $newExpiry->toDateString(),
-                ]);
+                \App\Models\MembershipCard::where(
+                    'membership_id',
+                    $lockedMembership->id
+                )
+                    ->where('status', 'active')
+                    ->update([
+                        'issued_at'  => $paidAt->toDateString(),
+                        'expires_at' => $newExpiry->toDateString(),
+                    ]);
 
-            /*
+                /*
             |------------------------------------------------------------------
             | GENERATE NEW CERTIFICATE
             |------------------------------------------------------------------
             */
 
-            $generatedCertificate = null;
+                $generatedCertificate = null;
 
-            try {
+                try {
 
-                $generatedCertificate = $documentGenerationService
-                    ->generateMembershipCertificate(
-                        $user,
-                        $lockedMembership->fresh()
-                    );
+                    $generatedCertificate = $documentGenerationService
+                        ->generateMembershipCertificate(
+                            $user,
+                            $lockedMembership->fresh()
+                        );
+                } catch (\Throwable $documentException) {
 
-            } catch (\Throwable $documentException) {
+                    Log::error('MEMBERSHIP CERTIFICATE GENERATION FAILED', [
+                        'user_id'       => $user->id,
+                        'membership_id' => $lockedMembership->id,
+                        'error'         => $documentException->getMessage(),
+                    ]);
+                }
 
-                Log::error('MEMBERSHIP CERTIFICATE GENERATION FAILED', [
-                    'user_id'       => $user->id,
-                    'membership_id' => $lockedMembership->id,
-                    'error'         => $documentException->getMessage(),
-                ]);
-            }
+                return [
+                    'membership'            => $lockedMembership->fresh(),
+                    'credit'                => $credit,
+                    'generated_certificate' => $generatedCertificate,
+                ];
+            });
 
-            return [
-                'membership'            => $lockedMembership->fresh(),
-                'credit'                => $credit,
-                'generated_certificate' => $generatedCertificate,
-            ];
-        });
-
-        /*
+            /*
         |--------------------------------------------------------------------------
         | ADMIN ON-BEHALF RETURN
         |--------------------------------------------------------------------------
@@ -5686,80 +5689,79 @@ public function membershipRenewalCallback(
         |
         */
 
-        if ($isAdminOnBehalf) {
+            if ($isAdminOnBehalf) {
 
-            $adminReturnUrl = session(
-                'admin_paying_return_url',
-                route('admin.member.index')
-            );
-
-            session()->forget([
-                'admin_paying_for_member_id',
-                'admin_paying_return_url',
-            ]);
-
-            return redirect($adminReturnUrl)
-                ->with(
-                    'success',
-                    'Membership renewed successfully on behalf of the member.'
+                $adminReturnUrl = session(
+                    'admin_paying_return_url',
+                    route('admin.member.index')
                 );
-        }
 
-        /*
+                session()->forget([
+                    'admin_paying_for_member_id',
+                    'admin_paying_return_url',
+                ]);
+
+                return redirect($adminReturnUrl)
+                    ->with(
+                        'success',
+                        'Membership renewed successfully on behalf of the member.'
+                    );
+            }
+
+            /*
         |--------------------------------------------------------------------------
         | MEMBER RETURN
         |--------------------------------------------------------------------------
         */
 
-        if (!empty($result['generated_certificate'])) {
+            if (!empty($result['generated_certificate'])) {
+
+                return redirect()
+                    ->route(
+                        'member.documents.show',
+                        $result['generated_certificate']->id
+                    )
+                    ->with(
+                        'success',
+                        'Membership renewed successfully. Your new certificate is ready.'
+                    );
+            }
 
             return redirect()
-                ->route(
-                    'member.documents.show',
-                    $result['generated_certificate']->id
-                )
-                ->with(
-                    'success',
-                    'Membership renewed successfully. Your new certificate is ready.'
-                );
-        }
+                ->route('member.member_dashboard')
+                ->with('success', 'Membership renewed successfully.');
+        } catch (\Throwable $e) {
 
-        return redirect()
-            ->route('member.member_dashboard')
-            ->with('success', 'Membership renewed successfully.');
+            Log::error('MEMBERSHIP RENEWAL FAILED', [
+                'user_id'         => $user->id,
+                'payment_id'      => $payment->id,
+                'membership_id'   => $membership->id,
+                'debit_id'        => $debit->id,
+                'is_admin_on_behalf' => $isAdminOnBehalf,
+                'error'           => $e->getMessage(),
+            ]);
 
-    } catch (\Throwable $e) {
-
-        Log::error('MEMBERSHIP RENEWAL FAILED', [
-            'user_id'         => $user->id,
-            'payment_id'      => $payment->id,
-            'membership_id'   => $membership->id,
-            'debit_id'        => $debit->id,
-            'is_admin_on_behalf' => $isAdminOnBehalf,
-            'error'           => $e->getMessage(),
-        ]);
-
-        /*
+            /*
         |--------------------------------------------------------------------------
         | ADMIN FAILURE RETURN
         |--------------------------------------------------------------------------
         */
 
-        if ($isAdminOnBehalf) {
+            if ($isAdminOnBehalf) {
 
-            session()->forget([
-                'admin_paying_for_member_id',
-                'admin_paying_return_url',
-            ]);
+                session()->forget([
+                    'admin_paying_for_member_id',
+                    'admin_paying_return_url',
+                ]);
+
+                return redirect()
+                    ->route('admin.member.index')
+                    ->with('error', 'Renewal failed: ' . $e->getMessage());
+            }
 
             return redirect()
-                ->route('admin.member.index')
+                ->route('member.member_dashboard')
                 ->with('error', 'Renewal failed: ' . $e->getMessage());
         }
-
-        return redirect()
-            ->route('member.member_dashboard')
-            ->with('error', 'Renewal failed: ' . $e->getMessage());
     }
-}
 }
