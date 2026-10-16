@@ -337,12 +337,20 @@
                 |--------------------------------------------------------------------------
                 */
 
-                $bio =
-                    'This member currently serves as ' .
-                    $position .
-                    ' of the National Association of Charcoal Producers, Dealers, Exporters and Afforestation of Nigeria (NACPDEAN).';
+                /*
+                |--------------------------------------------------------------------------
+                | BIO
+                |--------------------------------------------------------------------------
+                |
+                | Prefer the member's own bio. Only fall back to a generated
+                | sentence when the bio column is null/empty.
+                |
+                */
 
-            @endphp
+                $bio = ($profile && trim((string) $profile->bio) !== '')
+                    ? trim($profile->bio)
+                    : 'This member currently serves as ' . $position .
+                      ' of the National Association of Charcoal Producers, Dealers, Exporters and Afforestation of Nigeria (NACPDEAN).';
 
 
             <div
