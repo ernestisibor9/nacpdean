@@ -104,7 +104,7 @@
 
                             <a class="nav-link" href="{{ route('admin.stakeholder-files.index') }}">
                                 <div class="sb-nav-link-icon"><i class="fas fa-folder-open"></i></div>
-                                Stakeholders Data
+                                Stakeholders Directory
                             </a>
 
                             <a class="nav-link" href="{{ route('admin.gallery.index') }}">
