@@ -313,7 +313,7 @@
             <div id="noResults" class="no-executives mt-4" style="display:none;">
                 <i class="fas fa-search"></i>
                 <h4>No Executive Found</h4>
-                <p>No National Executive matches your search or category filter.</p>
+                <p>No National Executive matches your search.</p>
             </div>
         @endif
 
@@ -356,6 +356,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const grid = document.getElementById('grid');
     if (!grid) return;
 
+    /* ------------------------------------------------------------------
+     | PROFILE MODAL
+     * ---------------------------------------------------------------- */
+
     grid.addEventListener('click', function (event) {
         const button = event.target.closest('.profile-btn');
         if (!button) return;
@@ -368,31 +372,29 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('modalImage').src            = button.dataset.image    || '';
     });
 
-    const searchInput    = document.getElementById('search');
-    const categorySelect = document.getElementById('cat');
-    const noResults      = document.getElementById('noResults');
+    /* ------------------------------------------------------------------
+     | SEARCH — name and membership number
+     * ---------------------------------------------------------------- */
 
-    if (!searchInput || !categorySelect) return;
+    const searchInput = document.getElementById('search');
+    const noResults   = document.getElementById('noResults');
+
+    if (!searchInput) return;
 
     const cards = grid.querySelectorAll('.member');
 
     function filterMembers() {
-        const search   = searchInput.value.toLowerCase().trim();
-        const category = categorySelect.value.toLowerCase().trim();
+        const search = searchInput.value.toLowerCase().trim();
         let visible = 0;
 
         cards.forEach(function (card) {
-            const name         = card.dataset.name || '';
-            const number       = card.dataset.num  || '';
-            const cardCategory = card.dataset.cat  || '';
+            const name   = card.dataset.name || '';
+            const number = card.dataset.num  || '';
 
-            const searchMatch =
+            const match =
                 name.includes(search) || number.includes(search);
 
-            const categoryMatch =
-                !category || category === 'executive' || cardCategory === category;
-
-            if (searchMatch && categoryMatch) {
+            if (match) {
                 card.style.display = '';
                 visible++;
             } else {
@@ -406,7 +408,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     searchInput.addEventListener('input', filterMembers);
-    categorySelect.addEventListener('change', filterMembers);
 });
 </script>
 
