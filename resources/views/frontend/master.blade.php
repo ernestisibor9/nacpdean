@@ -8,7 +8,7 @@
     <meta name="description" content="">
     <meta name="keywords" content="">
     <!-- Favicons -->
-    <link href="{{ asset('frontend/assets/img/favicon.png') }}" rel="icon">
+    <link rel="icon" type="image/jpeg" href="{{ asset('frontend/assets/img/nacpdean-logo.jpeg') }}">
     <link href="{{ asset('frontend/assets/img/apple-touch-icon.png') }}" rel="apple-touch-icon">
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com" rel="preconnect">

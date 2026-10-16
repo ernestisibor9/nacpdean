@@ -6,14 +6,14 @@
 <section class="py-5" style="background:#f6faf7;">
     <div class="container">
 
-        <h1 style="font-weight:800;margin-bottom:10px;">Stakeholders Data</h1>
-        <p class="text-muted mb-5">Official NACPDEAN stakeholder documents and images.</p>
+        <h1 style="font-weight:800;margin-bottom:10px;">Stakeholders Directory</h1>
+        <p class="text-muted mb-5">Official NACPDEAN stakeholder directory.</p>
 
         @if ($files->isEmpty())
 
             <div class="text-center py-5">
                 <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
-                <p class="text-muted">No files have been published yet.</p>
+                <p class="text-muted">No stakeholders have been added yet.</p>
             </div>
 
         @else

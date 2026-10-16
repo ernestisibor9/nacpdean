@@ -730,6 +730,10 @@ textarea.form-control {
     CONTACT INFORMATION
 ========================================================== --}}
 
+{{-- =========================================================
+    CONTACT INFORMATION
+========================================================== --}}
+
 <section class="contact-info">
 
     <div class="container">
@@ -748,7 +752,8 @@ textarea.form-control {
 
         <div class="row g-4">
 
-            <div class="col-lg-4 col-md-6">
+            {{-- ABUJA HEAD OFFICE --}}
+            <div class="col-lg-3 col-md-6">
 
                 <div class="contact-card">
 
@@ -758,7 +763,7 @@ textarea.form-control {
 
                     </div>
 
-                    <h4>Office Address</h4>
+                    <h4>Abuja Head Office</h4>
 
                     <p>
 
@@ -779,7 +784,36 @@ textarea.form-control {
             </div>
 
 
-            <div class="col-lg-4 col-md-6">
+            {{-- LAGOS LIAISON OFFICE --}}
+            <div class="col-lg-3 col-md-6">
+
+                <div class="contact-card">
+
+                    <div class="icon-box">
+
+                        <i class="bi bi-geo-alt"></i>
+
+                    </div>
+
+                    <h4>Lagos Liaison Office</h4>
+
+                    <p>
+
+                        First Floor, NASCO Building,<br>
+
+                        29 Burma Road, Apapa,<br>
+
+                        Lagos State, Nigeria.
+
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            {{-- EMAIL US --}}
+            <div class="col-lg-3 col-md-6">
 
                 <div class="contact-card">
 
@@ -811,7 +845,8 @@ textarea.form-control {
             </div>
 
 
-            <div class="col-lg-4 col-md-6">
+            {{-- CALL US --}}
+            <div class="col-lg-3 col-md-6">
 
                 <div class="contact-card">
 
@@ -1003,7 +1038,7 @@ textarea.form-control {
                 <div class="contact-image">
 
                     <img
-                        src="{{ asset('assets/img/gallery/nacpdeangal20.jpeg') }}"
+                        src="{{ asset('frontend/assets/img/gallery/nacpdeangal20.jpeg') }}"
                         class="img-fluid"
                         alt="Contact NACPDEAN"
                         width="800"
@@ -1419,7 +1454,7 @@ WELCOME MODAL
     </div>
 
 </div>
-```
+
 
 </div>
 
@@ -1434,7 +1469,7 @@ ABOUT MODAL
     aria-labelledby="aboutModalLabel"
     aria-hidden="true">
 
-```
+
 <div class="modal-dialog modal-xl modal-dialog-scrollable">
 
     <div class="modal-content">
@@ -1597,7 +1632,7 @@ ABOUT MODAL
     </div>
 
 </div>
-```
+
 
 </div>
 
@@ -1610,9 +1645,9 @@ SCROLL TOP
  id="scroll-top"
  class="scroll-top d-flex align-items-center justify-content-center">
 
-```
+
 <i class="bi bi-arrow-up-short"></i>
-```
+
 
 </a>
 
