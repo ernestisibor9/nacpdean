@@ -13,9 +13,6 @@ use Illuminate\Validation\Rule;
 
 class TaskForceController extends Controller
 {
-    /**
-     * Only super admins can touch anything in this controller.
-     */
     public function __construct()
     {
         abort_unless(
@@ -25,10 +22,6 @@ class TaskForceController extends Controller
         );
     }
 
-    /* =========================================================
-       LIST — all appointments (filterable)
-    ========================================================= */
-
     public function index(Request $request)
     {
         $query = MembershipOfficerAppointment::with(['membership.user', 'approvedBy'])
@@ -37,30 +30,21 @@ class TaskForceController extends Controller
         if ($request->filled('appointment_type')) {
             $query->where('appointment_type', $request->appointment_type);
         }
-
         if ($request->filled('level')) {
             $query->where('level', $request->level);
         }
-
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
-
         if ($request->filled('state')) {
             $query->where('state', $request->state);
         }
 
         $appointments = $query->paginate(20)->withQueryString();
-
-        // Data for filter dropdowns
         $states = $this->nigerianStates();
 
         return view('admin.taskforce.index', compact('appointments', 'states'));
     }
-
-    /* =========================================================
-       CREATE — form
-    ========================================================= */
 
     public function create(Request $request)
     {
@@ -71,12 +55,6 @@ class TaskForceController extends Controller
             404
         );
 
-        /*
-    |--------------------------------------------------------------------------
-    | ELIGIBLE MEMBERS
-    |--------------------------------------------------------------------------
-    */
-
         $members = Membership::with('user')
             ->whereHas('user', function ($q) {
                 $q->where('role', 'member');
@@ -84,26 +62,18 @@ class TaskForceController extends Controller
             ->orderByDesc('id')
             ->get();
 
-        /*
-    |--------------------------------------------------------------------------
-    | POSITION CATALOGS
-    |--------------------------------------------------------------------------
-    */
-
         $positions = collect();
         $taskForcePositions = collect();
         $states = $this->nigerianStates();
 
         if ($type === 'national_executive') {
-
             $positions = NationalExecutivePosition::orderBy('position')->get();
         } elseif ($type === 'state_executive') {
-
+            // We will load positions based on the selected state via JS
             $positions = StateExecutivePosition::orderBy('state')
                 ->orderBy('position')
                 ->get();
         } elseif ($type === 'task_force') {
-
             $taskForcePositions = $this->taskForcePositionTitles();
         }
 
@@ -115,10 +85,6 @@ class TaskForceController extends Controller
             'states'
         ));
     }
-
-    /* =========================================================
-       STORE — save a new appointment (auto-approved since super admin)
-    ========================================================= */
 
     public function store(Request $request)
     {
@@ -132,58 +98,34 @@ class TaskForceController extends Controller
             'state'         => ['nullable', 'string', 'max:100'],
         ]);
 
-        /*
-    |--------------------------------------------------------------------------
-    | TYPE-SPECIFIC VALIDATION
-    |--------------------------------------------------------------------------
-    */
-
         $positionName = null;
 
         if ($data['type'] === 'national_executive') {
-
             $request->validate([
                 'executive_id' => ['required', 'exists:national_executive_positions,code'],
             ]);
-
-            $positionName = NationalExecutivePosition::where('code', $data['executive_id'])
-                ->value('position') ?? '—';
+            $positionName = NationalExecutivePosition::where('code', $data['executive_id'])->value('position') ?? '—';
         } elseif ($data['type'] === 'state_executive') {
-
             $request->validate([
                 'executive_id' => ['required', 'exists:state_executive_positions,code'],
             ]);
-
             $statePosition = StateExecutivePosition::where('code', $data['executive_id'])->first();
-
             $positionName = $statePosition?->position ?? '—';
-
-            // Keep the state on the appointment row for filtering
             $data['state'] = $statePosition?->state;
         } elseif ($data['type'] === 'task_force') {
-
             $request->validate([
                 'level' => ['required', 'in:national,state'],
             ]);
-
             if ($data['level'] === 'state') {
                 $request->validate([
                     'state' => ['required', 'string', 'max:100'],
                 ]);
             }
-
             $request->validate([
                 'position' => ['required', 'string', 'max:255'],
             ]);
-
             $positionName = $data['position'];
         }
-
-        /*
-    |--------------------------------------------------------------------------
-    | DUPLICATE CHECK
-    |--------------------------------------------------------------------------
-    */
 
         $duplicate = MembershipOfficerAppointment::where('membership_id', $data['membership_id'])
             ->where('appointment_type', $data['type'])
@@ -197,56 +139,29 @@ class TaskForceController extends Controller
             ]);
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | CREATE
-    |--------------------------------------------------------------------------
-    */
-
         MembershipOfficerAppointment::create([
             'membership_id'    => $data['membership_id'],
             'appointment_type' => $data['type'],
-            'executive_id'     => in_array($data['type'], ['national_executive', 'state_executive'], true)
-                ? $data['executive_id']
-                : null,
-            'taskforce_id'     => $data['type'] === 'task_force'
-                ? ($data['taskforce_id'] ?? $this->generateTaskForceId())
-                : null,
+            'executive_id'     => in_array($data['type'], ['national_executive', 'state_executive'], true) ? $data['executive_id'] : null,
+            'taskforce_id'     => $data['type'] === 'task_force' ? ($data['taskforce_id'] ?? $this->generateTaskForceId()) : null,
             'position'         => $positionName,
             'level'            => $data['type'] === 'task_force' ? $data['level'] : null,
-            'state'            => ($data['type'] === 'state_executive')
-                ? $data['state']
-                : (($data['type'] === 'task_force' && $data['level'] === 'state') ? $data['state'] : null),
+            'state'            => ($data['type'] === 'state_executive') ? $data['state'] : (($data['type'] === 'task_force' && $data['level'] === 'state') ? $data['state'] : null),
             'status'           => 'approved',
             'appointed_at'     => now(),
             'approved_at'      => now(),
             'approved_by'      => Auth::id(),
         ]);
 
-        /*
-    |--------------------------------------------------------------------------
-    | MARK POSITION AS OCCUPIED
-    |--------------------------------------------------------------------------
-    */
-
         if ($data['type'] === 'national_executive') {
-            NationalExecutivePosition::where('code', $data['executive_id'])
-                ->update(['status' => 'occupied']);
+            NationalExecutivePosition::where('code', $data['executive_id'])->update(['status' => 'occupied']);
         }
-
         if ($data['type'] === 'state_executive') {
-            StateExecutivePosition::where('code', $data['executive_id'])
-                ->update(['status' => 'occupied']);
+            StateExecutivePosition::where('code', $data['executive_id'])->update(['status' => 'occupied']);
         }
 
-        return redirect()
-            ->route('admin.taskforce.index')
-            ->with('success', 'Appointment created successfully.');
+        return redirect()->route('admin.taskforce.index')->with('success', 'Appointment created successfully.');
     }
-
-    /* =========================================================
-       APPROVE / REJECT — for later workflows
-    ========================================================= */
 
     public function approve(MembershipOfficerAppointment $appointment)
     {
@@ -255,7 +170,6 @@ class TaskForceController extends Controller
             'approved_at'  => now(),
             'approved_by'  => Auth::id(),
         ]);
-
         return back()->with('success', 'Appointment approved.');
     }
 
@@ -264,21 +178,18 @@ class TaskForceController extends Controller
         $request->validate([
             'rejection_reason' => ['required', 'string', 'max:500'],
         ]);
-
         $appointment->update([
             'status'           => 'rejected',
             'rejected_at'      => now(),
             'rejected_by'      => Auth::id(),
             'rejection_reason' => $request->rejection_reason,
         ]);
-
         return back()->with('success', 'Appointment rejected.');
     }
 
     public function destroy(MembershipOfficerAppointment $appointment)
     {
         $appointment->delete();
-
         return back()->with('success', 'Appointment removed.');
     }
 
@@ -297,10 +208,9 @@ class TaskForceController extends Controller
         ];
     }
 
-
     /* =========================================================
-   STATE EXECUTIVE POSITIONS — CATALOG CRUD
-========================================================= */
+       STATE EXECUTIVE POSITIONS — CATALOG CRUD
+    ========================================================= */
 
     public function statePositionsIndex()
     {
@@ -347,8 +257,80 @@ class TaskForceController extends Controller
     public function statePositionsDestroy(StateExecutivePosition $position)
     {
         $position->delete();
-
         return back()->with('success', 'State executive position removed.');
+    }
+
+    /**
+     * NEW METHOD: Seed the 27 positions for all 37 states/FCT
+     */
+    public function statePositionsSeed()
+    {
+        $states = $this->nigerianStates();
+        $positionTitles = [
+            1 => 'State Coordinator', 2 => 'State Deputy Coordinator',
+            3 => 'State Secretary', 4 => 'State Deputy Secretary',
+            5 => 'State Financial Secretary', 6 => 'State Deputy Financial Secretary',
+            7 => 'State Treasurer', 8 => 'State Deputy Treasurer',
+            9 => 'State Organizing Secretary', 10 => 'State Deputy Organizing Secretary',
+            11 => 'State Publicity Secretary', 12 => 'State Deputy Publicity Secretary',
+            13 => 'State Legal Adviser', 14 => 'State Auditor',
+            15 => 'State Director Afforestation', 16 => 'State Deputy Director Afforestation',
+            17 => 'State Protocol Officer', 18 => 'State Deputy Protocol Officer',
+            19 => 'State Adviser', 20 => 'State Deputy Adviser I',
+            21 => 'State Deputy Adviser II', 22 => 'State Women Leader',
+            23 => 'State Deputy Women Leader I', 24 => 'State Deputy Women Leader II',
+            25 => 'State Director Task-force', 26 => 'State Deputy Director Task-force I',
+            27 => 'State Deputy Director Task-force II',
+        ];
+
+        // 1. Create a list of all expected codes
+        $expectedCodes = [];
+        $positionsData = [];
+
+        foreach ($states as $state) {
+            $cleanState = strtoupper(preg_replace('/[^A-Za-z]/', '', explode('-', $state)[0]));
+
+            foreach ($positionTitles as $num => $title) {
+                $code = "NMN-SEM-{$cleanState}-N" . str_pad($num, 2, '0', STR_PAD_LEFT);
+                $expectedCodes[] = $code;
+                $positionsData[$code] = [
+                    'state'    => $state,
+                    'position' => $title,
+                    'status'   => 'vacant',
+                ];
+            }
+        }
+
+        // 2. Check how many of these codes already exist in the database
+        $existingCount = StateExecutivePosition::whereIn('code', $expectedCodes)->count();
+        $totalNeeded = count($expectedCodes);
+
+        // 3. If they all exist, just return early with an info message
+        if ($existingCount >= $totalNeeded) {
+            return back()->with('success', "All {$totalNeeded} positions already exist. No action taken.");
+        }
+
+        // 4. Loop and create only the missing ones
+        $createdCount = 0;
+        foreach ($positionsData as $code => $data) {
+            $position = StateExecutivePosition::firstOrCreate(
+                ['code' => $code],
+                $data
+            );
+
+            if ($position->wasRecentlyCreated) {
+                $createdCount++;
+            }
+        }
+
+        $skippedCount = $totalNeeded - $createdCount;
+
+        $message = "{$createdCount} positions created successfully.";
+        if ($skippedCount > 0) {
+            $message .= " ({$skippedCount} already existed and were skipped.)";
+        }
+
+        return back()->with('success', $message);
     }
 
 
@@ -362,53 +344,18 @@ class TaskForceController extends Controller
         if ($last && preg_match('/(\d+)$/', $last, $m)) {
             $next = (int) $m[1] + 1;
         }
-
         return 'TF-' . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
     }
 
-    /**
-     * Nigerian states + FCT. Trimmed for brevity — add the full list if needed.
-     */
     private function nigerianStates(): array
     {
         return [
-            'Abia',
-            'Adamawa',
-            'Akwa Ibom',
-            'Anambra',
-            'Bauchi',
-            'Bayelsa',
-            'Benue',
-            'Borno',
-            'Cross River',
-            'Delta',
-            'Ebonyi',
-            'Edo',
-            'Ekiti',
-            'Enugu',
-            'FCT - Abuja',
-            'Gombe',
-            'Imo',
-            'Jigawa',
-            'Kaduna',
-            'Kano',
-            'Katsina',
-            'Kebbi',
-            'Kogi',
-            'Kwara',
-            'Lagos',
-            'Nasarawa',
-            'Niger',
-            'Ogun',
-            'Ondo',
-            'Osun',
-            'Oyo',
-            'Plateau',
-            'Rivers',
-            'Sokoto',
-            'Taraba',
-            'Yobe',
-            'Zamfara',
+            'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa',
+            'Benue', 'Borno', 'Cross River', 'Delta', 'Ebonyi', 'Edo',
+            'Ekiti', 'Enugu', 'FCT - Abuja', 'Gombe', 'Imo', 'Jigawa',
+            'Kaduna', 'Kano', 'Katsina', 'Kebbi', 'Kogi', 'Kwara',
+            'Lagos', 'Nasarawa', 'Niger', 'Ogun', 'Ondo', 'Osun',
+            'Oyo', 'Plateau', 'Rivers', 'Sokoto', 'Taraba', 'Yobe', 'Zamfara',
         ];
     }
 }

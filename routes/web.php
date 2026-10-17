@@ -261,10 +261,13 @@ Route::middleware(['auth', 'user.role:admin,super_admin'])
         | STATE EXECUTIVE POSITIONS — CATALOG
         |----------------------------------------------------------------
         */
-        Route::get('/taskforce/state-positions', [TaskForceController::class, 'statePositionsIndex'])->name('taskforce.state-positions.index');
-        Route::post('/taskforce/state-positions', [TaskForceController::class, 'statePositionsStore'])->name('taskforce.state-positions.store');
-        Route::put('/taskforce/state-positions/{position}', [TaskForceController::class, 'statePositionsUpdate'])->name('taskforce.state-positions.update');
-        Route::delete('/taskforce/state-positions/{position}', [TaskForceController::class, 'statePositionsDestroy'])->name('taskforce.state-positions.destroy');
+        Route::get('/executive/state-positions', [TaskForceController::class, 'statePositionsIndex'])->name('taskforce.state-positions.index');
+        Route::post('/executive/state-positions', [TaskForceController::class, 'statePositionsStore'])->name('taskforce.state-positions.store');
+        Route::put('/executive/state-positions/{position}', [TaskForceController::class, 'statePositionsUpdate'])->name('taskforce.state-positions.update');
+        Route::delete('/executive/state-positions/{position}', [TaskForceController::class, 'statePositionsDestroy'])->name('taskforce.state-positions.destroy');
+
+        // ✅ CORRECTED LINE:
+        Route::post('/executive/state-positions/seed', [TaskForceController::class, 'statePositionsSeed'])->name('taskforce.state-positions.seed');
     });
 
 

@@ -70,16 +70,28 @@
 
             @elseif ($type === 'state_executive')
 
+                {{-- Filter State --}}
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Select State</label>
+                    <select id="filterStateSelect" class="form-select mb-3">
+                        <option value="">— Select State First —</option>
+                        @foreach ($states as $s)
+                            <option value="{{ $s }}">{{ $s }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
                 {{-- State Executive Position --}}
                 <div class="col-md-6">
                     <label class="form-label fw-bold">State Position</label>
-                    <select name="executive_id" class="form-select" required>
-                        <option value="">— Select Position —</option>
+                    <select name="executive_id" id="statePositionSelect" class="form-select" required disabled>
+                        <option value="">— Select State First —</option>
                         @foreach ($positions as $p)
                             <option value="{{ $p->code }}"
+                                data-state="{{ $p->state }}"
                                 {{ old('executive_id') === $p->code ? 'selected' : '' }}
                                 {{ $p->status === 'occupied' ? 'disabled' : '' }}>
-                                {{ $p->state }} — {{ $p->position }} ({{ $p->code }})
+                                {{ $p->position }} ({{ $p->code }})
                                 @if ($p->status === 'occupied') — OCCUPIED @endif
                             </option>
                         @endforeach
@@ -172,6 +184,34 @@ document.addEventListener('DOMContentLoaded', function () {
         };
         level.addEventListener('change', toggle);
         toggle();
+    }
+
+    /* -------- Filter State Positions (State Executive logic) -------- */
+    const stateFilter = document.getElementById('filterStateSelect');
+    const positionSelect = document.getElementById('statePositionSelect');
+
+    if (stateFilter && positionSelect) {
+        // Save all original options (skip the placeholder)
+        const allPositionOptions = Array.from(positionSelect.options).slice(1);
+
+        stateFilter.addEventListener('change', function () {
+            const selectedState = this.value;
+            positionSelect.innerHTML = '<option value="">— Select Position —</option>';
+
+            if (!selectedState) {
+                positionSelect.disabled = true;
+                return;
+            }
+
+            positionSelect.disabled = false;
+
+            // Filter and append matching options
+            allPositionOptions.forEach(opt => {
+                if (opt.dataset.state === selectedState) {
+                    positionSelect.appendChild(opt.cloneNode(true));
+                }
+            });
+        });
     }
 });
 </script>

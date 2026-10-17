@@ -5,6 +5,7 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\View;
 use App\View\Composers\FrontendComposer;
+use Illuminate\Pagination\Paginator;
 
 
 class AppServiceProvider extends ServiceProvider
@@ -32,6 +33,8 @@ class AppServiceProvider extends ServiceProvider
         | resources/views/frontend/* and to the master layout.
         |
         */
+
+          Paginator::useBootstrapFive();
 
         View::composer(
             ['frontend.*', 'frontend.master'],

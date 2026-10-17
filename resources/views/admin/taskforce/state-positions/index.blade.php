@@ -25,7 +25,17 @@
 
     {{-- ADD NEW --}}
     <div class="card mb-4">
-        <div class="card-header fw-bold">Add a State Position</div>
+        <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+            <span>Add a State Position</span>
+
+            <form method="POST" action="{{ route('admin.taskforce.state-positions.seed') }}"
+                  onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').innerHTML = '<i class=\'fas fa-spinner fa-spin me-1\'></i> Generating...'; return confirm('This will auto-generate all 27 standard positions for all 37 States/FCT. Proceed?');">
+                @csrf
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fas fa-magic me-1"></i> Auto-Generate All 27 Positions
+                </button>
+            </form>
+        </div>
         <div class="card-body">
             <form method="POST" action="{{ route('admin.taskforce.state-positions.store') }}"
                   class="row g-3">
@@ -52,7 +62,7 @@
                     <label class="form-label">Code</label>
                     <input type="text" name="code" class="form-control"
                            value="{{ old('code') }}"
-                           placeholder="e.g. SEM-LAG-01"
+                           placeholder="e.g. NMN-SEM-LAGOS-N01"
                            required>
                     <small class="text-muted">Unique. Uppercase.</small>
                 </div>
@@ -74,7 +84,7 @@
                         <th style="width:60px;">#</th>
                         <th>State</th>
                         <th>Position</th>
-                        <th style="width:140px;">Code</th>
+                        <th style="width:200px;">Code</th>
                         <th style="width:110px;">Status</th>
                         <th style="width:120px;">Actions</th>
                     </tr>
@@ -108,7 +118,7 @@
                     @empty
                         <tr>
                             <td colspan="6" class="text-center py-4">
-                                No state positions yet. Add the first one above.
+                                No state positions yet. Click the auto-generate button above.
                             </td>
                         </tr>
                     @endforelse
