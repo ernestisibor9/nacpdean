@@ -36,38 +36,42 @@
 
     /*
     |--------------------------------------------------------------------------
-    | MEMBER / COMPANY NAME
+    | MEMBER NAME (SURNAME + FIRST NAME + MIDDLE NAME)
     |--------------------------------------------------------------------------
+    |
+    | The certificate must display the PERSONAL name of the member,
+    | NOT the business / company name.
+    |
+    | Resolution order:
+    |   1. Personal-name fields stored in field_values
+    |   2. member_profiles: surname + first_name + middle_name
+    |   3. users.name / username
+    |   4. business_name / company_name (absolute last resort)
+    |
     */
 
-    $companyName = '';
+    $memberName = '';
 
     /*
     |--------------------------------------------------------------------------
-    | CHECK GENERATED DOCUMENT FIELDS
+    | 1) CHECK GENERATED DOCUMENT FIELDS (personal name keys first)
     |--------------------------------------------------------------------------
     */
 
-    $nameFields = [
+    $personalNameFieldKeys = [
         'member_name',
-        'business_name',
-        'company_name',
-        'organisation_name',
-        'organization_name',
-        'organisation',
-        'organization',
-        'business',
-        'company',
-        'member_business_name',
+        'member_full_name',
         'full_name',
+        'holder_name',
+        'certificate_name',
         'name',
     ];
 
-    foreach ($nameFields as $fieldKey) {
+    foreach ($personalNameFieldKeys as $fieldKey) {
         $value = $fields->get($fieldKey);
 
         if ($value !== null && trim((string) $value) !== '') {
-            $companyName = trim((string) $value);
+            $memberName = trim((string) $value);
 
             break;
         }
@@ -75,14 +79,51 @@
 
     /*
     |--------------------------------------------------------------------------
-    | CHECK MEMBER PROFILE
+    | 2) FALLBACK TO MEMBER PROFILE (surname + first_name + middle_name)
     |--------------------------------------------------------------------------
     */
 
-    if (!$companyName && $membership && $membership->profile) {
+    if (!$memberName && $membership && $membership->profile) {
         $memberProfile = $membership->profile;
 
-        $profileNameFields = [
+        $profileParts = array_filter([
+            $memberProfile->surname,
+            $memberProfile->first_name,
+            $memberProfile->middle_name,
+        ]);
+
+        if (!empty($profileParts)) {
+            $memberName = trim(implode(' ', $profileParts));
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | 3) FALLBACK TO USER NAME
+    |--------------------------------------------------------------------------
+    */
+
+    if (!$memberName && $documentUser) {
+        $userName = trim(
+            (string) ($documentUser->name ?? $documentUser->username ?? '')
+        );
+
+        if ($userName !== '') {
+            $memberName = $userName;
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | 4) ABSOLUTE LAST RESORT — COMPANY / BUSINESS NAME
+    |--------------------------------------------------------------------------
+    |
+    | Only used if there is literally no personal name on record.
+    |
+    */
+
+    if (!$memberName) {
+        $companyFieldKeys = [
             'business_name',
             'company_name',
             'organisation_name',
@@ -91,60 +132,30 @@
             'organization',
             'business',
             'company',
-            'business_registration_name',
-            'registered_business_name',
-            'registered_company_name',
-            'full_name',
-            'name',
+            'member_business_name',
         ];
 
-        foreach ($profileNameFields as $fieldKey) {
-            $value = $memberProfile->{$fieldKey} ?? null;
+        foreach ($companyFieldKeys as $fieldKey) {
+            $value = $fields->get($fieldKey);
 
             if ($value !== null && trim((string) $value) !== '') {
-                $companyName = trim((string) $value);
+                $memberName = trim((string) $value);
 
                 break;
             }
         }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | CHECK USER
-    |--------------------------------------------------------------------------
-    */
+    if (!$memberName && $membership && $membership->profile) {
+        $value = $membership->profile->business_name ?? null;
 
-    if (!$companyName && $documentUser) {
-        $userNameFields = [
-            'business_name',
-            'company_name',
-            'organisation_name',
-            'organization_name',
-            'business',
-            'company',
-            'name',
-        ];
-
-        foreach ($userNameFields as $fieldKey) {
-            $value = $documentUser->{$fieldKey} ?? null;
-
-            if ($value !== null && trim((string) $value) !== '') {
-                $companyName = trim((string) $value);
-
-                break;
-            }
+        if ($value !== null && trim((string) $value) !== '') {
+            $memberName = trim((string) $value);
         }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | FINAL FALLBACK
-    |--------------------------------------------------------------------------
-    */
-
-    if (!$companyName) {
-        $companyName = 'Member';
+    if (!$memberName) {
+        $memberName = 'Member';
     }
 
     /*
@@ -1058,12 +1069,12 @@
 
 
             {{-- ======================================================
-                 DYNAMIC MEMBER / COMPANY NAME
+                 DYNAMIC MEMBER NAME (surname + first name + middle name)
             ======================================================= --}}
 
             <div class="nacp-certificate-field nacp-certificate-name">
 
-                {{ $companyName }}
+                {{ $memberName }}
 
             </div>
 
